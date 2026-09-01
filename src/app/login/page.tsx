@@ -1,12 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, LockKeyhole, Mail } from "lucide-react";
 
 export default function LoginPage() {
+        const router = useRouter();
         const supabase = createSupabaseBrowserClient();
+
+        useEffect(() => {
+  async function checkSession() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      router.replace("/dashboard");
+    }
+  }
+
+  checkSession();
+}, [router, supabase]);
 
         const [email, setEmail] = useState("");
         const [password, setPassword] = useState("");
@@ -43,7 +59,7 @@ export default function LoginPage() {
             return;
             }
 
-            window.location.href = "/";
+            window.location.href = "/dashboard";
         }
   return (
     <main className="min-h-screen bg-slate-50">

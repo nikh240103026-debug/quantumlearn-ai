@@ -40,3 +40,62 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* =========================================================
+   QUANTUM LEARN — LESSON TYPOGRAPHY
+   ========================================================= */
+
+.lesson-content {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+/* Paragraph rhythm */
+.lesson-content p {
+  letter-spacing: 0.005em;
+}
+
+/* First paragraph after a heading */
+.lesson-content h1 + p,
+.lesson-content h2 + p,
+.lesson-content h3 + p {
+  margin-top: 0;
+}
+
+/* Better emphasis */
+.lesson-content em {
+  color: #334155;
+}
+
+/* Mathematical / technical text */
+.lesson-content sub {
+  font-size: 0.75em;
+}
+
+.lesson-content sup {
+  font-size: 0.75em;
+}
+
+/* Selection */
+.lesson-content ::selection {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+/* Smooth horizontal scrolling for code/tables */
+.lesson-content pre,
+.lesson-content table {
+  scrollbar-width: thin;
+}
+
+/* Mobile typography */
+@media (max-width: 640px) {
+  .lesson-content {
+    max-width: 100%;
+  }
+
+  .lesson-content p,
+  .lesson-content li {
+    font-size: 16px;
+    line-height: 1.8;
+  }
+}

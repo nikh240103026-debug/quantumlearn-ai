@@ -13,9 +13,9 @@ import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 const navigation = [
   { name: "Home", href: "/" },
   { name: "Learn", href: "#roadmap" },
-  { name: "Quantum Lab", href: "#quantum-lab" },
-  { name: "AI Tutor", href: "#ai-tutor" },
-  { name: "Practice", href: "#progress" },
+  { name: "Quantum Lab", href: "/quantum-lab" },
+  { name: "AI Tutor", href: "/dashboard" },
+  { name: "Practice", href: "/practice" },
   { name: "Resources", href: "#resources" },
 ];
 
@@ -26,35 +26,51 @@ export function Navbar() {
 
   const supabase = createSupabaseBrowserClient();
 
-    useEffect(() => {
-    let mounted = true;
+useEffect(() => {
+  let mounted = true;
 
-    async function loadUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  async function loadUser() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (mounted) {
-        setUserEmail(user?.email ?? null);
-        setAuthLoading(false);
-      }
+    if (mounted) {
+      setUserEmail(user?.email ?? null);
+      setAuthLoading(false);
     }
+  }
 
-    loadUser();
+  loadUser();
 
-    return () => {
-      mounted = false;
-    };
-  }, [supabase]);
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!mounted) return;
+
+    setUserEmail(session?.user?.email ?? null);
+    setAuthLoading(false);
+  });
+
+  return () => {
+    mounted = false;
+    subscription.unsubscribe();
+  };
+}, [supabase]);
 
     async function handleLogout() {
-      await supabase.auth.signOut();
+  setMobileMenuOpen(false);
 
-      setUserEmail(null);
-      setMobileMenuOpen(false);
+  const { error } = await supabase.auth.signOut();
 
-      window.location.href = "/";
-    }
+  if (error) {
+    console.error("Logout failed:", error);
+    return;
+  }
+
+  setUserEmail(null);
+
+  window.location.href = "/";
+}
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur">

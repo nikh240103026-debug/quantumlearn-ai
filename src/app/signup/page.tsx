@@ -1,12 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, LockKeyhole, Mail, User } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export default function SignupPage() {
+  const router = useRouter();
   const supabase = createSupabaseBrowserClient();
+
+  useEffect(() => {
+  async function checkSession() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      router.replace("/dashboard");
+    }
+  }
+
+  checkSession();
+}, [router, supabase]);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
