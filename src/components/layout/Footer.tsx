@@ -10,8 +10,8 @@ import {
 const footerLinks = {
   Platform: [
     { label: "Quantum Lab", href: "/quantum-lab" },
-    { label: "AI Tutor", href: "#ai-tutor" },
-    { label: "Learning Roadmap", href: "#roadmap" },
+    { label: "AI Tutor", href: "/ai-tutor" },
+    { label: "Learning Roadmap", href: "/roadmap" },
     { label: "Progress", href: "/progress" },
   ],
   Resources: [

@@ -57,6 +57,25 @@ const GATE_DESCRIPTIONS: Record<QuantumGate, string> = {
 const MAX_QUBITS = 5;
 const DEFAULT_COLUMNS = 6;
 
+type LabActivityType =
+  | "circuit_run"
+  | "measurement"
+  | "circuit_reset"
+  | "template_loaded";
+
+type ActivityPayload = {
+  activityType: LabActivityType;
+  qubits?: number;
+  gateCount?: number;
+  circuitDepth?: number;
+  shots?: number;
+  measurementResult?: string | null;
+  gates?: unknown[];
+  circuit?: unknown[];
+  sourcePage?: string;
+  metadata?: Record<string, unknown>;
+};
+
 export default function QuantumCircuitSimulator() {
   // ==========================================================
   // CIRCUIT STATE
@@ -113,6 +132,44 @@ export default function QuantumCircuitSimulator() {
         );
 
   const gateCount = circuit.length;
+
+  // ==========================================================
+  // ACTIVITY TRACKING
+  // ==========================================================
+
+  /*
+   * Activity logging is deliberately non-blocking.
+   *
+   * A failed analytics request must never prevent the
+   * Quantum Lab itself from working.
+   */
+
+  async function logLabActivity(
+    payload: ActivityPayload,
+  ) {
+    try {
+      await fetch(
+        "/api/quantum-lab/activity",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            ...payload,
+            sourcePage:
+              payload.sourcePage ??
+              "/quantum-lab",
+          }),
+          keepalive: true,
+        },
+      );
+    } catch {
+      // Analytics must never interrupt
+      // the simulator experience.
+    }
+  }
 
   // ==========================================================
   // SIMULATION
@@ -220,12 +277,6 @@ export default function QuantumCircuitSimulator() {
      *
      * The qubit directly above it becomes
      * the control.
-     *
-     * Example:
-     *
-     * q[0] ──●──
-     *         │
-     * q[1] ──X──
      */
 
     if (qubit === 0) {
@@ -234,8 +285,6 @@ export default function QuantumCircuitSimulator() {
 
     const controlQubit = qubit - 1;
 
-    // Prevent invalid duplicate operations
-    // on the same target cell.
     const nextCircuit = existing
       ? circuit.map((operation) =>
           operation.qubit === qubit &&
@@ -333,7 +382,6 @@ export default function QuantumCircuitSimulator() {
 
     const nextCircuit = circuit.filter(
       (currentOperation) => {
-        // Remove target
         if (
           currentOperation.qubit ===
             qubit &&
@@ -343,8 +391,6 @@ export default function QuantumCircuitSimulator() {
           return false;
         }
 
-        // Remove the same controlled
-        // operation automatically.
         if (
           currentOperation.controlQubit ===
             qubit &&
@@ -452,6 +498,22 @@ export default function QuantumCircuitSimulator() {
     setMeasurementResult(null);
 
     setMeasurementResults([]);
+
+    void logLabActivity({
+      activityType:
+        "circuit_reset",
+      qubits,
+      gateCount,
+      circuitDepth,
+      gates: circuit,
+      circuit,
+      metadata: {
+        previousGateCount:
+          gateCount,
+        previousCircuitDepth:
+          circuitDepth,
+      },
+    });
   }
 
   // ==========================================================
@@ -518,12 +580,32 @@ export default function QuantumCircuitSimulator() {
     const measuredIndex =
       results[0];
 
-    setMeasurementResult(
+    const resultLabel =
       basisLabel(
         measuredIndex,
         qubits,
-      ),
+      );
+
+    setMeasurementResult(
+      resultLabel,
     );
+
+    void logLabActivity({
+      activityType:
+        "measurement",
+      qubits,
+      gateCount,
+      circuitDepth,
+      shots: 1,
+      measurementResult:
+        resultLabel,
+      gates: circuit,
+      circuit,
+      metadata: {
+        measurementCount: 1,
+        measuredIndex,
+      },
+    });
   }
 
   // ==========================================================
@@ -542,6 +624,25 @@ export default function QuantumCircuitSimulator() {
     );
 
     setMeasurementResult(null);
+
+    void logLabActivity({
+      activityType:
+        "circuit_run",
+      qubits,
+      gateCount,
+      circuitDepth,
+      shots,
+      gates: circuit,
+      circuit,
+      metadata: {
+        experimentType:
+          "multi_shot_measurement",
+        resultCount:
+          results.length,
+        uniqueOutcomes:
+          new Set(results).size,
+      },
+    });
   }
 
   // ==========================================================
@@ -627,6 +728,31 @@ export default function QuantumCircuitSimulator() {
     setMeasurementResult(null);
 
     setMeasurementResults([]);
+
+    void logLabActivity({
+      activityType:
+        "template_loaded",
+      qubits:
+        template.qubits,
+      gateCount:
+        template.circuit.length,
+      circuitDepth:
+        template.circuit.length === 0
+          ? 0
+          : Math.max(
+              ...template.circuit.map(
+                (operation) =>
+                  operation.column + 1,
+              ),
+            ),
+      gates:
+        template.circuit,
+      circuit:
+        template.circuit,
+      metadata: {
+        template: template,
+      },
+    });
   }
 
   // ==========================================================

@@ -98,22 +98,22 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
 
-const { data: result, error: insertError } = await supabase
-  .from("practice_results")
-  .insert({
-    user_id: user.id,
-    lesson_slug: lessonSlug,
-    score,
-    total_questions: totalQuestions,
-    percentage,
-    answers: answers ?? {},
-    completed_at: now,
-    created_at: now,
-  })
-  .select(
-    "id, lesson_slug, score, total_questions, percentage, completed_at",
-  )
-  .single();
+    const { data: result, error: insertError } = await supabase
+      .from("practice_results")
+      .insert({
+        user_id: user.id,
+        lesson_slug: lessonSlug,
+        score,
+        total_questions: totalQuestions,
+        percentage,
+        answers: answers ?? {},
+        completed_at: now,
+        created_at: now,
+      })
+      .select(
+        "id, lesson_slug, score, total_questions, percentage, completed_at",
+      )
+      .single();
 
     if (insertError) {
       console.error(
@@ -130,14 +130,61 @@ const { data: result, error: insertError } = await supabase
     }
 
     // ==========================================================
+    // LOG AI ACTIVITY
+    // ==========================================================
+    //
+    // This is intentionally separate from the practice result.
+    // If AI activity logging fails, the already-saved practice
+    // result must still be returned successfully.
+    //
+    // ==========================================================
+
+    const { error: activityError } = await supabase
+      .from("ai_activity")
+      .insert({
+        user_id: user.id,
+        activity_type: "practice_completed",
+        source_page: "/practice",
+        topic: lessonSlug,
+        description: `Completed ${difficulty ?? "practice"} practice for ${lessonSlug} with a score of ${score}/${totalQuestions} (${percentage}%).`,
+        metadata: {
+          practice_result_id: result.id,
+          lesson_slug: lessonSlug,
+          chapter_number:
+            typeof chapterNumber === "number" ||
+            typeof chapterNumber === "string"
+              ? chapterNumber
+              : null,
+          difficulty:
+            typeof difficulty === "string"
+              ? difficulty
+              : null,
+          score,
+          total_questions: totalQuestions,
+          percentage,
+          question_count: Array.isArray(questionIds)
+            ? questionIds.length
+            : null,
+        },
+        created_at: now,
+      });
+
+    if (activityError) {
+      console.error(
+        "AI activity logging error:",
+        activityError,
+      );
+    }
+
+    // ==========================================================
     // RETURN RESULT
     // ==========================================================
 
     return NextResponse.json({
-  success: true,
-  message: "Practice result saved successfully.",
-  result,
-});
+      success: true,
+      message: "Practice result saved successfully.",
+      result,
+    });
   } catch (error) {
     console.error("Practice result API error:", error);
 
