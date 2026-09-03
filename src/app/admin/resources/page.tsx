@@ -1,6 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 type ResourceType =
   | "research_paper"
@@ -10,7 +15,10 @@ type ResourceType =
   | "document"
   | "external_reference";
 
-type Difficulty = "beginner" | "intermediate" | "advanced";
+type Difficulty =
+  | "beginner"
+  | "intermediate"
+  | "advanced";
 
 type Resource = {
   id: string;
@@ -94,6 +102,23 @@ const DIFFICULTIES: {
   },
 ];
 
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
+const ALLOWED_EXTENSIONS = [
+  "pdf",
+  "doc",
+  "docx",
+  "ppt",
+  "pptx",
+  "xls",
+  "xlsx",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+];
+
 const EMPTY_FORM: ResourceForm = {
   title: "",
   description: "",
@@ -109,7 +134,9 @@ const EMPTY_FORM: ResourceForm = {
   isPublished: false,
 };
 
-function createFormFromResource(resource: Resource): ResourceForm {
+function createFormFromResource(
+  resource: Resource
+): ResourceForm {
   return {
     title: resource.title,
     description: resource.description,
@@ -133,8 +160,9 @@ function createFormFromResource(resource: Resource): ResourceForm {
 
 function getTypeLabel(type: ResourceType) {
   return (
-    RESOURCE_TYPES.find((item) => item.value === type)?.label ??
-    type
+    RESOURCE_TYPES.find(
+      (item) => item.value === type
+    )?.label ?? type
   );
 }
 
@@ -160,40 +188,70 @@ function isValidUrl(value: string) {
   }
 }
 
+function getFileExtension(fileName: string) {
+  const parts = fileName
+    .toLowerCase()
+    .split(".");
+
+  return parts.length > 1
+    ? parts[parts.length - 1]
+    : "";
+}
+
+function isImageFile(file: File) {
+  return file.type.startsWith("image/");
+}
+
 export default function AdminResourcesPage() {
-  const [resources, setResources] = useState<Resource[]>([]);
+  const [resources, setResources] = useState<
+    Resource[]
+  >([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] =
+    useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const [showForm, setShowForm] = useState(false);
+
   const [editingResource, setEditingResource] =
     useState<Resource | null>(null);
 
   const [form, setForm] =
     useState<ResourceForm>(EMPTY_FORM);
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "published" | "draft"
-  >("all");
+  const [selectedFile, setSelectedFile] =
+    useState<File | null>(null);
 
-  const [typeFilter, setTypeFilter] = useState<
-    "all" | ResourceType
-  >("all");
+  const [imagePreview, setImagePreview] =
+    useState<string | null>(null);
+
+  const [search, setSearch] = useState("");
+
+  const [statusFilter, setStatusFilter] =
+    useState<
+      "all" | "published" | "draft"
+    >("all");
+
+  const [typeFilter, setTypeFilter] =
+    useState<"all" | ResourceType>("all");
 
   const [deleteTarget, setDeleteTarget] =
     useState<Resource | null>(null);
 
   const filteredResources = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch =
+      search.trim().toLowerCase();
 
     return resources.filter((resource) => {
       const matchesSearch =
         !normalizedSearch ||
-        resource.title.toLowerCase().includes(normalizedSearch) ||
+        resource.title
+          .toLowerCase()
+          .includes(normalizedSearch) ||
         resource.description
           .toLowerCase()
           .includes(normalizedSearch) ||
@@ -282,7 +340,19 @@ export default function AdminResourcesPage() {
     void loadResources();
   }, []);
 
+  function clearSelectedFile() {
+    setSelectedFile(null);
+
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    setImagePreview(null);
+  }
+
   function openCreateForm() {
+    clearSelectedFile();
+
     setEditingResource(null);
     setForm(EMPTY_FORM);
     setError("");
@@ -296,6 +366,8 @@ export default function AdminResourcesPage() {
   }
 
   function openEditForm(resource: Resource) {
+    clearSelectedFile();
+
     setEditingResource(resource);
     setForm(createFormFromResource(resource));
     setError("");
@@ -309,7 +381,9 @@ export default function AdminResourcesPage() {
   }
 
   function closeForm() {
-    if (saving) return;
+    if (saving || uploading) return;
+
+    clearSelectedFile();
 
     setShowForm(false);
     setEditingResource(null);
@@ -326,6 +400,95 @@ export default function AdminResourcesPage() {
     }));
   }
 
+  function handleFileSelect(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    setError("");
+
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const extension =
+      getFileExtension(file.name);
+
+    if (
+      !ALLOWED_EXTENSIONS.includes(extension)
+    ) {
+      event.target.value = "";
+
+      setError(
+        "Unsupported file type. Allowed: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, JPG, JPEG, PNG, WEBP, GIF."
+      );
+
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      event.target.value = "";
+
+      setError(
+        "File is too large. Maximum allowed size is 20 MB."
+      );
+
+      return;
+    }
+
+    clearSelectedFile();
+
+    setSelectedFile(file);
+
+    if (file.type.startsWith("image/")) {
+      const previewUrl =
+        URL.createObjectURL(file);
+
+      setImagePreview(previewUrl);
+    }
+  }
+
+  async function uploadSelectedFile() {
+    if (!selectedFile) {
+      return null;
+    }
+
+    const formData = new FormData();
+
+    formData.append("file", selectedFile);
+
+    setUploading(true);
+
+    try {
+      const response = await fetch(
+        "/api/admin/resources/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Failed to upload file."
+        );
+      }
+
+      if (!data.file?.url) {
+        throw new Error(
+          "Upload succeeded but no file URL was returned."
+        );
+      }
+
+      return data.file.url as string;
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -335,34 +498,47 @@ export default function AdminResourcesPage() {
     setSuccess("");
 
     const title = form.title.trim();
-    const description = form.description.trim();
-    const resourceUrl = form.resourceUrl.trim();
-    const fileUrl = form.fileUrl.trim();
+    const description =
+      form.description.trim();
+
+    const resourceUrl =
+      form.resourceUrl.trim();
+
+    const existingFileUrl =
+      form.fileUrl.trim();
 
     if (!title) {
-      setError("Resource title is required.");
+      setError(
+        "Resource title is required."
+      );
       return;
     }
 
     if (!description) {
-      setError("Resource description is required.");
+      setError(
+        "Resource description is required."
+      );
       return;
     }
 
-    if (!resourceUrl && !fileUrl) {
+    if (!resourceUrl && !existingFileUrl && !selectedFile) {
       setError(
-        "Add at least one resource URL or file URL."
+        "Add a resource URL or upload a file."
       );
       return;
     }
 
     if (!isValidUrl(resourceUrl)) {
-      setError("Resource URL is not valid.");
+      setError(
+        "Resource URL is not valid."
+      );
       return;
     }
 
-    if (!isValidUrl(fileUrl)) {
-      setError("File URL is not valid.");
+    if (!isValidUrl(existingFileUrl)) {
+      setError(
+        "Existing file URL is not valid."
+      );
       return;
     }
 
@@ -395,44 +571,83 @@ export default function AdminResourcesPage() {
     try {
       setSaving(true);
 
-      const isEditing = Boolean(editingResource);
+      let finalFileUrl =
+        existingFileUrl || null;
+
+      /*
+       * Upload a newly selected file first.
+       * The returned Storage URL is then saved
+       * into resources.file_url.
+       */
+      if (selectedFile) {
+        const uploadedUrl =
+          await uploadSelectedFile();
+
+        if (!uploadedUrl) {
+          throw new Error(
+            "File upload failed."
+          );
+        }
+
+        finalFileUrl = uploadedUrl;
+      }
+
+      const isEditing =
+        Boolean(editingResource);
 
       const payload = {
         ...(isEditing
-          ? { id: editingResource?.id }
+          ? {
+              id: editingResource?.id,
+            }
           : {}),
         title,
         description,
-        resourceType: form.resourceType,
-        topic: form.topic.trim() || null,
+        resourceType:
+          form.resourceType,
+        topic:
+          form.topic.trim() || null,
         chapter,
-        difficulty: form.difficulty,
-        resourceUrl: resourceUrl || null,
-        fileUrl: fileUrl || null,
-        author: form.author.trim() || null,
-        sourceName: form.sourceName.trim() || null,
+        difficulty:
+          form.difficulty,
+        resourceUrl:
+          resourceUrl || null,
+        fileUrl: finalFileUrl,
+        author:
+          form.author.trim() || null,
+        sourceName:
+          form.sourceName.trim() || null,
         tags,
-        isPublished: form.isPublished,
+        isPublished:
+          form.isPublished,
       };
 
       const response = await fetch(
         "/api/admin/resources",
         {
-          method: isEditing ? "PATCH" : "POST",
+          method: isEditing
+            ? "PATCH"
+            : "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(
+            payload
+          ),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
           data.error ||
             `Failed to ${
-              isEditing ? "update" : "create"
+              isEditing
+                ? "update"
+                : "create"
             } resource.`
         );
       }
@@ -442,6 +657,8 @@ export default function AdminResourcesPage() {
           ? "Resource updated successfully."
           : "Resource created successfully."
       );
+
+      clearSelectedFile();
 
       setShowForm(false);
       setEditingResource(null);
@@ -461,10 +678,13 @@ export default function AdminResourcesPage() {
       );
     } finally {
       setSaving(false);
+      setUploading(false);
     }
   }
 
-  async function togglePublished(resource: Resource) {
+  async function togglePublished(
+    resource: Resource
+  ) {
     setError("");
     setSuccess("");
 
@@ -474,16 +694,19 @@ export default function AdminResourcesPage() {
         {
           method: "PATCH",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
             id: resource.id,
-            isPublished: !resource.is_published,
+            isPublished:
+              !resource.is_published,
           }),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -539,7 +762,8 @@ export default function AdminResourcesPage() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -551,13 +775,15 @@ export default function AdminResourcesPage() {
       setResources((current) =>
         current.filter(
           (resource) =>
-            resource.id !== deleteTarget.id
+            resource.id !==
+            deleteTarget.id
         )
       );
 
       setSuccess(
         "Resource deleted successfully."
       );
+
       setDeleteTarget(null);
     } catch (err) {
       console.error(
@@ -573,7 +799,9 @@ export default function AdminResourcesPage() {
     }
   }
 
-  function openResource(resource: Resource) {
+  function openResource(
+    resource: Resource
+  ) {
     const url =
       resource.resource_url ||
       resource.file_url;
@@ -590,6 +818,7 @@ export default function AdminResourcesPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+
         {/* Header */}
         <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
@@ -608,9 +837,9 @@ export default function AdminResourcesPage() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Add, edit, publish, and manage learning
-              resources available to QuantumLearn AI
-              students.
+              Add, upload, edit, publish, and
+              manage learning resources for
+              QuantumLearn AI students.
             </p>
           </div>
 
@@ -651,7 +880,9 @@ export default function AdminResourcesPage() {
 
               <button
                 type="button"
-                onClick={() => setSuccess("")}
+                onClick={() =>
+                  setSuccess("")
+                }
                 className="text-emerald-300 hover:text-white"
                 aria-label="Dismiss success message"
               >
@@ -661,12 +892,13 @@ export default function AdminResourcesPage() {
           </div>
         )}
 
-        {/* Stats */}
+        {/* Statistics */}
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
             <p className="text-sm text-slate-400">
               Total Resources
             </p>
+
             <p className="mt-2 text-3xl font-bold">
               {resources.length}
             </p>
@@ -676,6 +908,7 @@ export default function AdminResourcesPage() {
             <p className="text-sm text-emerald-300/80">
               Published
             </p>
+
             <p className="mt-2 text-3xl font-bold text-emerald-300">
               {publishedCount}
             </p>
@@ -685,13 +918,14 @@ export default function AdminResourcesPage() {
             <p className="text-sm text-amber-300/80">
               Drafts
             </p>
+
             <p className="mt-2 text-3xl font-bold text-amber-300">
               {draftCount}
             </p>
           </div>
         </div>
 
-        {/* Create / Edit form */}
+        {/* Create / Edit Form */}
         {showForm && (
           <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl sm:p-7">
             <div className="mb-6 flex items-start justify-between gap-4">
@@ -704,15 +938,17 @@ export default function AdminResourcesPage() {
 
                 <p className="mt-1 text-sm text-slate-400">
                   {editingResource
-                    ? "Update the resource information below."
-                    : "Add a new resource to the QuantumLearn AI library."}
+                    ? "Update the resource information or replace its uploaded file."
+                    : "Add a new learning resource or upload an educational file."}
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={closeForm}
-                disabled={saving}
+                disabled={
+                  saving || uploading
+                }
                 className="rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white disabled:opacity-50"
               >
                 Cancel
@@ -721,9 +957,9 @@ export default function AdminResourcesPage() {
 
             <form
               onSubmit={handleSubmit}
-              className="space-y-6"
+              className="space-y-7"
             >
-              {/* Basic information */}
+              {/* Basic Information */}
               <div>
                 <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-violet-300">
                   Basic Information
@@ -757,7 +993,9 @@ export default function AdminResourcesPage() {
                     </label>
 
                     <textarea
-                      value={form.description}
+                      value={
+                        form.description
+                      }
                       onChange={(event) =>
                         updateForm(
                           "description",
@@ -777,11 +1015,14 @@ export default function AdminResourcesPage() {
                     </label>
 
                     <select
-                      value={form.resourceType}
+                      value={
+                        form.resourceType
+                      }
                       onChange={(event) =>
                         updateForm(
                           "resourceType",
-                          event.target.value as ResourceType
+                          event.target
+                            .value as ResourceType
                         )
                       }
                       className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
@@ -789,8 +1030,12 @@ export default function AdminResourcesPage() {
                       {RESOURCE_TYPES.map(
                         (type) => (
                           <option
-                            key={type.value}
-                            value={type.value}
+                            key={
+                              type.value
+                            }
+                            value={
+                              type.value
+                            }
                           >
                             {type.label}
                           </option>
@@ -805,22 +1050,33 @@ export default function AdminResourcesPage() {
                     </label>
 
                     <select
-                      value={form.difficulty}
+                      value={
+                        form.difficulty
+                      }
                       onChange={(event) =>
                         updateForm(
                           "difficulty",
-                          event.target.value as Difficulty
+                          event.target
+                            .value as Difficulty
                         )
                       }
                       className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     >
                       {DIFFICULTIES.map(
-                        (difficulty) => (
+                        (
+                          difficulty
+                        ) => (
                           <option
-                            key={difficulty.value}
-                            value={difficulty.value}
+                            key={
+                              difficulty.value
+                            }
+                            value={
+                              difficulty.value
+                            }
                           >
-                            {difficulty.label}
+                            {
+                              difficulty.label
+                            }
                           </option>
                         )
                       )}
@@ -852,7 +1108,9 @@ export default function AdminResourcesPage() {
                     </label>
 
                     <select
-                      value={form.chapter}
+                      value={
+                        form.chapter
+                      }
                       onChange={(event) =>
                         updateForm(
                           "chapter",
@@ -866,22 +1124,165 @@ export default function AdminResourcesPage() {
                       </option>
 
                       {Array.from(
-                        { length: 10 },
-                        (_, index) => index + 1
-                      ).map((chapter) => (
-                        <option
-                          key={chapter}
-                          value={chapter}
-                        >
-                          Chapter {chapter}
-                        </option>
-                      ))}
+                        {
+                          length: 10,
+                        },
+                        (_, index) =>
+                          index + 1
+                      ).map(
+                        (chapter) => (
+                          <option
+                            key={chapter}
+                            value={
+                              chapter
+                            }
+                          >
+                            Chapter{" "}
+                            {chapter}
+                          </option>
+                        )
+                      )}
                     </select>
                   </div>
                 </div>
               </div>
 
-              {/* Source */}
+              {/* File Upload */}
+              <div>
+                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-violet-300">
+                  Upload Resource File
+                </h3>
+
+                <p className="mb-4 text-sm text-slate-500">
+                  Upload a PDF, document, presentation,
+                  spreadsheet, or image. Maximum file size:
+                  20 MB.
+                </p>
+
+                <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/70 p-5">
+                  <label
+                    htmlFor="resource-file"
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-900/60 px-5 py-8 text-center transition hover:border-violet-500/50 hover:bg-slate-900"
+                  >
+                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/10 text-2xl">
+                      📎
+                    </div>
+
+                    <span className="text-sm font-semibold text-white">
+                      {selectedFile
+                        ? "Choose another file"
+                        : "Choose a file to upload"}
+                    </span>
+
+                    <span className="mt-2 text-xs text-slate-500">
+                      PDF, DOC, DOCX, PPT, PPTX,
+                      XLS, XLSX, JPG, PNG, WEBP,
+                      GIF · Max 20 MB
+                    </span>
+
+                    <input
+                      id="resource-file"
+                      type="file"
+                      accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
+                      onChange={
+                        handleFileSelect
+                      }
+                      className="sr-only"
+                    />
+                  </label>
+
+                  {selectedFile && (
+                    <div className="mt-4 overflow-hidden rounded-xl border border-violet-500/20 bg-violet-500/5">
+                      <div className="flex items-center gap-4 p-4">
+                        {imagePreview ? (
+                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+                            <img
+                              src={
+                                imagePreview
+                              }
+                              alt="Selected resource preview"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-2xl">
+                            📄
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-white">
+                            {
+                              selectedFile.name
+                            }
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            {(
+                              selectedFile.size /
+                              (1024 * 1024)
+                            ).toFixed(2)}{" "}
+                            MB
+                            {selectedFile.type
+                              ? ` · ${selectedFile.type}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={
+                            clearSelectedFile
+                          }
+                          disabled={
+                            saving ||
+                            uploading
+                          }
+                          className="shrink-0 rounded-lg px-3 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/10 hover:text-red-200 disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!selectedFile &&
+                    editingResource?.file_url && (
+                      <div className="mt-4 flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800">
+                          📄
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-slate-500">
+                            Current uploaded file
+                          </p>
+
+                          <p className="truncate text-sm text-slate-300">
+                            File already attached
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            window.open(
+                              editingResource.file_url ??
+                                "",
+                              "_blank",
+                              "noopener,noreferrer"
+                            )
+                          }
+                          className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800 hover:text-white"
+                        >
+                          View
+                        </button>
+                      </div>
+                    )}
+                </div>
+              </div>
+
+              {/* Source Information */}
               <div>
                 <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-violet-300">
                   Source Information
@@ -914,7 +1315,9 @@ export default function AdminResourcesPage() {
 
                     <input
                       type="text"
-                      value={form.sourceName}
+                      value={
+                        form.sourceName
+                      }
                       onChange={(event) =>
                         updateForm(
                           "sourceName",
@@ -928,12 +1331,14 @@ export default function AdminResourcesPage() {
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-slate-300">
-                      Resource URL
+                      External Resource URL
                     </label>
 
                     <input
                       type="url"
-                      value={form.resourceUrl}
+                      value={
+                        form.resourceUrl
+                      }
                       onChange={(event) =>
                         updateForm(
                           "resourceUrl",
@@ -945,13 +1350,14 @@ export default function AdminResourcesPage() {
                     />
 
                     <p className="mt-1.5 text-xs text-slate-500">
-                      External webpage or reference URL.
+                      Optional. Use this for an external
+                      webpage or reference.
                     </p>
                   </div>
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-slate-300">
-                      File / PDF URL
+                      File URL
                     </label>
 
                     <input
@@ -963,18 +1369,19 @@ export default function AdminResourcesPage() {
                           event.target.value
                         )
                       }
-                      placeholder="https://.../paper.pdf"
+                      placeholder="Automatically filled after upload"
                       className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
 
                     <p className="mt-1.5 text-xs text-slate-500">
-                      Direct PDF/document URL if available.
+                      Usually populated automatically when
+                      you upload a file.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Tags and publication */}
+              {/* Organization */}
               <div>
                 <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-violet-300">
                   Organization
@@ -1007,11 +1414,14 @@ export default function AdminResourcesPage() {
                   <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-700 bg-slate-950/70 p-4">
                     <input
                       type="checkbox"
-                      checked={form.isPublished}
+                      checked={
+                        form.isPublished
+                      }
                       onChange={(event) =>
                         updateForm(
                           "isPublished",
-                          event.target.checked
+                          event.target
+                            .checked
                         )
                       }
                       className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-violet-600 focus:ring-violet-500"
@@ -1024,19 +1434,21 @@ export default function AdminResourcesPage() {
 
                       <span className="block text-xs text-slate-500">
                         Published resources become visible
-                        to students on the Resources page.
+                        to students.
                       </span>
                     </span>
                   </label>
                 </div>
               </div>
 
-              {/* Form actions */}
+              {/* Form Actions */}
               <div className="flex flex-col-reverse gap-3 border-t border-slate-800 pt-6 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeForm}
-                  disabled={saving}
+                  disabled={
+                    saving || uploading
+                  }
                   className="rounded-xl border border-slate-700 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Cancel
@@ -1044,14 +1456,18 @@ export default function AdminResourcesPage() {
 
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={
+                    saving || uploading
+                  }
                   className="rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {saving
-                    ? "Saving..."
-                    : editingResource
-                      ? "Update Resource"
-                      : "Create Resource"}
+                  {uploading
+                    ? "Uploading file..."
+                    : saving
+                      ? "Saving..."
+                      : editingResource
+                        ? "Update Resource"
+                        : "Create Resource"}
                 </button>
               </div>
             </form>
@@ -1060,7 +1476,7 @@ export default function AdminResourcesPage() {
 
         {/* Filters */}
         <section className="mb-6 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 sm:p-5">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_180px_180px]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_180px_220px]">
             <div>
               <label className="sr-only">
                 Search resources
@@ -1070,7 +1486,9 @@ export default function AdminResourcesPage() {
                 type="search"
                 value={search}
                 onChange={(event) =>
-                  setSearch(event.target.value)
+                  setSearch(
+                    event.target.value
+                  )
                 }
                 placeholder="Search resources..."
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
@@ -1092,9 +1510,11 @@ export default function AdminResourcesPage() {
               <option value="all">
                 All Status
               </option>
+
               <option value="published">
                 Published
               </option>
+
               <option value="draft">
                 Drafts
               </option>
@@ -1115,24 +1535,27 @@ export default function AdminResourcesPage() {
                 All Types
               </option>
 
-              {RESOURCE_TYPES.map((type) => (
-                <option
-                  key={type.value}
-                  value={type.value}
-                >
-                  {type.label}
-                </option>
-              ))}
+              {RESOURCE_TYPES.map(
+                (type) => (
+                  <option
+                    key={type.value}
+                    value={type.value}
+                  >
+                    {type.label}
+                  </option>
+                )
+              )}
             </select>
           </div>
 
           <div className="mt-3 text-xs text-slate-500">
-            Showing {filteredResources.length} of{" "}
-            {resources.length} resources
+            Showing{" "}
+            {filteredResources.length}{" "}
+            of {resources.length} resources
           </div>
         </section>
 
-        {/* Resource list */}
+        {/* Resource List */}
         {loading ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-12 text-center">
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-violet-500" />
@@ -1141,7 +1564,8 @@ export default function AdminResourcesPage() {
               Loading resources...
             </p>
           </div>
-        ) : filteredResources.length === 0 ? (
+        ) : filteredResources.length ===
+          0 ? (
           <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-12 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-500/10 text-2xl">
               📚
@@ -1159,10 +1583,13 @@ export default function AdminResourcesPage() {
                 : "Try changing your search or filters."}
             </p>
 
-            {resources.length === 0 && (
+            {resources.length ===
+              0 && (
               <button
                 type="button"
-                onClick={openCreateForm}
+                onClick={
+                  openCreateForm
+                }
                 className="mt-6 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white hover:bg-violet-500"
               >
                 Add First Resource
@@ -1199,14 +1626,24 @@ export default function AdminResourcesPage() {
                         </span>
 
                         <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs text-slate-400">
-                          {resource.difficulty}
+                          {
+                            resource.difficulty
+                          }
                         </span>
 
                         {resource.chapter !==
                           null && (
                           <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-xs text-slate-400">
                             Chapter{" "}
-                            {resource.chapter}
+                            {
+                              resource.chapter
+                            }
+                          </span>
+                        )}
+
+                        {resource.file_url && (
+                          <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-300">
+                            File Attached
                           </span>
                         )}
                       </div>
@@ -1216,7 +1653,9 @@ export default function AdminResourcesPage() {
                       </h2>
 
                       <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-400">
-                        {resource.description}
+                        {
+                          resource.description
+                        }
                       </p>
 
                       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500">
@@ -1224,7 +1663,9 @@ export default function AdminResourcesPage() {
                           <span>
                             Topic:{" "}
                             <span className="text-slate-300">
-                              {resource.topic}
+                              {
+                                resource.topic
+                              }
                             </span>
                           </span>
                         )}
@@ -1233,7 +1674,9 @@ export default function AdminResourcesPage() {
                           <span>
                             Author:{" "}
                             <span className="text-slate-300">
-                              {resource.author}
+                              {
+                                resource.author
+                              }
                             </span>
                           </span>
                         )}
@@ -1259,7 +1702,8 @@ export default function AdminResourcesPage() {
                         </span>
                       </div>
 
-                      {resource.tags.length > 0 && (
+                      {resource.tags.length >
+                        0 && (
                         <div className="mt-4 flex flex-wrap gap-2">
                           {resource.tags.map(
                             (tag) => (
@@ -1282,7 +1726,9 @@ export default function AdminResourcesPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            openResource(resource)
+                            openResource(
+                              resource
+                            )
                           }
                           className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
                         >
@@ -1293,7 +1739,9 @@ export default function AdminResourcesPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          openEditForm(resource)
+                          openEditForm(
+                            resource
+                          )
                         }
                         className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white"
                       >
@@ -1338,7 +1786,7 @@ export default function AdminResourcesPage() {
         )}
       </div>
 
-      {/* Delete confirmation modal */}
+      {/* Delete Confirmation */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
@@ -1351,7 +1799,8 @@ export default function AdminResourcesPage() {
             </h2>
 
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              You are about to permanently delete:
+              You are about to permanently
+              delete:
             </p>
 
             <p className="mt-2 rounded-lg bg-slate-950 p-3 text-sm font-medium text-white">
@@ -1359,10 +1808,10 @@ export default function AdminResourcesPage() {
             </p>
 
             <p className="mt-3 text-xs leading-5 text-slate-500">
-              This action cannot be undone. Any
-              associated student bookmarks will also
-              be removed through the database
-              relationship.
+              This action cannot be undone.
+              The resource record and its
+              student bookmarks will be
+              removed.
             </p>
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
