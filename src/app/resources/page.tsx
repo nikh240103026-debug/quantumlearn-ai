@@ -7,6 +7,8 @@ import {
   Bookmark,
   BookOpen,
   Code2,
+  ExternalLink,
+  FileImage,
   FileText,
   FlaskConical,
   GraduationCap,
@@ -70,10 +72,6 @@ const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   advanced: "Advanced",
 };
 
-function getResourceUrl(resource: Resource) {
-  return resource.resource_url || resource.file_url || null;
-}
-
 function getDifficultyClasses(difficulty: Difficulty | null) {
   switch (difficulty) {
     case "beginner":
@@ -106,13 +104,51 @@ function getTypeIconClasses(type: ResourceType) {
   }
 }
 
+function isLikelyImageUrl(url: string | null) {
+  if (!url) return false;
+
+  const cleanUrl = url.split("?")[0].toLowerCase();
+
+  return (
+    cleanUrl.endsWith(".jpg") ||
+    cleanUrl.endsWith(".jpeg") ||
+    cleanUrl.endsWith(".png") ||
+    cleanUrl.endsWith(".gif") ||
+    cleanUrl.endsWith(".webp") ||
+    cleanUrl.endsWith(".svg") ||
+    cleanUrl.endsWith(".avif")
+  );
+}
+
+function isLikelyPdfUrl(url: string | null) {
+  if (!url) return false;
+
+  const cleanUrl = url.split("?")[0].toLowerCase();
+
+  return cleanUrl.endsWith(".pdf");
+}
+
+function getFileActionLabel(resource: Resource) {
+  if (isLikelyImageUrl(resource.file_url)) {
+    return "View Image";
+  }
+
+  if (isLikelyPdfUrl(resource.file_url)) {
+    return "Open PDF";
+  }
+
+  return "Open Document";
+}
+
 export default function ResourcesPage() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | ResourceType>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | ResourceType>(
+    "all"
+  );
   const [topicFilter, setTopicFilter] = useState("all");
   const [chapterFilter, setChapterFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState<
@@ -139,7 +175,9 @@ export default function ResourcesPage() {
 
         if (!response.ok) {
           if (response.status === 401) {
-            throw new Error("Please log in to access learning resources.");
+            throw new Error(
+              "Please log in to access learning resources."
+            );
           }
 
           throw new Error(
@@ -148,7 +186,9 @@ export default function ResourcesPage() {
         }
 
         if (!cancelled) {
-          setResources(Array.isArray(data?.resources) ? data.resources : []);
+          setResources(
+            Array.isArray(data?.resources) ? data.resources : []
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -187,7 +227,9 @@ export default function ResourcesPage() {
       new Set(
         resources
           .map((resource) => resource.chapter)
-          .filter((chapter): chapter is number => chapter !== null)
+          .filter(
+            (chapter): chapter is number => chapter !== null
+          )
       )
     ).sort((a, b) => a - b);
   }, [resources]);
@@ -282,7 +324,9 @@ export default function ResourcesPage() {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data?.error || "Unable to update bookmark.");
+        throw new Error(
+          data?.error || "Unable to update bookmark."
+        );
       }
 
       setResources((current) =>
@@ -336,13 +380,17 @@ export default function ResourcesPage() {
 
             <h1 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
               Go deeper into
-              <span className="text-blue-600"> quantum computing.</span>
+              <span className="text-blue-600">
+                {" "}
+                quantum computing.
+              </span>
             </h1>
 
             <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
               Explore curated research papers, learning materials,
-              technical references, documents, and important developments
-              selected to complement your QuantumLearn AI learning journey.
+              technical references, documents, and important
+              developments selected to complement your
+              QuantumLearn AI learning journey.
             </p>
           </div>
 
@@ -354,7 +402,9 @@ export default function ResourcesPage() {
               <input
                 type="search"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
                 placeholder="Search resources, topics, authors, or keywords..."
                 className="h-14 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-12 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               />
@@ -383,25 +433,33 @@ export default function ResourcesPage() {
               value={typeFilter}
               onChange={(event) =>
                 setTypeFilter(
-                  event.target.value as "all" | ResourceType
+                  event.target.value as
+                    | "all"
+                    | ResourceType
                 )
               }
               className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
             >
               <option value="all">All types</option>
-              {Object.entries(TYPE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
+
+              {Object.entries(TYPE_LABELS).map(
+                ([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                )
+              )}
             </select>
 
             <select
               value={topicFilter}
-              onChange={(event) => setTopicFilter(event.target.value)}
+              onChange={(event) =>
+                setTopicFilter(event.target.value)
+              }
               className="h-10 max-w-[220px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
             >
               <option value="all">All topics</option>
+
               {topics.map((topic) => (
                 <option key={topic} value={topic}>
                   {topic}
@@ -417,6 +475,7 @@ export default function ResourcesPage() {
               className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
             >
               <option value="all">All chapters</option>
+
               {chapters.map((chapter) => (
                 <option key={chapter} value={String(chapter)}>
                   Chapter {chapter}
@@ -428,12 +487,15 @@ export default function ResourcesPage() {
               value={difficultyFilter}
               onChange={(event) =>
                 setDifficultyFilter(
-                  event.target.value as "all" | Difficulty
+                  event.target.value as
+                    | "all"
+                    | Difficulty
                 )
               }
               className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
             >
               <option value="all">All levels</option>
+
               {Object.entries(DIFFICULTY_LABELS).map(
                 ([value, label]) => (
                   <option key={value} value={value}>
@@ -445,7 +507,9 @@ export default function ResourcesPage() {
 
             <button
               type="button"
-              onClick={() => setSavedOnly((current) => !current)}
+              onClick={() =>
+                setSavedOnly((current) => !current)
+              }
               className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition ${
                 savedOnly
                   ? "border-blue-200 bg-blue-50 text-blue-700"
@@ -540,9 +604,20 @@ export default function ResourcesPage() {
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredResources.map((resource) => {
               const Icon =
-                TYPE_ICONS[resource.resource_type] || FileText;
+                TYPE_ICONS[resource.resource_type] ||
+                FileText;
 
-              const resourceUrl = getResourceUrl(resource);
+              const hasUploadedFile =
+                Boolean(resource.file_url);
+
+              const hasExternalUrl =
+                Boolean(resource.resource_url);
+
+              const uploadedFileIsImage =
+                isLikelyImageUrl(resource.file_url);
+
+              const fileActionLabel =
+                getFileActionLabel(resource);
 
               const tutorReason = `Help me understand this resource: "${resource.title}"${
                 resource.topic
@@ -594,12 +669,30 @@ export default function ResourcesPage() {
                       ) : (
                         <Bookmark
                           className={`h-4 w-4 ${
-                            resource.is_saved ? "fill-current" : ""
+                            resource.is_saved
+                              ? "fill-current"
+                              : ""
                           }`}
                         />
                       )}
                     </button>
                   </div>
+
+                  {/* Uploaded image preview */}
+                  {uploadedFileIsImage && resource.file_url && (
+                    <a
+                      href={resource.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-5 block overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                    >
+                      <img
+                        src={resource.file_url}
+                        alt={resource.title}
+                        className="h-44 w-full object-cover transition duration-200 group-hover:scale-[1.01]"
+                      />
+                    </a>
+                  )}
 
                   {/* Type */}
                   <div className="mt-5">
@@ -639,19 +732,23 @@ export default function ResourcesPage() {
                           resource.difficulty
                         )}`}
                       >
-                        {DIFFICULTY_LABELS[resource.difficulty]}
+                        {DIFFICULTY_LABELS[
+                          resource.difficulty
+                        ]}
                       </span>
                     )}
                   </div>
 
                   {/* Author/source */}
-                  {(resource.author || resource.source_name) && (
+                  {(resource.author ||
+                    resource.source_name) && (
                     <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
                       <GraduationCap className="h-3.5 w-3.5 shrink-0" />
 
                       <span className="truncate">
                         {resource.author ||
                           resource.source_name}
+
                         {resource.author &&
                         resource.source_name
                           ? ` · ${resource.source_name}`
@@ -660,34 +757,84 @@ export default function ResourcesPage() {
                     </div>
                   )}
 
-                  {/* Actions */}
-                  <div className="mt-auto flex items-center gap-2 border-t border-slate-100 pt-5">
-                    {resourceUrl ? (
-                      <a
-                        href={resourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-                      >
-                        Open Resource
-                        <ArrowUpRight className="h-4 w-4" />
-                      </a>
-                    ) : (
-                      <span className="inline-flex flex-1 items-center justify-center rounded-lg bg-slate-100 px-3 py-2.5 text-sm font-medium text-slate-400">
-                        Resource unavailable
-                      </span>
-                    )}
+                  {/* File indicator */}
+                  {hasUploadedFile && (
+                    <div className="mt-4 flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 text-xs font-medium text-blue-700">
+                      {uploadedFileIsImage ? (
+                        <FileImage className="h-4 w-4 shrink-0" />
+                      ) : (
+                        <FileText className="h-4 w-4 shrink-0" />
+                      )}
 
-                    <Link
-                      href={tutorUrl}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
-                      title="Ask AI Tutor about this resource"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      <span className="hidden sm:inline">
-                        Ask AI
+                      <span>
+                        {uploadedFileIsImage
+                          ? "Image attached"
+                          : isLikelyPdfUrl(
+                              resource.file_url
+                            )
+                          ? "PDF attached"
+                          : "Document attached"}
                       </span>
-                    </Link>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="mt-auto border-t border-slate-100 pt-5">
+                    <div className="flex flex-wrap gap-2">
+                      {/* Uploaded file action */}
+                      {hasUploadedFile && resource.file_url && (
+                        <a
+                          href={resource.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                        >
+                          {uploadedFileIsImage ? (
+                            <FileImage className="h-4 w-4" />
+                          ) : (
+                            <FileText className="h-4 w-4" />
+                          )}
+
+                          {fileActionLabel}
+
+                          <ArrowUpRight className="h-4 w-4" />
+                        </a>
+                      )}
+
+                      {/* External resource URL */}
+                      {hasExternalUrl && resource.resource_url && (
+                        <a
+                          href={resource.resource_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Open Resource
+                        </a>
+                      )}
+
+                      {/* AI Tutor */}
+                      <Link
+                        href={tutorUrl}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                        title="Ask AI Tutor about this resource"
+                      >
+                        <Sparkles className="h-4 w-4" />
+
+                        <span className="hidden sm:inline">
+                          Ask AI
+                        </span>
+                      </Link>
+                    </div>
+
+                    {/* No resource/file */}
+                    {!hasUploadedFile &&
+                      !hasExternalUrl && (
+                        <span className="flex w-full items-center justify-center rounded-lg bg-slate-100 px-3 py-2.5 text-sm font-medium text-slate-400">
+                          Resource unavailable
+                        </span>
+                      )}
                   </div>
                 </article>
               );
