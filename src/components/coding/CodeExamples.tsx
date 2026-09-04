@@ -6,7 +6,6 @@ import {
   GitBranch,
   Hash,
   Layers,
-  PlaySquare,
   Zap,
 } from "lucide-react";
 
