@@ -53,11 +53,23 @@ function findPythonExecutable(): string {
     return process.env.QUANTUM_PYTHON_PATH;
   }
 
+  const projectRoot = process.cwd();
+
   if (process.platform === "win32") {
-    return "python";
+    return path.join(
+      projectRoot,
+      ".venv",
+      "Scripts",
+      "python.exe"
+    );
   }
 
-  return "python3";
+  return path.join(
+    projectRoot,
+    ".venv",
+    "bin",
+    "python"
+  );
 }
 
 export async function POST(request: NextRequest) {
