@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -15,6 +14,8 @@ const navigation = [
   { name: "Home", href: "/" },
   { name: "Learn", href: "/roadmap" },
   { name: "Quantum Lab", href: "/quantum-lab" },
+  { name: "Coding", href: "/coding" },
+  { name: "My Code", href: "/coding/history" },
   { name: "AI Tutor", href: "/ai-tutor" },
   { name: "Practice", href: "/practice" },
   { name: "Resources", href: "#resources" },
@@ -192,56 +193,58 @@ export function Navbar() {
               ))}
             </div>
 
-            {authLoading ? (
-              <div className="h-11 animate-pulse rounded-lg bg-slate-100" />
-            ) : userEmail ? (
-              <>
-                <Link
-                  href="/dashboard"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-lg px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                >
-                  Dashboard
-                </Link>
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              {authLoading ? (
+                <div className="h-11 animate-pulse rounded-lg bg-slate-100" />
+              ) : userEmail ? (
+                <div className="flex flex-col gap-2">
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-lg px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Dashboard
+                  </Link>
 
-                <div className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-                    {userEmail.charAt(0).toUpperCase()}
+                  <div className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                      {userEmail.charAt(0).toUpperCase()}
+                    </div>
+
+                    <span className="max-w-[220px] truncate text-sm font-medium text-slate-700">
+                      {userEmail}
+                    </span>
                   </div>
 
-                  <span className="max-w-[220px] truncate text-sm font-medium text-slate-700">
-                    {userEmail}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-lg px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-red-50 hover:text-red-600"
+                  >
+                    Log out
+                  </button>
                 </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-lg px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Log In
+                  </Link>
 
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-lg px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-red-50 hover:text-red-600"
-                >
-                  Log out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-lg px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                >
-                  Log In
-                </Link>
-
-                <Link
-                  href="/signup"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-                >
-                  Get Started
-                  <ArrowRight size={16} />
-                </Link>
-              </>
-            )}
+                  <Link
+                    href="/signup"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    Get Started
+                    <ArrowRight size={16} />
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
