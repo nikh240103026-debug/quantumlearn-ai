@@ -29,6 +29,7 @@ function magnitudeSquared(a: Complex): number {
 const SQRT2_INV = 1 / Math.sqrt(2);
 
 export const GATE_MATRICES: Record<
+  
   Exclude<
     QuantumGate,
     "CNOT" | "CZ" | "SWAP"
@@ -72,6 +73,10 @@ export const GATE_MATRICES: Record<
       complex(0.5, 0.5),
     ],
   ],
+  M: [
+  [complex(1), complex(0)],
+  [complex(0), complex(1)],
+],
 };
 
 export function createInitialState(

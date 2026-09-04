@@ -21,6 +21,7 @@ export const QUANTUM_TEMPLATES:
     qubits: 1,
     circuit: [
       {
+        id: "superposition-h",
         gate: "H",
         qubit: 0,
         column: 0,
@@ -36,11 +37,13 @@ export const QUANTUM_TEMPLATES:
     qubits: 2,
     circuit: [
       {
+        id: "bell-state-h",
         gate: "H",
         qubit: 0,
         column: 0,
       },
       {
+        id: "bell-state-cnot",
         gate: "CNOT",
         qubit: 1,
         column: 1,
@@ -57,17 +60,20 @@ export const QUANTUM_TEMPLATES:
     qubits: 3,
     circuit: [
       {
+        id: "ghz-state-h",
         gate: "H",
         qubit: 0,
         column: 0,
       },
       {
+        id: "ghz-state-cnot-1",
         gate: "CNOT",
         qubit: 1,
         column: 1,
         controlQubit: 0,
       },
       {
+        id: "ghz-state-cnot-2",
         gate: "CNOT",
         qubit: 2,
         column: 2,
@@ -84,11 +90,13 @@ export const QUANTUM_TEMPLATES:
     qubits: 1,
     circuit: [
       {
+        id: "phase-state-h",
         gate: "H",
         qubit: 0,
         column: 0,
       },
       {
+        id: "phase-state-s",
         gate: "S",
         qubit: 0,
         column: 1,
@@ -104,17 +112,20 @@ export const QUANTUM_TEMPLATES:
     qubits: 2,
     circuit: [
       {
+        id: "bell-phase-h",
         gate: "H",
         qubit: 0,
         column: 0,
       },
       {
+        id: "bell-phase-cnot",
         gate: "CNOT",
         qubit: 1,
         column: 1,
         controlQubit: 0,
       },
       {
+        id: "bell-phase-z",
         gate: "Z",
         qubit: 1,
         column: 2,

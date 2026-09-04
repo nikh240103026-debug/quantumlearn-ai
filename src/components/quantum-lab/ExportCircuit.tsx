@@ -19,20 +19,25 @@ export default function ExportCircuit({
   circuit,
 }: ExportCircuitProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="border border-slate-800 bg-black p-6">
 
       <div>
-        <h2 className="font-bold text-slate-950">
-          Export Circuit
+
+        <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
+          Circuit Export
+        </p>
+
+        <h2 className="mt-1 text-lg font-bold text-white">
+          Export circuit representation
         </h2>
 
-        <p className="mt-1 text-sm text-slate-500">
-          Download your circuit for later use or external
-          quantum software.
+        <p className="mt-1 text-sm text-slate-400">
+          Download the current circuit as JSON or OpenQASM.
         </p>
+
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
 
         <button
           type="button"
@@ -42,7 +47,7 @@ export default function ExportCircuit({
               circuit,
             )
           }
-          className="rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="border border-slate-700 px-4 py-3 text-sm font-bold text-slate-200 hover:border-blue-600 hover:bg-slate-950"
         >
           Export JSON
         </button>
@@ -55,9 +60,9 @@ export default function ExportCircuit({
               circuit,
             )
           }
-          className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+          className="border border-blue-600 bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-500"
         >
-          Export OpenQASM
+          Export OpenQASM 2.0
         </button>
 
       </div>
