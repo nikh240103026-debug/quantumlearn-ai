@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bot,
   Send,
@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 interface Lesson {
   id: string;
@@ -20,8 +23,10 @@ interface Lesson {
 }
 
 interface TutorMessage {
+  id?: string;
   role: "user" | "assistant";
   content: string;
+  created_at?: string;
 }
 
 interface TutorChatProps {
@@ -37,18 +42,6 @@ const suggestions = [
 
 /**
  * Render AI Tutor responses as Markdown.
- *
- * This allows the AI response to properly render:
- * - **bold**
- * - *italic*
- * - headings
- * - numbered lists
- * - bullet lists
- * - inline code
- * - code blocks
- * - blockquotes
- * - tables
- * - links
  */
 function TutorMarkdown({
   content,
@@ -58,7 +51,8 @@ function TutorMarkdown({
   return (
     <div className="break-words text-sm leading-7 text-slate-700">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={{
           h1: ({ children }) => (
             <h1 className="mb-4 mt-1 text-xl font-bold text-slate-950">
@@ -97,9 +91,7 @@ function TutorMarkdown({
           ),
 
           em: ({ children }) => (
-            <em className="italic">
-              {children}
-            </em>
+            <em className="italic">{children}</em>
           ),
 
           ul: ({ children }) => (
@@ -145,8 +137,7 @@ function TutorMarkdown({
             className,
             children,
           }) => {
-            const isCodeBlock =
-              Boolean(className);
+            const isCodeBlock = Boolean(className);
 
             if (isCodeBlock) {
               return (
@@ -221,20 +212,132 @@ function TutorMarkdown({
 export default function TutorChat({
   lesson,
 }: TutorChatProps) {
-  const [messages, setMessages] = useState<
-    TutorMessage[]
-  >([]);
+  const [messages, setMessages] = useState<TutorMessage[]>(
+    [],
+  );
+
+  const [conversationId, setConversationId] =
+    useState<string | null>(null);
 
   const [input, setInput] = useState("");
 
   const [loading, setLoading] = useState(false);
 
+  const [loadingHistory, setLoadingHistory] =
+    useState(true);
+
   const [error, setError] = useState("");
+
+  /*
+   * ============================================================
+   * LOAD SAVED CONVERSATION
+   * ============================================================
+   */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadConversation() {
+      setLoadingHistory(true);
+      setError("");
+
+      try {
+        const response = await fetch(
+          `/api/tutor?lessonId=${encodeURIComponent(
+            lesson.id,
+          )}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          },
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error ||
+              "Unable to load your previous conversation.",
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        if (data?.conversationId) {
+          setConversationId(data.conversationId);
+        } else {
+          setConversationId(null);
+        }
+
+        if (Array.isArray(data?.messages)) {
+          const restoredMessages: TutorMessage[] =
+            data.messages
+              .filter(
+                (message: {
+                  role?: string;
+                  content?: string;
+                }) =>
+                  (message.role === "user" ||
+                    message.role === "assistant") &&
+                  typeof message.content === "string",
+              )
+              .map(
+                (message: {
+                  id?: string;
+                  role: "user" | "assistant";
+                  content: string;
+                  created_at?: string;
+                }) => ({
+                  id: message.id,
+                  role: message.role,
+                  content: message.content,
+                  created_at: message.created_at,
+                }),
+              );
+
+          setMessages(restoredMessages);
+        } else {
+          setMessages([]);
+        }
+      } catch (err) {
+        console.error(
+          "Failed to load Tutor conversation:",
+          err,
+        );
+
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load your previous conversation.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingHistory(false);
+        }
+      }
+    }
+
+    void loadConversation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lesson.id]);
+
+  /*
+   * ============================================================
+   * SEND MESSAGE
+   * ============================================================
+   */
 
   async function sendMessage(question?: string) {
     const message = (question ?? input).trim();
 
-    if (!message || loading) {
+    if (!message || loading || loadingHistory) {
       return;
     }
 
@@ -245,8 +348,10 @@ export default function TutorChat({
       content: message,
     };
 
+    const previousMessages = messages;
+
     const updatedMessages = [
-      ...messages,
+      ...previousMessages,
       userMessage,
     ];
 
@@ -263,7 +368,7 @@ export default function TutorChat({
         body: JSON.stringify({
           lessonId: lesson.id,
           question: message,
-          messages,
+          conversationId,
         }),
       });
 
@@ -276,12 +381,22 @@ export default function TutorChat({
         );
       }
 
+      /*
+       * Store the conversation ID returned by the server.
+       */
+      if (data?.conversationId) {
+        setConversationId(data.conversationId);
+      }
+
       const assistantMessage: TutorMessage = {
+        id: data?.assistantMessage?.id,
         role: "assistant",
         content:
           typeof data.answer === "string"
             ? data.answer
             : "I wasn't able to generate a response.",
+        created_at:
+          data?.assistantMessage?.created_at,
       };
 
       setMessages([
@@ -297,12 +412,20 @@ export default function TutorChat({
           : "Something went wrong. Please try again.",
       );
 
-      // Remove the user message if the request failed.
-      setMessages(messages);
+      /*
+       * Remove optimistic user message if request failed.
+       */
+      setMessages(previousMessages);
     } finally {
       setLoading(false);
     }
   }
+
+  /*
+   * ============================================================
+   * FORM SUBMIT
+   * ============================================================
+   */
 
   function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
@@ -317,14 +440,75 @@ export default function TutorChat({
     void sendMessage(suggestion);
   }
 
-  function clearConversation() {
-    setMessages([]);
+  /*
+   * ============================================================
+   * CLEAR CONVERSATION
+   * ============================================================
+   */
+
+  async function clearConversation() {
+    if (loading || loadingHistory) {
+      return;
+    }
+
     setError("");
-    setInput("");
+
+    /*
+     * If there is no saved conversation yet,
+     * simply clear local state.
+     */
+    if (!conversationId) {
+      setMessages([]);
+      setInput("");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `/api/ai-tutor/conversations/${conversationId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            isArchived: true,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Unable to clear this conversation.",
+        );
+      }
+
+      setMessages([]);
+      setConversationId(null);
+      setInput("");
+    } catch (err) {
+      console.error(
+        "Clear Tutor conversation error:",
+        err,
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to clear this conversation.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* =====================================================
           HEADER
       ===================================================== */}
@@ -344,7 +528,9 @@ export default function TutorChat({
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
 
               <span className="text-xs text-slate-500">
-                Ready to help
+                {loadingHistory
+                  ? "Loading conversation..."
+                  : "Ready to help"}
               </span>
             </div>
           </div>
@@ -352,9 +538,10 @@ export default function TutorChat({
 
         <button
           type="button"
-          onClick={clearConversation}
+          onClick={() => void clearConversation()}
           disabled={
             loading ||
+            loadingHistory ||
             messages.length === 0
           }
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
@@ -368,118 +555,138 @@ export default function TutorChat({
           CHAT AREA
       ===================================================== */}
 
-      <div className="min-h-[500px] bg-slate-50/70 p-4 sm:p-6">
-        {/* Empty state */}
+     <div className="h-[600px] overflow-y-auto bg-slate-50/70 p-4 sm:p-6">
+        {/* Loading history */}
 
-        {messages.length === 0 && (
-          <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
-              <Sparkles size={25} />
-            </div>
+        {loadingHistory && (
+          <div className="flex min-h-[420px] items-center justify-center">
+            <div className="flex items-center gap-3 text-sm text-slate-500">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800" />
 
-            <h2 className="mt-5 text-lg font-bold text-slate-950">
-              Ask your AI Tutor
-            </h2>
-
-            <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-              Ask anything about{" "}
-              <span className="font-semibold text-slate-700">
-                {lesson.title}
+              <span>
+                Loading your conversation...
               </span>
-              . The tutor will use this lesson as context when answering.
-            </p>
-
-            <div className="mt-6 flex max-w-xl flex-wrap justify-center gap-2">
-              {suggestions.map(
-                (suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() =>
-                      handleSuggestion(
-                        suggestion,
-                      )
-                    }
-                    disabled={loading}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {suggestion}
-                  </button>
-                ),
-              )}
             </div>
           </div>
         )}
+
+        {/* Empty state */}
+
+        {!loadingHistory &&
+          messages.length === 0 && (
+            <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
+                <Sparkles size={25} />
+              </div>
+
+              <h2 className="mt-5 text-lg font-bold text-slate-950">
+                Ask your AI Tutor
+              </h2>
+
+              <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                Ask anything about{" "}
+                <span className="font-semibold text-slate-700">
+                  {lesson.title}
+                </span>
+                . The tutor will use this lesson as context
+                when answering.
+              </p>
+
+              <div className="mt-6 flex max-w-xl flex-wrap justify-center gap-2">
+                {suggestions.map(
+                  (suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() =>
+                        handleSuggestion(
+                          suggestion,
+                        )
+                      }
+                      disabled={loading}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {suggestion}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+          )}
 
         {/* Conversation */}
 
-        {messages.length > 0 && (
-          <div className="space-y-5">
-            {messages.map(
-              (message, index) => {
-                const isUser =
-                  message.role === "user";
+        {!loadingHistory &&
+          messages.length > 0 && (
+            <div className="space-y-5">
+              {messages.map(
+                (message, index) => {
+                  const isUser =
+                    message.role === "user";
 
-                return (
-                  <div
-                    key={`${message.role}-${index}`}
-                    className={`flex ${
-                      isUser
-                        ? "justify-end"
-                        : "items-start"
-                    }`}
-                  >
-                    {isUser ? (
-                      <div className="flex max-w-[88%] items-end gap-2">
-                        <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-blue-600 px-4 py-3 text-sm leading-6 text-white shadow-sm">
-                          {message.content}
-                        </div>
+                  return (
+                    <div
+                      key={
+                        message.id ??
+                        `${message.role}-${index}`
+                      }
+                      className={`flex ${
+                        isUser
+                          ? "justify-end"
+                          : "items-start"
+                      }`}
+                    >
+                      {isUser ? (
+                        <div className="flex max-w-[88%] items-end gap-2">
+                          <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-blue-600 px-4 py-3 text-sm leading-6 text-white shadow-sm">
+                            {message.content}
+                          </div>
 
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500">
-                          <User size={15} />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500">
+                            <User size={15} />
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex max-w-[92%] items-start gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white">
-                          <Bot size={15} />
-                        </div>
+                      ) : (
+                        <div className="flex max-w-[92%] items-start gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white">
+                            <Bot size={15} />
+                          </div>
 
-                        <div className="rounded-2xl rounded-tl-md border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                          <TutorMarkdown
-                            content={
-                              message.content
-                            }
-                          />
+                          <div className="rounded-2xl rounded-tl-md border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                            <TutorMarkdown
+                              content={
+                                message.content
+                              }
+                            />
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                  );
+                },
+              )}
+
+              {/* Loading */}
+
+              {loading && (
+                <div className="flex items-start gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white">
+                    <Bot size={15} />
                   </div>
-                );
-              },
-            )}
 
-            {/* Loading */}
+                  <div className="rounded-2xl rounded-tl-md border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
 
-            {loading && (
-              <div className="flex items-start gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-950 text-white">
-                  <Bot size={15} />
-                </div>
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
 
-                <div className="rounded-2xl rounded-tl-md border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
-
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
-
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" />
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
 
         {/* Error */}
 
@@ -504,40 +711,41 @@ export default function TutorChat({
           SUGGESTIONS
       ===================================================== */}
 
-      {messages.length > 0 && (
-        <div className="border-t border-slate-200 px-5 py-4">
-          <div className="flex items-center gap-2">
-            <Lightbulb
-              size={14}
-              className="text-amber-500"
-            />
+      {!loadingHistory &&
+        messages.length > 0 && (
+          <div className="border-t border-slate-200 px-5 py-4">
+            <div className="flex items-center gap-2">
+              <Lightbulb
+                size={14}
+                className="text-amber-500"
+              />
 
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Suggested questions
-            </p>
-          </div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Suggested questions
+              </p>
+            </div>
 
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {suggestions.map(
-              (suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() =>
-                    handleSuggestion(
-                      suggestion,
-                    )
-                  }
-                  disabled={loading}
-                  className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {suggestion}
-                </button>
-              ),
-            )}
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {suggestions.map(
+                (suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() =>
+                      handleSuggestion(
+                        suggestion,
+                      )
+                    }
+                    disabled={loading}
+                    className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {suggestion}
+                  </button>
+                ),
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* =====================================================
           INPUT
@@ -553,7 +761,9 @@ export default function TutorChat({
             onChange={(event) =>
               setInput(event.target.value)
             }
-            disabled={loading}
+            disabled={
+              loading || loadingHistory
+            }
             placeholder="Ask your quantum question..."
             className="min-w-0 flex-1 bg-transparent px-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
           />
@@ -561,7 +771,9 @@ export default function TutorChat({
           <button
             type="submit"
             disabled={
-              loading || !input.trim()
+              loading ||
+              loadingHistory ||
+              !input.trim()
             }
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Send message"
