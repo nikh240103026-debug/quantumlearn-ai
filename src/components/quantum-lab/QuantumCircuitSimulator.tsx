@@ -35,6 +35,10 @@ import {
   validateCircuit,
 } from "@/lib/quantum/validation";
 
+import {
+  createGateId,
+} from "@/lib/quantum/circuit";
+
 const GATES: QuantumGate[] = [
   "X",
   "Y",
@@ -61,6 +65,8 @@ const GATE_DESCRIPTIONS: Record<QuantumGate, string> = {
     "Controlled-Z — applies phase flip when both qubits are |1⟩",
   SWAP:
     "SWAP — exchanges two qubit states",
+  M:
+    "Measurement — measures the qubit state",
 };
 
 const MAX_QUBITS = 5;
@@ -111,18 +117,18 @@ export default function QuantumCircuitSimulator() {
     useState(0);
 
   const validation = useMemo(
-  () =>
-    validateCircuit(
+    () =>
+      validateCircuit(
+        qubits,
+        columns,
+        circuit,
+      ),
+    [
       qubits,
       columns,
       circuit,
-    ),
-  [
-    qubits,
-    columns,
-    circuit,
-  ],
-);
+    ],
+  );
 
   // ==========================================================
   // MEASUREMENT
@@ -159,13 +165,6 @@ export default function QuantumCircuitSimulator() {
   // ==========================================================
   // ACTIVITY TRACKING
   // ==========================================================
-
-  /*
-   * Activity logging is deliberately non-blocking.
-   *
-   * A failed analytics request must never prevent the
-   * Quantum Lab itself from working.
-   */
 
   async function logLabActivity(
     payload: ActivityPayload,
@@ -281,6 +280,7 @@ export default function QuantumCircuitSimulator() {
         : [
             ...circuit,
             {
+              id: createGateId(),
               gate: selectedGate,
               qubit,
               column,
@@ -294,13 +294,6 @@ export default function QuantumCircuitSimulator() {
     // --------------------------------------------------------
     // CONTROLLED GATES
     // --------------------------------------------------------
-
-    /*
-     * The clicked qubit becomes the target.
-     *
-     * The qubit directly above it becomes
-     * the control.
-     */
 
     if (qubit === 0) {
       return;
@@ -322,6 +315,7 @@ export default function QuantumCircuitSimulator() {
       : [
           ...circuit,
           {
+            id: createGateId(),
             gate: selectedGate,
             qubit,
             column,
@@ -565,8 +559,7 @@ export default function QuantumCircuitSimulator() {
           (
             operation.controlQubit ===
               undefined ||
-            operation.controlQubit <
-              next
+            operation.controlQubit < next
           ),
       );
 
@@ -783,95 +776,96 @@ export default function QuantumCircuitSimulator() {
   // ==========================================================
 
   function handleEditorCircuitChange(
-  nextCircuit: CircuitGate[],
-) {
-  commitCircuit(
-    nextCircuit,
-  );
-}
-
-function handleLoadCircuit(
-  loadedQubits: number,
-  loadedCircuit: CircuitGate[],
-) {
-  const safeQubits =
-    Math.max(
-      1,
-      Math.min(
-        MAX_QUBITS,
-        loadedQubits,
-      ),
+    nextCircuit: CircuitGate[],
+  ) {
+    commitCircuit(
+      nextCircuit,
     );
+  }
 
-  const cleanedCircuit =
-    loadedCircuit.filter(
-      (operation) =>
-        operation.qubit >= 0 &&
-        operation.qubit <
-          safeQubits &&
-        operation.column >= 0 &&
-        operation.column <
-          columns &&
-        (
-          operation.controlQubit ===
-            undefined ||
-          (
-            operation.controlQubit >=
-              0 &&
-            operation.controlQubit <
-              safeQubits
-          )
+  function handleLoadCircuit(
+    loadedQubits: number,
+    loadedCircuit: CircuitGate[],
+  ) {
+    const safeQubits =
+      Math.max(
+        1,
+        Math.min(
+          MAX_QUBITS,
+          loadedQubits,
         ),
+      );
+
+    const cleanedCircuit =
+      loadedCircuit.filter(
+        (operation) =>
+          operation.qubit >= 0 &&
+          operation.qubit <
+            safeQubits &&
+          operation.column >= 0 &&
+          operation.column <
+            columns &&
+          (
+            operation.controlQubit ===
+              undefined ||
+            (
+              operation.controlQubit >=
+                0 &&
+              operation.controlQubit <
+                safeQubits
+            )
+          ),
+      );
+
+    setQubits(
+      safeQubits,
     );
 
-  setQubits(
-    safeQubits,
-  );
+    setCircuit(
+      cleanedCircuit,
+    );
 
-  setCircuit(
-    cleanedCircuit,
-  );
+    setHistory([
+      cleanedCircuit,
+    ]);
 
-  setHistory([
-    cleanedCircuit,
-  ]);
+    setHistoryIndex(0);
 
-  setHistoryIndex(0);
+    setMeasurementResult(
+      null,
+    );
 
-  setMeasurementResult(
-    null,
-  );
+    setMeasurementResults(
+      [],
+    );
+  }
 
-  setMeasurementResults(
-    [],
-  );
-}
   // ==========================================================
   // RENDER
   // ==========================================================
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen w-full space-y-6 bg-[#05070b] p-4 text-white md:p-6">
 
       {/* ======================================================
           CONTROLS
       ====================================================== */}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="border border-slate-800 bg-[#0a0f18] p-6 shadow-sm">
 
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
           <div>
 
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
+            <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
               Quantum Circuit Simulator
             </p>
 
-            <h1 className="mt-1 text-2xl font-bold text-slate-950">
+            <h1 className="mt-1 text-2xl font-bold text-white">
               Build your quantum circuit
             </h1>
 
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-slate-400">
               Place quantum gates on qubits
               and observe the resulting
               quantum state.
@@ -882,7 +876,7 @@ function handleLoadCircuit(
           <button
             type="button"
             onClick={resetCircuit}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-blue-500 hover:bg-blue-500/10 hover:text-white"
           >
             Reset Circuit
           </button>
@@ -893,7 +887,7 @@ function handleLoadCircuit(
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
 
-          <span className="text-sm font-medium text-slate-700">
+          <span className="text-sm font-medium text-slate-300">
             Qubits
           </span>
 
@@ -907,12 +901,12 @@ function handleLoadCircuit(
             disabled={
               qubits <= 1
             }
-            className="h-9 w-9 rounded-lg border border-slate-300 disabled:opacity-40"
+            className="h-9 w-9 border border-slate-700 text-slate-300 transition hover:border-blue-500 hover:text-white disabled:opacity-40"
           >
             −
           </button>
 
-          <span className="min-w-8 text-center font-semibold">
+          <span className="min-w-8 text-center font-semibold text-white">
             {qubits}
           </span>
 
@@ -927,7 +921,7 @@ function handleLoadCircuit(
               qubits >=
               MAX_QUBITS
             }
-            className="h-9 w-9 rounded-lg border border-slate-300 disabled:opacity-40"
+            className="h-9 w-9 border border-slate-700 text-slate-300 transition hover:border-blue-500 hover:text-white disabled:opacity-40"
           >
             +
           </button>
@@ -942,37 +936,37 @@ function handleLoadCircuit(
 
       <div className="grid gap-4 sm:grid-cols-3">
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="border border-slate-800 bg-[#0a0f18] p-4">
 
           <p className="text-xs text-slate-500">
             Qubits
           </p>
 
-          <p className="mt-1 text-2xl font-bold">
+          <p className="mt-1 text-2xl font-bold text-white">
             {qubits}
           </p>
 
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="border border-slate-800 bg-[#0a0f18] p-4">
 
           <p className="text-xs text-slate-500">
             Gates
           </p>
 
-          <p className="mt-1 text-2xl font-bold">
+          <p className="mt-1 text-2xl font-bold text-white">
             {gateCount}
           </p>
 
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="border border-slate-800 bg-[#0a0f18] p-4">
 
           <p className="text-xs text-slate-500">
             Circuit Depth
           </p>
 
-          <p className="mt-1 text-2xl font-bold">
+          <p className="mt-1 text-2xl font-bold text-white">
             {circuitDepth}
           </p>
 
@@ -980,144 +974,144 @@ function handleLoadCircuit(
 
       </div>
 
-   {/* ======================================================
-    VISUAL CIRCUIT EDITOR
-====================================================== */}
+      {/* ======================================================
+          VISUAL CIRCUIT EDITOR
+      ====================================================== */}
 
-<CircuitEditor
-  qubits={qubits}
-  columns={columns}
-  circuit={circuit}
-  selectedGate={selectedGate}
-  onSelectGate={
-    setSelectedGate
-  }
-  onCircuitChange={
-    handleEditorCircuitChange
-  }
-  onUndo={undo}
-  onRedo={redo}
-  canUndo={
-    historyIndex > 0
-  }
-  canRedo={
-    historyIndex <
-    history.length - 1
-  }
-/>
+      <CircuitEditor
+        qubits={qubits}
+        columns={columns}
+        circuit={circuit}
+        selectedGate={selectedGate}
+        onSelectGate={
+          setSelectedGate
+        }
+        onCircuitChange={
+          handleEditorCircuitChange
+        }
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={
+          historyIndex > 0
+        }
+        canRedo={
+          historyIndex <
+          history.length - 1
+        }
+      />
 
-{/* ======================================================
-    CONTROLLED GATE CONFIGURATION
-====================================================== */}
+      {/* ======================================================
+          CONTROLLED GATE CONFIGURATION
+      ====================================================== */}
 
-<ControlledGateEditor
-  qubits={qubits}
-  columns={columns}
-  circuit={circuit}
-  onCircuitChange={
-    handleEditorCircuitChange
-  }
-/>
+      <ControlledGateEditor
+        qubits={qubits}
+        columns={columns}
+        circuit={circuit}
+        onCircuitChange={
+          handleEditorCircuitChange
+        }
+      />
 
-{/* ======================================================
-    CIRCUIT VALIDATION
-====================================================== */}
+      {/* ======================================================
+          CIRCUIT VALIDATION
+      ====================================================== */}
 
-<section className="border border-slate-800 bg-black p-6">
+      <section className="border border-slate-800 bg-black p-6">
 
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-    <div>
+          <div>
 
-      <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
-        Circuit Validation
-      </p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
+              Circuit Validation
+            </p>
 
-      <h2 className="mt-1 text-lg font-bold text-white">
-        Circuit integrity
-      </h2>
+            <h2 className="mt-1 text-lg font-bold text-white">
+              Circuit integrity
+            </h2>
 
-    </div>
-
-    <div
-      className={`border px-3 py-2 text-xs font-bold ${
-        validation.valid
-          ? "border-green-800 text-green-400"
-          : "border-red-800 text-red-400"
-      }`}
-    >
-      {validation.valid
-        ? "VALID CIRCUIT"
-        : "INVALID CIRCUIT"}
-    </div>
-
-  </div>
-
-  {validation.errors.length >
-    0 && (
-    <div className="mt-5 space-y-2">
-
-      {validation.errors.map(
-        (
-          issue,
-          index,
-        ) => (
-          <div
-            key={`error-${index}`}
-            className="border border-red-900 bg-red-950/30 p-3 text-sm text-red-300"
-          >
-            {issue.message}
           </div>
-        ),
-      )}
 
-    </div>
-  )}
-
-  {validation.warnings.length >
-    0 && (
-    <div className="mt-5 space-y-2">
-
-      {validation.warnings.map(
-        (
-          issue,
-          index,
-        ) => (
           <div
-            key={`warning-${index}`}
-            className="border border-yellow-900 bg-yellow-950/20 p-3 text-sm text-yellow-300"
+            className={`border px-3 py-2 text-xs font-bold ${
+              validation.valid
+                ? "border-green-800 text-green-400"
+                : "border-red-800 text-red-400"
+            }`}
           >
-            {issue.message}
+            {validation.valid
+              ? "VALID CIRCUIT"
+              : "INVALID CIRCUIT"}
           </div>
-        ),
-      )}
 
-    </div>
-  )}
+        </div>
 
-  {validation.valid &&
-    validation.warnings.length ===
-      0 && (
-      <p className="mt-5 text-sm text-green-400">
-        All circuit operations are structurally valid.
-      </p>
-    )}
+        {validation.errors.length >
+          0 && (
+          <div className="mt-5 space-y-2">
 
-</section>
+            {validation.errors.map(
+              (
+                issue,
+                index,
+              ) => (
+                <div
+                  key={`error-${index}`}
+                  className="border border-red-900 bg-red-950/30 p-3 text-sm text-red-300"
+                >
+                  {issue.message}
+                </div>
+              ),
+            )}
+
+          </div>
+        )}
+
+        {validation.warnings.length >
+          0 && (
+          <div className="mt-5 space-y-2">
+
+            {validation.warnings.map(
+              (
+                issue,
+                index,
+              ) => (
+                <div
+                  key={`warning-${index}`}
+                  className="border border-yellow-900 bg-yellow-950/20 p-3 text-sm text-yellow-300"
+                >
+                  {issue.message}
+                </div>
+              ),
+            )}
+
+          </div>
+        )}
+
+        {validation.valid &&
+          validation.warnings.length ===
+            0 && (
+            <p className="mt-5 text-sm text-green-400">
+              All circuit operations are structurally valid.
+            </p>
+          )}
+
+      </section>
 
       {/* ======================================================
           STATE VECTOR
       ====================================================== */}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="border border-slate-800 bg-[#0a0f18] p-6 shadow-sm">
 
         <div className="mb-5">
 
-          <h2 className="font-bold text-slate-950">
+          <h2 className="font-bold text-white">
             Quantum State
           </h2>
 
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-400">
             Current state vector after
             applying the circuit.
           </p>
@@ -1147,12 +1141,12 @@ function handleLoadCircuit(
               return (
                 <div
                   key={index}
-                  className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                  className="border border-slate-800 bg-[#070b12] p-4"
                 >
 
                   <div className="flex items-center justify-between">
 
-                    <span className="font-mono font-semibold">
+                    <span className="font-mono font-semibold text-slate-200">
                       |
                       {
                         basisLabel(
@@ -1163,7 +1157,7 @@ function handleLoadCircuit(
                       ⟩
                     </span>
 
-                    <span className="font-mono text-sm">
+                    <span className="font-mono text-sm text-slate-300">
                       {
                         formatComplex(
                           amplitude,
@@ -1173,10 +1167,10 @@ function handleLoadCircuit(
 
                   </div>
 
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div className="mt-3 h-2 overflow-hidden bg-slate-800">
 
                     <div
-                      className="h-full rounded-full bg-blue-600 transition-all"
+                      className="h-full bg-blue-600 transition-all"
                       style={{
                         width: `${Math.min(
                           probability *
@@ -1216,54 +1210,54 @@ function handleLoadCircuit(
       />
 
       {/* ======================================================
-    MEASUREMENT
-====================================================== */}
+          MEASUREMENT
+      ====================================================== */}
 
-<MeasurementPanel
-  result={
-    measurementResult
-  }
-  onMeasure={
-    runMeasurement
-  }
-/>
+      <MeasurementPanel
+        result={
+          measurementResult
+        }
+        onMeasure={
+          runMeasurement
+        }
+      />
 
-{/* ======================================================
-    CODE GENERATION
-====================================================== */}
+      {/* ======================================================
+          CODE GENERATION
+      ====================================================== */}
 
-<CodeGenerator
-  qubits={qubits}
-  circuit={circuit}
-/>
+      <CodeGenerator
+        qubits={qubits}
+        circuit={circuit}
+      />
 
-{/* ======================================================
-    CIRCUIT STORAGE
-====================================================== */}
+      {/* ======================================================
+          CIRCUIT STORAGE
+      ====================================================== */}
 
-<CircuitStorage
-  qubits={qubits}
-  circuit={circuit}
-  onLoad={
-    handleLoadCircuit
-  }
-/>
+      <CircuitStorage
+        qubits={qubits}
+        circuit={circuit}
+        onLoad={
+          handleLoadCircuit
+        }
+      />
 
       {/* ======================================================
           EXPERIMENT
       ====================================================== */}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="border border-slate-800 bg-[#0a0f18] p-6 shadow-sm">
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
           <div>
 
-            <h2 className="font-bold text-slate-950">
+            <h2 className="font-bold text-white">
               Experiment
             </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-400">
               Run the circuit repeatedly
               and observe measurement
               outcomes.
@@ -1275,7 +1269,7 @@ function handleLoadCircuit(
 
             <label
               htmlFor="shots"
-              className="text-sm font-medium text-slate-700"
+              className="text-sm font-medium text-slate-300"
             >
               Shots
             </label>
@@ -1290,7 +1284,7 @@ function handleLoadCircuit(
                   ),
                 )
               }
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="border border-slate-700 bg-[#070b12] px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
             >
 
               <option value={10}>
@@ -1316,7 +1310,7 @@ function handleLoadCircuit(
               onClick={
                 runExperiment
               }
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              className="bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
             >
               Run
             </button>
