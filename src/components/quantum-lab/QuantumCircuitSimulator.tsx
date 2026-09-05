@@ -31,6 +31,17 @@ import MeasurementPanel from "./MeasurementPanel";
 import CodeGenerator from "./CodeGenerator";
 import CircuitStorage from "./CircuitStorage";
 
+import BackendSelector from "./BackendSelector";
+import MultiBackendResult from "./MultiBackendResult";
+
+import type {
+  QuantumBackend,
+} from "@/lib/quantum/backends/types";
+
+import type {
+  BackendExecutionResult,
+} from "@/lib/quantum/backends/types";
+
 import {
   validateCircuit,
 } from "@/lib/quantum/validation";
@@ -142,6 +153,24 @@ export default function QuantumCircuitSimulator() {
   // ==========================================================
 
   const [shots, setShots] = useState(100);
+
+    // ==========================================================
+  // MULTI-BACKEND SIMULATION
+  // ==========================================================
+
+  const [backend, setBackend] =
+    useState<QuantumBackend>("local");
+
+  const [backendResult, setBackendResult] =
+    useState<BackendExecutionResult | null>(
+      null,
+    );
+
+  const [backendLoading, setBackendLoading] =
+    useState(false);
+
+  const [backendError, setBackendError] =
+    useState<string | null>(null);
 
   const [measurementResults, setMeasurementResults] =
     useState<number[]>([]);
@@ -661,6 +690,154 @@ export default function QuantumCircuitSimulator() {
     });
   }
 
+    // ==========================================================
+  // MULTI-BACKEND EXECUTION
+  // ==========================================================
+
+  async function runBackendSimulation() {
+    if (!validation.valid) {
+      setBackendError(
+        "Fix the circuit validation errors before running the simulation.",
+      );
+      return;
+    }
+
+    setBackendLoading(true);
+    setBackendError(null);
+    setBackendResult(null);
+
+    try {
+      if (backend === "local") {
+        const localState =
+          simulateCircuit(
+            qubits,
+            circuit,
+          );
+
+        const localProbabilities =
+          calculateProbabilities(
+            localState,
+          );
+
+        const localResults =
+          sampleMeasurement(
+            localProbabilities,
+            shots,
+          );
+
+        const localCounts: Record<
+          string,
+          number
+        > = {};
+
+        for (
+          const index of localResults
+        ) {
+          const label =
+            basisLabel(
+              index,
+              qubits,
+            );
+
+          localCounts[label] =
+            (localCounts[label] ??
+              0) + 1;
+        }
+
+        setBackendResult({
+          success: true,
+          backend: "local",
+          statevector:
+            localState.map(
+              (value) => ({
+                re: value.re,
+                im: value.im,
+              }),
+            ),
+          probabilities:
+            localProbabilities,
+          probabilityMap:
+            Object.fromEntries(
+              localProbabilities.map(
+                (probability, index) => [
+                  index
+                    .toString(2)
+                    .padStart(
+                      qubits,
+                      "0",
+                    ),
+                  probability,
+                ],
+              ),
+            ),
+          counts:
+            localCounts,
+        });
+
+        return;
+      }
+
+      const response =
+        await fetch(
+          "/api/quantum-lab/execute",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              backend,
+              qubits,
+              shots,
+              circuit,
+            }),
+          },
+        );
+
+      const data =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.error ??
+            "Quantum backend execution failed.",
+        );
+      }
+
+      setBackendResult(
+        data as BackendExecutionResult,
+      );
+
+      void logLabActivity({
+        activityType:
+          "circuit_run",
+        qubits,
+        gateCount,
+        circuitDepth,
+        shots,
+        gates: circuit,
+        circuit,
+        metadata: {
+          backend,
+          executionMode:
+            "multi_backend",
+        },
+      });
+    } catch (error) {
+      setBackendError(
+        error instanceof Error
+          ? error.message
+          : "Quantum simulation failed.",
+      );
+    } finally {
+      setBackendLoading(false);
+    }
+  }
+
   // ==========================================================
   // UNDO
   // ==========================================================
@@ -930,6 +1107,54 @@ export default function QuantumCircuitSimulator() {
 
       </section>
 
+            {/* ======================================================
+          MULTI-BACKEND SIMULATION
+      ====================================================== */}
+
+      <BackendSelector
+        backend={backend}
+        onChange={(value) => {
+          setBackend(value);
+          setBackendResult(null);
+          setBackendError(null);
+        }}
+        disabled={backendLoading}
+      />
+
+      <section className="border border-slate-800 bg-[#0a0f18] p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-bold text-white">
+              Run Quantum Simulation
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-400">
+              Execute the current circuit using the selected backend.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={runBackendSimulation}
+            disabled={
+              backendLoading ||
+              !validation.valid
+            }
+            className="border border-blue-600 bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {backendLoading
+              ? "Running..."
+              : `Run on ${backend}`}
+          </button>
+        </div>
+      </section>
+
+      <MultiBackendResult
+        result={backendResult}
+        loading={backendLoading}
+        error={backendError}
+      />
+      
       {/* ======================================================
           CIRCUIT STATISTICS
       ====================================================== */}
