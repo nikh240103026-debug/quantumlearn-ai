@@ -1,5 +1,7 @@
 qiskit>=1.4,<3
 qiskit-aer>=0.15,<1
+cirq>=1.5,<2
+pennylane>=0.40,<1
 numpy>=1.26,<3
 scipy>=1.12,<2
 matplotlib>=3.8,<4
