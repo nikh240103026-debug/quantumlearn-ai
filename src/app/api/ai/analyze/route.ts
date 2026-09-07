@@ -1,12 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+
+import {
+  createSupabaseServerClient,
+} from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY =
+  process.env.GEMINI_API_KEY;
+
 const GEMINI_MODEL =
-  process.env.GEMINI_TUTOR_MODEL ?? "gemini-3.5-flash-lite";
+  process.env.GEMINI_TUTOR_MODEL ??
+  "gemini-3.5-flash-lite";
 
 type AnalysisResult = {
   strengths: string[];
@@ -18,6 +27,19 @@ type AnalysisResult = {
   recommendedDifficulty: string;
   reason: string;
   priorityActions: string[];
+};
+
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
 };
 
 function normalizeStringArray(
@@ -38,79 +60,143 @@ function normalizeStringArray(
     .slice(0, maxItems);
 }
 
+function extractJsonText(
+  text: string,
+): string {
+  const cleaned = text
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  const firstBrace =
+    cleaned.indexOf("{");
+
+  const lastBrace =
+    cleaned.lastIndexOf("}");
+
+  if (
+    firstBrace !== -1 &&
+    lastBrace !== -1 &&
+    lastBrace > firstBrace
+  ) {
+    return cleaned.slice(
+      firstBrace,
+      lastBrace + 1,
+    );
+  }
+
+  return cleaned;
+}
+
 function parseAnalysis(
   text: string,
 ): AnalysisResult {
   try {
-    const cleaned = text
-      .replace(/^```json\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
+    const jsonText =
+      extractJsonText(text);
 
-    const parsed = JSON.parse(cleaned);
+    const parsed =
+      JSON.parse(jsonText) as Record<
+        string,
+        unknown
+      >;
+
+    const rawChapter = Number(
+      parsed.recommendedChapter,
+    );
 
     const recommendedChapter =
-      Number.isFinite(
-        Number(parsed.recommendedChapter),
-      )
-        ? Number(parsed.recommendedChapter)
+      Number.isFinite(rawChapter) &&
+      rawChapter >= 1 &&
+      rawChapter <= 10
+        ? rawChapter
         : null;
 
+    const recommendedDifficulty =
+      typeof parsed.recommendedDifficulty ===
+      "string"
+        ? parsed.recommendedDifficulty
+            .trim()
+            .toLowerCase()
+        : "medium";
+
     return {
-      strengths: normalizeStringArray(
-        parsed.strengths,
-      ),
-      weakAreas: normalizeStringArray(
-        parsed.weakAreas,
-      ),
+      strengths:
+        normalizeStringArray(
+          parsed.strengths,
+          5,
+        ),
+
+      weakAreas:
+        normalizeStringArray(
+          parsed.weakAreas,
+          5,
+        ),
+
       learningPattern:
-        typeof parsed.learningPattern === "string"
+        typeof parsed.learningPattern ===
+        "string"
           ? parsed.learningPattern.trim()
           : "Insufficient activity data.",
+
       practicePattern:
-        typeof parsed.practicePattern === "string"
+        typeof parsed.practicePattern ===
+        "string"
           ? parsed.practicePattern.trim()
           : "Insufficient practice data.",
+
       recommendedNextTopic:
         typeof parsed.recommendedNextTopic ===
         "string"
           ? parsed.recommendedNextTopic.trim()
           : "Review your current learning topic.",
-      recommendedChapter:
-        recommendedChapter !== null &&
-        recommendedChapter >= 1 &&
-        recommendedChapter <= 10
-          ? recommendedChapter
-          : null,
+
+      recommendedChapter,
+
       recommendedDifficulty:
-        typeof parsed.recommendedDifficulty ===
-        "string"
-          ? parsed.recommendedDifficulty.trim()
+        recommendedDifficulty === "easy" ||
+        recommendedDifficulty ===
+          "medium" ||
+        recommendedDifficulty === "hard"
+          ? recommendedDifficulty
           : "medium",
+
       reason:
-        typeof parsed.reason === "string"
+        typeof parsed.reason ===
+        "string"
           ? parsed.reason.trim()
           : "Recommendation based on your available learning activity.",
-      priorityActions: normalizeStringArray(
-        parsed.priorityActions,
-        5,
-      ),
+
+      priorityActions:
+        normalizeStringArray(
+          parsed.priorityActions,
+          5,
+        ),
     };
   } catch {
     return {
       strengths: [],
       weakAreas: [],
+
       learningPattern:
         "The analysis could not be parsed.",
+
       practicePattern:
         "The analysis could not be parsed.",
+
       recommendedNextTopic:
         "Continue reviewing your recent lessons.",
+
       recommendedChapter: null,
-      recommendedDifficulty: "medium",
+
+      recommendedDifficulty:
+        "medium",
+
       reason:
         "The AI analysis response was not in the expected format.",
+
       priorityActions: [],
     };
   }
@@ -126,36 +212,44 @@ async function generateAnalysis(
   }
 
   const endpoint =
-    `https://generativelanguage.googleapis.com/v1beta/models/` +
-    `${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [
-          {
-            text: `
-You are the learning intelligence engine for QuantumLearn AI.
+  const response =
+    await fetch(
+      endpoint,
+      {
+        method: "POST",
 
-Analyze only the learner data provided to you.
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
 
-Do not invent:
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [
+              {
+                text: `
+You are the Learning Intelligence Engine for QuantumLearn AI.
+
+Analyze ONLY the learner data supplied by the application.
+
+Never invent:
 - scores
 - attempts
 - completed lessons
 - topics
-- laboratory activity
+- coding achievements
+- Quantum Lab activity
 - learning time
 - strengths
 - weaknesses
 
-If there is insufficient evidence, explicitly say so.
+If the available evidence is insufficient, explicitly say so.
 
-Return ONLY valid JSON with this exact structure:
+Return ONLY valid JSON.
+
+Use exactly this structure:
 
 {
   "strengths": ["..."],
@@ -169,53 +263,72 @@ Return ONLY valid JSON with this exact structure:
   "priorityActions": ["...", "..."]
 }
 
-The recommended chapter must be a number from 1 to 10 or null.
-Keep recommendations practical and educational.
+Rules:
+- recommendedChapter must be an integer from 1 to 10 or null.
+- Keep recommendations practical.
+- Use only evidence from the supplied learner data.
+- Do not claim mastery without evidence.
+- Prefer targeted revision when practice performance is weak.
+- Prefer unfinished lessons when curriculum progress is incomplete.
+- Consider coding challenge activity when making programming recommendations.
+- Consider Quantum Lab activity when making circuit/simulation recommendations.
+- Keep all recommendations within quantum computing education.
 `.trim(),
+              },
+            ],
           },
-        ],
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [
+
+          contents: [
             {
-              text: prompt,
+              role: "user",
+              parts: [
+                {
+                  text: prompt,
+                },
+              ],
             },
           ],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.2,
-        topP: 0.8,
-        maxOutputTokens: 1600,
-        responseMimeType: "application/json",
-      },
-    }),
-    cache: "no-store",
-  });
 
-  const data = await response.json();
+          generationConfig: {
+            temperature: 0.2,
+            topP: 0.8,
+            maxOutputTokens: 1600,
+            responseMimeType:
+              "application/json",
+          },
+        }),
+
+        cache: "no-store",
+      },
+    );
+
+  const data =
+    (await response.json()) as GeminiResponse;
 
   if (!response.ok) {
-    const error = new Error(
-      data?.error?.message ??
-        `Gemini request failed with status ${response.status}.`,
-    );
+    const error =
+      new Error(
+        data?.error?.message ??
+          `Gemini request failed with status ${response.status}.`,
+      );
 
     (
       error as Error & {
         status?: number;
       }
-    ).status = response.status;
+    ).status =
+      response.status;
 
     throw error;
   }
 
   const text =
-    data?.candidates?.[0]?.content?.parts
+    data?.candidates?.[0]
+      ?.content?.parts
       ?.map(
-        (part: { text?: string }) =>
+        (
+          part,
+        ) =>
           part.text ?? "",
       )
       .join("")
@@ -238,61 +351,112 @@ export async function POST(
       await createSupabaseServerClient();
 
     const {
-      data: { user },
+      data: {
+        user,
+      },
       error: userError,
-    } = await supabase.auth.getUser();
+    } =
+      await supabase.auth.getUser();
 
-    if (userError || !user) {
+    if (
+      userError ||
+      !user
+    ) {
       return NextResponse.json(
         {
           error:
             "You must be logged in to generate your learning analysis.",
         },
-        { status: 401 },
+        {
+          status: 401,
+        },
       );
     }
 
-    /*
-     * ---------------------------------------------------------
-     * LOAD REAL LEARNING DATA
-     * ---------------------------------------------------------
-     */
+    // ========================================================
+    // LOAD REAL LEARNING DATA
+    // ========================================================
 
     const [
       profileResult,
       progressResult,
       practiceResult,
       activityResult,
+      labActivityResult,
     ] = await Promise.all([
       supabase
         .from("profiles")
         .select("full_name")
-        .eq("id", user.id)
+        .eq(
+          "id",
+          user.id,
+        )
         .maybeSingle(),
 
       supabase
         .from("user_progress")
         .select("*")
-        .eq("user_id", user.id),
+        .eq(
+          "user_id",
+          user.id,
+        ),
 
       supabase
         .from("practice_results")
         .select("*")
-        .eq("user_id", user.id)
-        .order("completed_at", {
-          ascending: false,
-        })
+        .eq(
+          "user_id",
+          user.id,
+        )
+        .order(
+          "completed_at",
+          {
+            ascending:
+              false,
+          },
+        )
         .limit(100),
 
       supabase
         .from("ai_activity")
         .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", {
-          ascending: false,
-        })
+        .eq(
+          "user_id",
+          user.id,
+        )
+        .order(
+          "created_at",
+          {
+            ascending:
+              false,
+          },
+        )
+        .limit(100),
+
+      supabase
+        .from(
+          "quantum_lab_activity",
+        )
+        .select(
+          "activity_type, qubits, shots, backend, created_at",
+        )
+        .eq(
+          "user_id",
+          user.id,
+        )
+        .order(
+          "created_at",
+          {
+            ascending:
+              false,
+          },
+        )
         .limit(100),
     ]);
+
+    // ========================================================
+    // QUERY WARNINGS
+    // ========================================================
 
     if (profileResult.error) {
       console.warn(
@@ -322,75 +486,174 @@ export async function POST(
       );
     }
 
+    if (
+      labActivityResult.error
+    ) {
+      console.warn(
+        "Quantum Lab activity query error:",
+        labActivityResult.error,
+      );
+    }
+
+    // ========================================================
+    // NORMALIZE DATA
+    // ========================================================
+
     const profile =
-      profileResult.data ?? null;
+      profileResult.data ??
+      null;
 
     const progress =
-      progressResult.data ?? [];
+      progressResult.data ??
+      [];
 
     const practiceResults =
-      practiceResult.data ?? [];
+      practiceResult.data ??
+      [];
 
     const activities =
-      activityResult.data ?? [];
+      activityResult.data ??
+      [];
 
-    /*
-     * ---------------------------------------------------------
-     * CREATE SAFE SUMMARY FOR THE MODEL
-     * ---------------------------------------------------------
-     */
+    const labActivities =
+      labActivityResult.data ??
+      [];
+
+    // ========================================================
+    // SAFE PRACTICE SUMMARY
+    // ========================================================
 
     const practiceSummary =
-      practiceResults.map((result) => ({
-        lesson_slug:
-          result.lesson_slug ?? null,
-        score:
-          typeof result.score === "number"
-            ? result.score
-            : null,
-        total_questions:
-          typeof result.total_questions ===
-          "number"
-            ? result.total_questions
-            : null,
-        percentage:
-          typeof result.percentage ===
-          "number"
-            ? result.percentage
-            : null,
-        completed_at:
-          result.completed_at ?? null,
-      }));
+      practiceResults.map(
+        (result) => ({
+          lesson_slug:
+            result.lesson_slug ??
+            null,
+
+          score:
+            typeof result.score ===
+            "number"
+              ? result.score
+              : null,
+
+          total_questions:
+            typeof result.total_questions ===
+            "number"
+              ? result.total_questions
+              : null,
+
+          percentage:
+            typeof result.percentage ===
+            "number"
+              ? result.percentage
+              : null,
+
+          completed_at:
+            result.completed_at ??
+            null,
+        }),
+      );
+
+    // ========================================================
+    // SAFE AI ACTIVITY SUMMARY
+    // ========================================================
 
     const activitySummary =
-      activities.map((activity) => ({
-        activity_type:
-          activity.activity_type ?? null,
-        source_page:
-          activity.source_page ?? null,
-        topic:
-          activity.topic ?? null,
-        description:
-          activity.description ?? null,
-        created_at:
-          activity.created_at ?? null,
-      }));
+      activities.map(
+        (activity) => ({
+          activity_type:
+            activity.activity_type ??
+            null,
+
+          source_page:
+            activity.source_page ??
+            null,
+
+          topic:
+            activity.topic ??
+            null,
+
+          description:
+            activity.description ??
+            null,
+
+          created_at:
+            activity.created_at ??
+            null,
+        }),
+      );
+
+    // ========================================================
+    // SAFE QUANTUM LAB SUMMARY
+    // ========================================================
+
+    const labActivitySummary =
+      labActivities.map(
+        (activity) => ({
+          activity_type:
+            activity.activity_type ??
+            null,
+
+          qubits:
+            typeof activity.qubits ===
+            "number"
+              ? activity.qubits
+              : null,
+
+          shots:
+            typeof activity.shots ===
+            "number"
+              ? activity.shots
+              : null,
+
+          backend:
+            typeof activity.backend ===
+            "string"
+              ? activity.backend
+              : null,
+
+          created_at:
+            activity.created_at ??
+            null,
+        }),
+      );
+
+    // ========================================================
+    // SAFE PROGRESS SUMMARY
+    // ========================================================
 
     const progressSummary =
-      progress.map((item) => ({
-        lesson_id:
-          item.lesson_id ?? null,
-        lesson_slug:
-          item.lesson_slug ?? null,
-        completed:
-          item.completed ?? null,
-        progress:
-          item.progress ?? null,
-        completed_at:
-          item.completed_at ?? null,
-        updated_at:
-          item.updated_at ?? null,
-      }));
+      progress.map(
+        (item) => ({
+          lesson_id:
+            item.lesson_id ??
+            null,
+
+          lesson_slug:
+            item.lesson_slug ??
+            null,
+
+          completed:
+            item.completed ??
+            null,
+
+          progress:
+            item.progress ??
+            null,
+
+          completed_at:
+            item.completed_at ??
+            null,
+
+          updated_at:
+            item.updated_at ??
+            null,
+        }),
+      );
+
+    // ========================================================
+    // BUILD AI PROMPT
+    // ========================================================
 
     const prompt = `
 Learner profile:
@@ -405,63 +668,128 @@ ${JSON.stringify(practiceSummary)}
 Recent AI activity:
 ${JSON.stringify(activitySummary)}
 
-Analyze the learner's current learning state.
+Recent Quantum Lab activity:
+${JSON.stringify(labActivitySummary)}
+
+Analyze the learner's current learning state using ONLY the supplied evidence.
+
+The learner may use:
+- lessons
+- quizzes and practice
+- coding challenges
+- AI tutoring
+- Quantum Lab simulations
 
 Identify:
+
 1. Evidence-based strengths.
 2. Evidence-based weak areas.
 3. Learning pattern.
 4. Practice pattern.
-5. The best next topic.
-6. The appropriate chapter if evidence allows it.
+5. Best next topic.
+6. Appropriate chapter if supported by evidence.
 7. Appropriate difficulty.
-8. Why that recommendation is appropriate.
-9. The most useful priority actions.
+8. Reason for the recommendation.
+9. Most useful priority actions.
 
-Do not infer information that is not present in the supplied data.
+Important:
+- Do not invent scores.
+- Do not invent completed lessons.
+- Do not invent coding achievements.
+- Do not invent Quantum Lab activity.
+- Do not claim mastery without evidence.
+- If evidence is insufficient, say so.
+- Use the learner's actual activity.
+- Favor practical next actions.
+- When Quantum Lab activity is strong, recommend suitable circuit or simulation practice.
+- When practice performance is weak, recommend targeted revision.
+- When lessons are incomplete, recommend relevant unfinished learning.
+- When coding activity exists, use it when deciding programming-related recommendations.
+- Keep recommendations within the QuantumLearn quantum-computing curriculum.
+
+Return ONLY valid JSON matching the requested structure.
 `.trim();
 
+    // ========================================================
+    // GENERATE AI ANALYSIS
+    // ========================================================
+
     const analysis =
-      await generateAnalysis(prompt);
+      await generateAnalysis(
+        prompt,
+      );
 
-    /*
-     * ---------------------------------------------------------
-     * SAVE RECOMMENDATION
-     * ---------------------------------------------------------
-     */
+    // ========================================================
+    // SAVE PERSONALIZED RECOMMENDATION
+    // ========================================================
 
-    const { data: recommendation, error } =
+    const {
+      data: recommendation,
+      error:
+        recommendationError,
+    } =
       await supabase
-        .from("ai_recommendations")
+        .from(
+          "ai_recommendations",
+        )
         .insert({
-          user_id: user.id,
+          user_id:
+            user.id,
+
           recommendation_type:
             "learning_analysis",
+
           title:
             "Your Personalized Learning Analysis",
+
           recommendation:
             analysis.recommendedNextTopic,
-          reason: analysis.reason,
+
+          reason:
+            analysis.reason,
+
           recommended_topic:
             analysis.recommendedNextTopic,
+
           recommended_chapter:
             analysis.recommendedChapter,
+
           recommended_difficulty:
             analysis.recommendedDifficulty,
+
           priority:
-            analysis.priorityActions.length > 0
+            analysis.priorityActions
+              .length > 0
               ? "high"
               : "medium",
-          status: "active",
+
+          status:
+            "active",
+
           metadata: {
-            strengths: analysis.strengths,
-            weak_areas: analysis.weakAreas,
+            strengths:
+              analysis.strengths,
+
+            weak_areas:
+              analysis.weakAreas,
+
             learning_pattern:
               analysis.learningPattern,
+
             practice_pattern:
               analysis.practicePattern,
+
             priority_actions:
               analysis.priorityActions,
+
+            lab_activity_count:
+              labActivities.length,
+
+            practice_attempts:
+              practiceResults.length,
+
+            progress_records:
+              progress.length,
           },
         })
         .select(
@@ -484,10 +812,12 @@ Do not infer information that is not present in the supplied data.
         )
         .single();
 
-    if (error) {
+    if (
+      recommendationError
+    ) {
       console.error(
         "AI recommendation insert error:",
-        error,
+        recommendationError,
       );
 
       return NextResponse.json(
@@ -496,35 +826,58 @@ Do not infer information that is not present in the supplied data.
             "Analysis was generated, but could not be saved.",
           analysis,
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 
-    /*
-     * ---------------------------------------------------------
-     * LOG AI ACTIVITY
-     * ---------------------------------------------------------
-     */
+    // ========================================================
+    // LOG AI ACTIVITY
+    // ========================================================
 
-    const { error: activityError } =
+    const {
+      error:
+        activityError,
+    } =
       await supabase
-        .from("ai_activity")
+        .from(
+          "ai_activity",
+        )
         .insert({
-          user_id: user.id,
+          user_id:
+            user.id,
+
           activity_type:
             "analysis_generated",
-          source_page: "dashboard",
+
+          source_page:
+            "dashboard",
+
           topic:
             analysis.recommendedNextTopic,
+
           description:
             "Generated personalized learning analysis.",
+
           metadata: {
             recommendation_id:
               recommendation.id,
+
             recommended_chapter:
               analysis.recommendedChapter,
+
             recommended_difficulty:
               analysis.recommendedDifficulty,
+
+            weak_areas:
+              analysis.weakAreas,
+
+            priority_actions:
+              analysis.priorityActions,
+
+            lab_activity_count:
+              labActivities.length,
           },
         });
 
@@ -535,19 +888,28 @@ Do not infer information that is not present in the supplied data.
       );
     }
 
+    // ========================================================
+    // RESPONSE
+    // ========================================================
+
     return NextResponse.json(
       {
         success: true,
+
         learner: {
           name:
             profile?.full_name ??
             user.email ??
             "Learner",
         },
+
         analysis,
+
         recommendation,
       },
-      { status: 200 },
+      {
+        status: 200,
+      },
     );
   } catch (error) {
     console.error(
@@ -556,7 +918,8 @@ Do not infer information that is not present in the supplied data.
     );
 
     const status =
-      typeof error === "object" &&
+      typeof error ===
+        "object" &&
       error !== null &&
       "status" in error
         ? Number(
@@ -574,7 +937,9 @@ Do not infer information that is not present in the supplied data.
           error:
             "AI analysis is temporarily rate-limited. Please try again shortly.",
         },
-        { status: 429 },
+        {
+          status: 429,
+        },
       );
     }
 
@@ -587,7 +952,9 @@ Do not infer information that is not present in the supplied data.
           error:
             "AI provider authentication failed. Check GEMINI_API_KEY.",
         },
-        { status: 502 },
+        {
+          status: 502,
+        },
       );
     }
 
@@ -601,7 +968,9 @@ Do not infer information that is not present in the supplied data.
           error:
             "AI analysis is temporarily unavailable. Please try again shortly.",
         },
-        { status: 503 },
+        {
+          status: 503,
+        },
       );
     }
 
@@ -609,14 +978,18 @@ Do not infer information that is not present in the supplied data.
       {
         error:
           "Unable to generate learning analysis.",
+
         details:
-          process.env.NODE_ENV === "development"
+          process.env.NODE_ENV ===
+          "development"
             ? error instanceof Error
               ? error.message
               : String(error)
             : undefined,
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

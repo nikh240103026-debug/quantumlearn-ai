@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { CourseRoadmap } from "@/components/dashboard/CourseRoadmap";
 import { ProgressAnalytics } from "@/components/dashboard/ProgressAnalytics";
 import { calculateProgressAnalytics } from "@/lib/progress/progress-engine";
+import PersonalizedLearningPath from "@/components/dashboard/PersonalizedLearningPath";
 
 import {
   ArrowRight,
@@ -633,6 +634,7 @@ const progressAnalytics =
             progressAnalytics
           }
         />
+        <PersonalizedLearningPath />
 
         {/* =====================================================
             QUICK ACCESS
