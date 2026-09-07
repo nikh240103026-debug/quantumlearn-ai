@@ -18,6 +18,7 @@ const ALLOWED_ACTIVITY_TYPES = new Set([
   "practice_completed",
   "quantum_lab_tutor",
   "tutor_opened",
+  "coding_challenge_completed",
 ]);
 
 function cleanOptionalString(
