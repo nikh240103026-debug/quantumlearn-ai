@@ -1,165 +1,162 @@
-import {
-  spawn,
-} from "child_process";
-
-import path from "path";
-
 import type {
   BackendExecutionRequest,
   BackendExecutionResult,
 } from "./types";
 
-function getPythonExecutable() {
-  if (
-    process.env.QUANTUM_PYTHON_PATH
-  ) {
-    return process.env.QUANTUM_PYTHON_PATH;
-  }
+const QUANTUM_API_URL =
+  process.env.QUANTUM_API_URL;
 
-  if (
-    process.platform ===
-    "win32"
-  ) {
-    return path.join(
-      process.cwd(),
-      ".venv",
-      "Scripts",
-      "python.exe",
-    );
-  }
+const QUANTUM_API_KEY =
+  process.env.QUANTUM_API_KEY;
 
-  return path.join(
-    process.cwd(),
-    ".venv",
-    "bin",
-    "python",
-  );
-}
+const REQUEST_TIMEOUT_MS = 120_000;
 
 export async function runPythonQuantumBackend(
   request: BackendExecutionRequest,
 ): Promise<BackendExecutionResult> {
-  const python = getPythonExecutable();
+  if (!QUANTUM_API_URL) {
+    throw new Error(
+      "QUANTUM_API_URL is not configured.",
+    );
+  }
 
-  const script = path.join(
-    process.cwd(),
-    "quantum-engine",
-    "engine.py",
-  );
+  const controller =
+    new AbortController();
 
-  return new Promise(
-    (
-      resolve,
-      reject,
-    ) => {
-      const startedAt =
-        Date.now();
-
-      const child =
-        spawn(
-          python,
-          [
-            script,
-          ],
-          {
-            cwd:
-              process.cwd(),
-            windowsHide:
-              true,
-            stdio: [
-              "pipe",
-              "pipe",
-              "pipe",
-            ],
-          },
-        );
-
-      let stdout = "";
-      let stderr = "";
-
-      child.stdout.on(
-        "data",
-        (chunk) => {
-          stdout += chunk.toString();
-        },
-      );
-
-      child.stderr.on(
-        "data",
-        (chunk) => {
-          stderr += chunk.toString();
-        },
-      );
-
-      child.on(
-        "error",
-        (error) => {
-          reject(
-            new Error(
-              `Unable to start Python quantum engine: ${error.message}`,
-            ),
-          );
-        },
-      );
-
-      child.on(
-        "close",
-        (code) => {
-          if (
-            code !== 0
-          ) {
-            reject(
-              new Error(
-                stderr ||
-                  `Quantum engine exited with code ${code}.`,
-              ),
-            );
-            return;
-          }
-
-          try {
-            const parsed =
-              JSON.parse(
-                stdout.trim(),
-              ) as BackendExecutionResult & {
-                success: boolean;
-              };
-
-            if (
-              !parsed.success
-            ) {
-              reject(
-                new Error(
-                  parsed.error ??
-                    "Quantum backend execution failed.",
-                ),
-              );
-              return;
-            }
-
-            resolve({
-              ...parsed,
-              executionTimeMs:
-                Date.now() -
-                startedAt,
-            });
-          } catch {
-            reject(
-              new Error(
-                `Invalid quantum engine response. ${stderr}`,
-              ),
-            );
-          }
-        },
-      );
-
-      child.stdin.write(
-        JSON.stringify(
-          request,
-        ),
-      );
-
-      child.stdin.end();
+  const timeoutId = setTimeout(
+    () => {
+      controller.abort();
     },
+    REQUEST_TIMEOUT_MS,
   );
+
+  try {
+    const headers: Record<
+      string,
+      string
+    > = {
+      "Content-Type":
+        "application/json",
+    };
+
+    if (QUANTUM_API_KEY) {
+      headers[
+        "x-api-key"
+      ] = QUANTUM_API_KEY;
+    }
+
+    const response =
+      await fetch(
+        `${QUANTUM_API_URL.replace(
+          /\/+$/,
+          "",
+        )}/execute`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(
+            request,
+          ),
+          cache: "no-store",
+          signal:
+            controller.signal,
+        },
+      );
+
+    let payload: unknown;
+
+    try {
+      payload =
+        await response.json();
+    } catch {
+      throw new Error(
+        `Quantum API returned invalid JSON (HTTP ${response.status}).`,
+      );
+    }
+
+    if (!response.ok) {
+      let message =
+        `Quantum API request failed with status ${response.status}.`;
+
+      if (
+        typeof payload ===
+          "object" &&
+        payload !== null &&
+        "detail" in payload
+      ) {
+        const detail = (
+          payload as {
+            detail?: unknown;
+          }
+        ).detail;
+
+        if (detail) {
+          message =
+            String(detail);
+        }
+      }
+
+      if (
+        typeof payload ===
+          "object" &&
+        payload !== null &&
+        "error" in payload
+      ) {
+        const error = (
+          payload as {
+            error?: unknown;
+          }
+        ).error;
+
+        if (error) {
+          message =
+            String(error);
+        }
+      }
+
+      throw new Error(
+        message,
+      );
+    }
+
+    if (
+      typeof payload !==
+        "object" ||
+      payload === null
+    ) {
+      throw new Error(
+        "Quantum API returned an invalid response.",
+      );
+    }
+
+    const result =
+      payload as BackendExecutionResult;
+
+    if (
+      result.success !== true
+    ) {
+      throw new Error(
+        result.error ??
+          "Quantum backend execution failed.",
+      );
+    }
+
+    return result;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.name ===
+        "AbortError"
+    ) {
+      throw new Error(
+        "Quantum execution timed out after 120 seconds.",
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(
+      timeoutId,
+    );
+  }
 }

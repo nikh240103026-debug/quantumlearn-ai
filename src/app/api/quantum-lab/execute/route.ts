@@ -122,7 +122,7 @@ export async function POST(
         {
           success: false,
           error:
-            "Local simulation uses the existing QuantumLearn simulator.",
+            "Local simulation is handled by the browser simulator.",
         },
         {
           status: 400,
@@ -130,25 +130,25 @@ export async function POST(
       );
     }
 
-    const startedAt =
-      Date.now();
+    const quantumRequest: BackendExecutionRequest =
+      {
+        backend,
+        qubits,
+        shots,
+        circuit,
+      };
 
     const result =
       await runPythonQuantumBackend(
-        {
-          backend,
-          qubits,
-          shots,
-          circuit,
-        },
+        quantumRequest,
       );
 
-    return NextResponse.json({
-      ...result,
-      executionTimeMs:
-        Date.now() -
-        startedAt,
-    });
+    return NextResponse.json(
+      result,
+      {
+        status: 200,
+      },
+    );
   } catch (error) {
     console.error(
       "Quantum backend execution error:",

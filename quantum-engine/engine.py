@@ -1058,11 +1058,13 @@ def run_qbraid(
             "Configured qBraid device is not a simulator."
         )
 
-    if qubits > int(
-        device.num_qubits
+    max_qubits = device.num_qubits
+
+    if max_qubits is not None and qubits > int(
+        max_qubits
     ):
         raise ValueError(
-            f"qBraid device supports {device.num_qubits} qubits; requested {qubits}."
+            f"qBraid device supports {max_qubits} qubits; requested {qubits}."
         )
 
     qasm = circuit_to_qasm3(
@@ -1075,7 +1077,38 @@ def run_qbraid(
         shots=shots,
     )
 
-    result = job.result()
+    job_item = job
+
+    if isinstance(job_item, list):
+        if not job_item:
+            raise RuntimeError(
+                "qBraid returned no job."
+            )
+
+        job_item = job_item[0]
+
+    get_result = getattr(
+        job_item,
+        "result",
+        None,
+    )
+
+    if not callable(get_result):
+        raise RuntimeError(
+            "qBraid returned a job without a result method."
+        )
+
+    raw_result = get_result()
+
+    if isinstance(raw_result, list):
+        if not raw_result:
+            raise RuntimeError(
+                "qBraid returned no result."
+            )
+
+        result = raw_result[0]
+    else:
+        result = raw_result
 
     data = getattr(
         result,
@@ -1128,6 +1161,12 @@ def run_qbraid(
     # Therefore the statevector is intentionally
     # returned as None rather than pretending that
     # sqrt(probability) is a physical statevector.
+    status = getattr(
+        result,
+        "status",
+        None,
+    )
+
     return {
         "statevector": None,
         "probabilities": probabilities,
@@ -1143,29 +1182,9 @@ def run_qbraid(
         "shots": shots,
         "qasm": qasm,
         "qbraidStatus": getattr(
-            result,
-            "status",
-            None,
-        ).value
-        if getattr(
-            result,
-            "status",
-            None,
-        ) is not None
-        and hasattr(
-            getattr(
-                result,
-                "status",
-                None,
-            ),
+            status,
             "value",
-        )
-        else str(
-            getattr(
-                result,
-                "status",
-                "COMPLETED",
-            )
+            str(status or "COMPLETED"),
         ),
     }
 
