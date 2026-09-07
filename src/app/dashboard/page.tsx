@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { CourseRoadmap } from "@/components/dashboard/CourseRoadmap";
+import { ProgressAnalytics } from "@/components/dashboard/ProgressAnalytics";
+import { calculateProgressAnalytics } from "@/lib/progress/progress-engine";
+
 import {
   ArrowRight,
   Atom,
@@ -132,6 +135,51 @@ const practiceQuestionsAnswered =
       total + (result.total_questions ?? 0),
     0,
   ) ?? 0;
+
+  // ==========================================================
+// AI ACTIVITY
+// ==========================================================
+
+const { data: aiActivities } =
+  await supabase
+    .from("ai_activity")
+    .select(
+      "activity_type, metadata, created_at",
+    )
+    .eq(
+      "user_id",
+      user.id,
+    )
+    .order(
+      "created_at",
+      {
+        ascending: false,
+      },
+    )
+    .limit(500);
+
+// ==========================================================
+// QUANTUM LAB ACTIVITY
+// ==========================================================
+
+const { data: labActivities } =
+  await supabase
+    .from("quantum_lab_activity")
+    .select(
+      "activity_type, created_at, qubits, shots",
+    )
+    .eq(
+      "user_id",
+      user.id,
+    )
+    .order(
+      "created_at",
+      {
+        ascending: false,
+      },
+    )
+    .limit(500);
+
   // ==========================================================
   // DASHBOARD STATISTICS
   // ==========================================================
@@ -158,6 +206,56 @@ const practiceQuestionsAnswered =
 
   const coursesStarted =
     progressRows && progressRows.length > 0 ? 1 : 0;
+
+    // ==========================================================
+// REAL PROGRESS ANALYTICS
+// ==========================================================
+
+const progressAnalytics =
+  calculateProgressAnalytics({
+    lessons:
+      (lessons ?? []).map(
+        (lesson) => {
+          const progress =
+            progressRows?.find(
+              (row) =>
+                row.lesson_id ===
+                lesson.id,
+            );
+
+          return {
+            id: lesson.id,
+            progress:
+              progress?.progress ??
+              0,
+            completed:
+              progress?.completed ??
+              false,
+          };
+        },
+      ),
+
+    practiceResults:
+      results.map(
+        (result) => ({
+          score:
+            result.score ??
+            0,
+          total_questions:
+            result.total_questions ??
+            0,
+          percentage:
+            result.percentage ??
+            0,
+        }),
+      ),
+
+    aiActivities:
+      aiActivities ?? [],
+
+    labActivities:
+      labActivities ?? [],
+  });
 
   // ==========================================================
   // FIND NEXT INCOMPLETE LESSON
@@ -525,6 +623,16 @@ const practiceQuestionsAnswered =
             </div>
           </div>
         </section>
+
+        {/* =====================================================
+            REAL PROGRESS ANALYTICS
+        ===================================================== */}
+
+        <ProgressAnalytics
+          analytics={
+            progressAnalytics
+          }
+        />
 
         {/* =====================================================
             QUICK ACCESS
