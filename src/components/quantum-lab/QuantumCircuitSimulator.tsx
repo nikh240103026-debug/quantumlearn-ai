@@ -270,6 +270,8 @@ export default function QuantumCircuitSimulator() {
 
     setMeasurementResult(null);
     setMeasurementResults([]);
+    setBackendResult(null);
+    setBackendError(null);
   }
 
   // ==========================================================
@@ -544,6 +546,8 @@ export default function QuantumCircuitSimulator() {
     setMeasurementResult(null);
 
     setMeasurementResults([]);
+    setBackendResult(null);
+    setBackendError(null);
 
     void logLabActivity({
       activityType:
@@ -605,6 +609,8 @@ export default function QuantumCircuitSimulator() {
     setMeasurementResult(null);
 
     setMeasurementResults([]);
+    setBackendResult(null);
+    setBackendError(null);
   }
 
   // ==========================================================
@@ -759,19 +765,21 @@ export default function QuantumCircuitSimulator() {
           probabilityMap:
             Object.fromEntries(
               localProbabilities.map(
-                (probability, index) => [
-                  index
-                    .toString(2)
-                    .padStart(
-                      qubits,
-                      "0",
-                    ),
+                (
+                  probability,
+                  index,
+                ) => [
+                  basisLabel(
+                    index,
+                    qubits,
+                  ),
                   probability,
                 ],
               ),
             ),
           counts:
             localCounts,
+          shots,
         });
 
         return;
@@ -921,6 +929,8 @@ export default function QuantumCircuitSimulator() {
     setMeasurementResult(null);
 
     setMeasurementResults([]);
+    setBackendResult(null);
+    setBackendError(null);
 
     void logLabActivity({
       activityType:

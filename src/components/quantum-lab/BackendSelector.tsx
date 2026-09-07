@@ -1,48 +1,55 @@
 "use client";
 
-import type { QuantumBackend } from "@/lib/quantum/backends/types";
+import type {
+  QuantumBackend,
+} from "@/lib/quantum/backends/types";
 
 type Props = {
   backend: QuantumBackend;
-  onChange: (backend: QuantumBackend) => void;
+  onChange: (
+    backend: QuantumBackend,
+  ) => void;
   disabled?: boolean;
 };
 
-const BACKENDS: {
+const BACKENDS: Array<{
   id: QuantumBackend;
   name: string;
   description: string;
-  enabled: boolean;
-}[] = [
+}> = [
   {
     id: "local",
     name: "QuantumLearn Local",
-    description: "Built-in simulator",
-    enabled: true,
+    description:
+      "Built-in local simulator",
   },
+
   {
     id: "qiskit-aer",
     name: "Qiskit Aer",
-    description: "Qiskit Aer simulator",
-    enabled: true,
+    description:
+      "Qiskit Aer simulator",
   },
+
   {
     id: "pennylane",
     name: "PennyLane",
-    description: "PennyLane simulator",
-    enabled: true,
+    description:
+      "PennyLane simulator",
   },
+
   {
     id: "cirq",
     name: "Cirq",
-    description: "Google Cirq simulator",
-    enabled: true,
+    description:
+      "Google Cirq simulator",
   },
+
   {
     id: "qbraid",
     name: "qBraid",
-    description: "Cloud execution",
-    enabled: false,
+    description:
+      "qBraid QIR simulator",
   },
 ];
 
@@ -63,60 +70,55 @@ export default function BackendSelector({
         </h2>
 
         <p className="mt-1 text-sm text-slate-400">
-          Execute the current circuit using a quantum simulation framework.
+          Execute the current circuit using the selected backend.
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {BACKENDS.map((item) => {
-          const selected =
-            backend === item.id;
+        {BACKENDS.map(
+          (item) => {
+            const selected =
+              backend === item.id;
 
-          return (
-            <button
-              key={item.id}
-              type="button"
-              disabled={
-                disabled ||
-                !item.enabled
-              }
-              onClick={() =>
-                onChange(item.id)
-              }
-              className={`border p-4 text-left transition ${
-                selected
-                  ? "border-blue-500 bg-blue-500/10"
-                  : "border-slate-800 bg-[#070b12] hover:border-slate-600"
-              } ${
-                !item.enabled
-                  ? "cursor-not-allowed opacity-40"
-                  : ""
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-white">
-                  {item.name}
-                </span>
-
-                {selected && (
-                  <span className="text-xs font-bold text-blue-400">
-                    ACTIVE
+            return (
+              <button
+                key={item.id}
+                type="button"
+                disabled={disabled}
+                onClick={() =>
+                  onChange(
+                    item.id,
+                  )
+                }
+                className={`border p-4 text-left transition ${
+                  selected
+                    ? "border-blue-500 bg-blue-500/10"
+                    : "border-slate-800 bg-[#070b12] hover:border-slate-600"
+                } ${
+                  disabled
+                    ? "cursor-not-allowed opacity-50"
+                    : ""
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-white">
+                    {item.name}
                   </span>
-                )}
-              </div>
 
-              <p className="mt-2 text-xs text-slate-500">
-                {item.description}
-              </p>
+                  {selected && (
+                    <span className="text-[10px] font-bold text-blue-400">
+                      ACTIVE
+                    </span>
+                  )}
+                </div>
 
-              {!item.enabled && (
-                <p className="mt-2 text-[10px] font-semibold uppercase text-yellow-500">
-                  Coming soon
+                <p className="mt-2 text-xs text-slate-500">
+                  {item.description}
                 </p>
-              )}
-            </button>
-          );
-        })}
+              </button>
+            );
+          },
+        )}
       </div>
     </section>
   );

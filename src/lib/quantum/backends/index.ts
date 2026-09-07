@@ -6,9 +6,9 @@ import type {
 export const QUANTUM_BACKENDS: BackendInfo[] = [
   {
     id: "local",
-    name: "QuantumLearn Local Simulator",
+    name: "QuantumLearn Local",
     description:
-      "Built-in browser-compatible QuantumLearn statevector simulator.",
+      "Built-in browser-compatible QuantumLearn simulator.",
     type: "local",
     available: true,
   },
@@ -17,7 +17,7 @@ export const QUANTUM_BACKENDS: BackendInfo[] = [
     id: "qiskit-aer",
     name: "Qiskit Aer",
     description:
-      "IBM Qiskit Aer high-performance simulator.",
+      "Qiskit Aer high-performance simulator.",
     type: "framework",
     available: true,
   },
@@ -26,7 +26,7 @@ export const QUANTUM_BACKENDS: BackendInfo[] = [
     id: "pennylane",
     name: "PennyLane",
     description:
-      "PennyLane quantum machine-learning simulator.",
+      "PennyLane quantum simulator.",
     type: "framework",
     available: true,
   },
@@ -35,18 +35,18 @@ export const QUANTUM_BACKENDS: BackendInfo[] = [
     id: "cirq",
     name: "Cirq",
     description:
-      "Google Cirq quantum circuit simulator.",
+      "Google Cirq quantum simulator.",
     type: "framework",
     available: true,
   },
 
   {
     id: "qbraid",
-    name: "qBraid",
+    name: "qBraid QIR Simulator",
     description:
-      "qBraid cloud quantum execution platform.",
+      "qBraid QIR Simulator using OpenQASM 3.",
     type: "cloud",
-    available: false,
+    available: true,
   },
 ];
 

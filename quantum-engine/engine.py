@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import traceback
 from collections import Counter
@@ -12,7 +13,10 @@ SUPPORTED_BACKENDS = [
     "qiskit-aer",
     "pennylane",
     "cirq",
+    "qbraid",
 ]
+
+QBRAID_DEVICE_ID = "qbraid:qbraid:sim:qir-sv"
 
 
 # ============================================================
@@ -33,7 +37,7 @@ def fail(message, code=400) -> NoReturn:
 
 
 # ============================================================
-# COMPLEX / RESULT HELPERS
+# RESULT HELPERS
 # ============================================================
 
 def clean_complex(value):
@@ -93,81 +97,127 @@ def state_to_result(state, qubits):
     }
 
 
-def sample_measurements(
-    probabilities,
+def counts_to_probabilities(
+    counts,
+    qubits,
     shots,
 ):
-    probabilities = np.asarray(
-        probabilities,
-        dtype=float,
+    probabilities = [
+        0.0
+        for _ in range(2 ** qubits)
+    ]
+
+    if not counts:
+        return probabilities
+
+    total_shots = sum(
+        int(value)
+        for value in counts.values()
     )
 
-    total = probabilities.sum()
+    if total_shots <= 0:
+        total_shots = shots
 
-    if total <= 0:
-        raise ValueError(
-            "Cannot sample from zero probabilities."
+    for bitstring, count in counts.items():
+        cleaned = str(bitstring).replace(
+            " ",
+            "",
         )
 
-    probabilities = (
-        probabilities / total
+        try:
+            index = int(
+                cleaned,
+                2,
+            )
+        except ValueError:
+            continue
+
+        if 0 <= index < len(
+            probabilities
+        ):
+            probabilities[index] = (
+                int(count) / total_shots
+            )
+
+    return probabilities
+
+
+def counts_probability_map(
+    counts,
+    qubits,
+    shots,
+):
+    probabilities = counts_to_probabilities(
+        counts,
+        qubits,
+        shots,
     )
 
-    samples = np.random.choice(
-        len(probabilities),
-        size=shots,
-        p=probabilities,
-    )
-
-    qubits = int(
-        np.log2(
-            len(probabilities)
-        )
-    )
-
-    counts = Counter(
+    return {
         format(
             index,
             f"0{qubits}b",
+        ): float(probability)
+        for index, probability in enumerate(
+            probabilities
         )
-        for index in samples
+    }
+
+
+def counts_to_statevector(
+    counts,
+    qubits,
+    shots,
+):
+    probabilities = counts_to_probabilities(
+        counts,
+        qubits,
+        shots,
     )
+
+    return [
+        {
+            "re": float(
+                np.sqrt(
+                    max(
+                        0.0,
+                        probability,
+                    )
+                )
+            ),
+            "im": 0.0,
+        }
+        for probability in probabilities
+    ]
+
+
+def normalize_counts_bit_order(
+    counts,
+):
+    normalized = {}
+
+    for bitstring, count in counts.items():
+        key = str(bitstring).replace(
+            " ",
+            "",
+        )
+
+        if key:
+            normalized[key] = (
+                normalized.get(key, 0)
+                + int(count)
+            )
 
     return dict(
         sorted(
-            counts.items(),
-            key=lambda item: item[0],
+            normalized.items()
         )
     )
 
 
 # ============================================================
-# QUBIT ORDER NORMALIZATION
+# QISKIT
 # ============================================================
-#
-# QuantumLearn uses:
-#
-#   q0 = left-most / most-significant bit
-#
-# Example for 2 qubits:
-#
-#   |q0 q1>
-#   00
-#   01
-#   10
-#   11
-#
-# Qiskit and Cirq internally use q0 as the
-# least-significant qubit in their statevector
-# representation.
-#
-# These helpers convert framework output into
-# QuantumLearn's common representation.
-# ============================================================
-
-def reverse_bitstring(bitstring):
-    return bitstring[::-1]
-
 
 def reverse_statevector_qubit_order(
     state,
@@ -204,48 +254,39 @@ def reverse_statevector_qubit_order(
     return reordered
 
 
-def normalize_counts_bit_order(counts):
-    normalized = {}
-
-    for bitstring, count in counts.items():
-        normalized[
-            reverse_bitstring(
-                str(bitstring)
-            )
-        ] = int(count)
-
-    return dict(
-        sorted(
-            normalized.items()
-        )
-    )
-
-
-# ============================================================
-# QISKIT
-# ============================================================
-
 def apply_operations_qiskit(
     circuit,
     qubits,
 ):
     from qiskit import QuantumCircuit
 
-    qc = QuantumCircuit(qubits)
+    qc = QuantumCircuit(
+        qubits
+    )
 
     sorted_circuit = sorted(
         circuit,
         key=lambda item: (
-            item.get("column", 0),
-            item.get("qubit", 0),
+            item.get(
+                "column",
+                0,
+            ),
+            item.get(
+                "qubit",
+                0,
+            ),
         ),
     )
 
     for operation in sorted_circuit:
-        gate = operation["gate"]
+        gate = operation[
+            "gate"
+        ]
 
         target = int(
-            operation["qubit"]
+            operation[
+                "qubit"
+            ]
         )
 
         control = operation.get(
@@ -307,8 +348,6 @@ def apply_operations_qiskit(
             )
 
         elif gate == "M":
-            # Measurement is intentionally
-            # handled separately.
             continue
 
         else:
@@ -332,10 +371,6 @@ def run_qiskit(
         qubits,
     )
 
-    # --------------------------------------------------------
-    # Statevector
-    # --------------------------------------------------------
-
     statevector_obj = (
         Statevector.from_instruction(
             qc
@@ -347,8 +382,6 @@ def run_qiskit(
         dtype=complex,
     )
 
-    # Convert Qiskit's q0-LSB ordering
-    # into QuantumLearn's q0-MSB ordering.
     state = reverse_statevector_qubit_order(
         state,
         qubits,
@@ -358,10 +391,6 @@ def run_qiskit(
         state,
         qubits,
     )
-
-    # --------------------------------------------------------
-    # Measurement / Shots
-    # --------------------------------------------------------
 
     measurement_qc = qc.copy()
 
@@ -405,16 +434,26 @@ def apply_operations_pennylane(
     sorted_circuit = sorted(
         circuit,
         key=lambda item: (
-            item.get("column", 0),
-            item.get("qubit", 0),
+            item.get(
+                "column",
+                0,
+            ),
+            item.get(
+                "qubit",
+                0,
+            ),
         ),
     )
 
     for operation in sorted_circuit:
-        gate = operation["gate"]
+        gate = operation[
+            "gate"
+        ]
 
         target = int(
-            operation["qubit"]
+            operation[
+                "qubit"
+            ]
         )
 
         control = operation.get(
@@ -496,7 +535,6 @@ def apply_operations_pennylane(
             )
 
         elif gate == "M":
-            # Measurement is handled separately.
             continue
 
         else:
@@ -512,10 +550,6 @@ def run_pennylane(
 ):
     import pennylane as qml
 
-    # --------------------------------------------------------
-    # Statevector
-    # --------------------------------------------------------
-
     state_device = qml.device(
         "default.qubit",
         wires=qubits,
@@ -526,7 +560,6 @@ def run_pennylane(
         apply_operations_pennylane(
             circuit
         )
-
         return qml.state()
 
     state = np.asarray(
@@ -539,40 +572,51 @@ def run_pennylane(
         qubits,
     )
 
-    # --------------------------------------------------------
-    # Measurement / Shots
-    # --------------------------------------------------------
-
     measurement_device = qml.device(
         "default.qubit",
         wires=qubits,
-        shots=shots,
     )
 
-    @qml.qnode(measurement_device)
+    @qml.qnode(
+        measurement_device,
+    )
     def measurement_circuit():
         apply_operations_pennylane(
             circuit
         )
-
-        return qml.sample(
-            qml.PauliZ(
-                wires=0
-            )
+        return qml.probs(
+            wires=range(qubits)
         )
 
-    # Use computational-basis samples
-    # through a separate QNode.
-    @qml.qnode(measurement_device)
-    def basis_measurement_circuit():
+    probability_result = np.asarray(
+        measurement_circuit(),
+        dtype=float,
+    )
+
+    probabilities = normalize_probabilities(
+        probability_result
+    )
+
+    def shot_circuit():
         apply_operations_pennylane(
             circuit
         )
 
         return qml.sample()
 
+    shot_device = qml.device(
+        "default.qubit",
+        wires=qubits,
+        shots=shots,
+    )
+
+    shot_qnode = qml.QNode(
+        shot_circuit,
+        shot_device,
+    )
+
     samples = np.asarray(
-        basis_measurement_circuit()
+        shot_qnode()
     )
 
     counts = Counter()
@@ -585,7 +629,6 @@ def run_pennylane(
                     f"0{qubits}b",
                 )
             ] += 1
-
     else:
         for sample in samples:
             bitstring = "".join(
@@ -593,10 +636,23 @@ def run_pennylane(
                 for bit in sample
             )
 
-            counts[bitstring] += 1
+            counts[
+                bitstring
+            ] += 1
 
     return {
-        **base_result,
+        "statevector": base_result[
+            "statevector"
+        ],
+        "probabilities": probabilities,
+        "probabilityMap": {
+            format(
+                index,
+                f"0{qubits}b",
+            ): float(probability)
+            for index, probability
+            in enumerate(probabilities)
+        },
         "counts": dict(
             sorted(
                 counts.items()
@@ -626,16 +682,26 @@ def apply_operations_cirq(
     sorted_circuit = sorted(
         circuit,
         key=lambda item: (
-            item.get("column", 0),
-            item.get("qubit", 0),
+            item.get(
+                "column",
+                0,
+            ),
+            item.get(
+                "qubit",
+                0,
+            ),
         ),
     )
 
     for operation in sorted_circuit:
-        gate = operation["gate"]
+        gate = operation[
+            "gate"
+        ]
 
         target = int(
-            operation["qubit"]
+            operation[
+                "qubit"
+            ]
         )
 
         control = operation.get(
@@ -731,7 +797,6 @@ def apply_operations_cirq(
             )
 
         elif gate == "M":
-            # Measurement is handled separately.
             continue
 
         else:
@@ -758,10 +823,6 @@ def run_cirq(
 
     simulator = cirq.Simulator()
 
-    # --------------------------------------------------------
-    # Statevector
-    # --------------------------------------------------------
-
     state_result = simulator.simulate(
         cirq.Circuit(
             operations
@@ -774,8 +835,6 @@ def run_cirq(
         dtype=complex,
     )
 
-    # Convert Cirq's qubit ordering
-    # into QuantumLearn's q0-MSB ordering.
     state = reverse_statevector_qubit_order(
         state,
         qubits,
@@ -785,10 +844,6 @@ def run_cirq(
         state,
         qubits,
     )
-
-    # --------------------------------------------------------
-    # Measurement / Shots
-    # --------------------------------------------------------
 
     measurement_circuit = cirq.Circuit(
         operations
@@ -818,13 +873,9 @@ def run_cirq(
             for bit in sample
         )
 
-        # Cirq returns q0 as the first
-        # measured bit, while QuantumLearn
-        # uses q0 as the left-most bit.
-        #
-        # Measurement ordering therefore
-        # already matches our UI convention.
-        counts[bitstring] += 1
+        counts[
+            bitstring
+        ] += 1
 
     return {
         **base_result,
@@ -838,7 +889,289 @@ def run_cirq(
 
 
 # ============================================================
-# LOCAL BACKEND
+# QASM 3 GENERATION FOR QBRAID
+# ============================================================
+
+def gate_to_qasm(
+    operation,
+):
+    gate = operation[
+        "gate"
+    ]
+
+    target = int(
+        operation[
+            "qubit"
+        ]
+    )
+
+    control = operation.get(
+        "controlQubit"
+    )
+
+    if gate == "I":
+        return f"i q[{target}];"
+
+    if gate == "X":
+        return f"x q[{target}];"
+
+    if gate == "Y":
+        return f"y q[{target}];"
+
+    if gate == "Z":
+        return f"z q[{target}];"
+
+    if gate == "H":
+        return f"h q[{target}];"
+
+    if gate == "S":
+        return f"s q[{target}];"
+
+    if gate == "T":
+        return f"t q[{target}];"
+
+    if gate == "CNOT":
+        if control is None:
+            raise ValueError(
+                "CNOT requires controlQubit."
+            )
+
+        return (
+            f"cx q[{int(control)}], "
+            f"q[{target}];"
+        )
+
+    if gate == "CZ":
+        if control is None:
+            raise ValueError(
+                "CZ requires controlQubit."
+            )
+
+        return (
+            f"cz q[{int(control)}], "
+            f"q[{target}];"
+        )
+
+    if gate == "SWAP":
+        if control is None:
+            raise ValueError(
+                "SWAP requires controlQubit."
+            )
+
+        return (
+            f"swap q[{int(control)}], "
+            f"q[{target}];"
+        )
+
+    if gate == "M":
+        return ""
+
+    raise ValueError(
+        f"Unsupported gate: {gate}"
+    )
+
+
+def circuit_to_qasm3(
+    circuit,
+    qubits,
+):
+    lines = [
+        "OPENQASM 3.0;",
+        'include "stdgates.inc";',
+        "",
+        f"bit[{qubits}] c;",
+        f"qubit[{qubits}] q;",
+        "",
+    ]
+
+    for operation in sorted(
+        circuit,
+        key=lambda item: (
+            item.get(
+                "column",
+                0,
+            ),
+            item.get(
+                "qubit",
+                0,
+            ),
+        ),
+    ):
+        instruction = gate_to_qasm(
+            operation
+        )
+
+        if instruction:
+            lines.append(
+                instruction
+            )
+
+    lines.append("")
+
+    for index in range(qubits):
+        lines.append(
+            f"c[{index}] = measure q[{index}];"
+        )
+
+    return "\n".join(
+        lines
+    )
+
+
+# ============================================================
+# QBRAID
+# ============================================================
+
+def run_qbraid(
+    circuit,
+    qubits,
+    shots,
+):
+    try:
+        from qbraid.runtime import (
+            QbraidProvider,
+        )
+    except ImportError as error:
+        raise RuntimeError(
+            "qBraid SDK is not installed in the active Python environment."
+        ) from error
+
+    api_key = os.getenv(
+        "QBRAID_API_KEY"
+    )
+
+    if not api_key:
+        raise RuntimeError(
+            "QBRAID_API_KEY is not configured."
+        )
+
+    provider = QbraidProvider(
+        api_key=api_key
+    )
+
+    device = provider.get_device(
+        QBRAID_DEVICE_ID
+    )
+
+    if not device.simulator:
+        raise RuntimeError(
+            "Configured qBraid device is not a simulator."
+        )
+
+    if qubits > int(
+        device.num_qubits
+    ):
+        raise ValueError(
+            f"qBraid device supports {device.num_qubits} qubits; requested {qubits}."
+        )
+
+    qasm = circuit_to_qasm3(
+        circuit,
+        qubits,
+    )
+
+    job = device.run(
+        qasm,
+        shots=shots,
+    )
+
+    result = job.result()
+
+    data = getattr(
+        result,
+        "data",
+        None,
+    )
+
+    if data is None:
+        raise RuntimeError(
+            "qBraid returned no result data."
+        )
+
+    get_counts = getattr(
+        data,
+        "get_counts",
+        None,
+    )
+
+    if callable(get_counts):
+        raw_counts = get_counts()
+    else:
+        raw_counts = getattr(
+            data,
+            "measurement_counts",
+            None,
+        )
+
+    if raw_counts is None:
+        raw_counts = {}
+
+    counts = normalize_counts_bit_order(
+        raw_counts
+    )
+
+    probabilities = counts_to_probabilities(
+        counts,
+        qubits,
+        shots,
+    )
+
+    probability_map = counts_probability_map(
+        counts,
+        qubits,
+        shots,
+    )
+
+    # A shot-based qBraid QIR result exposes
+    # measurement counts, not an exact statevector.
+    #
+    # Therefore the statevector is intentionally
+    # returned as None rather than pretending that
+    # sqrt(probability) is a physical statevector.
+    return {
+        "statevector": None,
+        "probabilities": probabilities,
+        "probabilityMap": probability_map,
+        "counts": counts,
+        "backend": "qbraid",
+        "device": QBRAID_DEVICE_ID,
+        "jobId": getattr(
+            job,
+            "id",
+            None,
+        ),
+        "shots": shots,
+        "qasm": qasm,
+        "qbraidStatus": getattr(
+            result,
+            "status",
+            None,
+        ).value
+        if getattr(
+            result,
+            "status",
+            None,
+        ) is not None
+        and hasattr(
+            getattr(
+                result,
+                "status",
+                None,
+            ),
+            "value",
+        )
+        else str(
+            getattr(
+                result,
+                "status",
+                "COMPLETED",
+            )
+        ),
+    }
+
+
+# ============================================================
+# LOCAL
 # ============================================================
 
 def run_local(
@@ -852,7 +1185,7 @@ def run_local(
 
 
 # ============================================================
-# MAIN EXECUTION DISPATCHER
+# EXECUTION DISPATCH
 # ============================================================
 
 def execute(payload):
@@ -888,13 +1221,9 @@ def execute(payload):
         [],
     )
 
-    # --------------------------------------------------------
-    # Validation
-    # --------------------------------------------------------
-
-    if qubits < 1 or qubits > 20:
+    if qubits < 1 or qubits > 30:
         fail(
-            "Qubit count must be between 1 and 20."
+            "Qubit count must be between 1 and 30."
         )
 
     if shots < 1 or shots > 100000:
@@ -910,13 +1239,11 @@ def execute(payload):
             "Circuit must be an array."
         )
 
-    # --------------------------------------------------------
-    # Backend dispatch
-    # --------------------------------------------------------
-
     if backend == "local":
-        fail(
-            "Local backend is handled by QuantumLearn's existing TypeScript simulator."
+        return run_local(
+            circuit,
+            qubits,
+            shots,
         )
 
     if backend == "qiskit-aer":
@@ -941,8 +1268,10 @@ def execute(payload):
         )
 
     if backend == "qbraid":
-        fail(
-            "qBraid backend will be added in the qBraid integration phase."
+        return run_qbraid(
+            circuit,
+            qubits,
+            shots,
         )
 
     fail(
@@ -951,7 +1280,7 @@ def execute(payload):
 
 
 # ============================================================
-# PROGRAM ENTRY POINT
+# ENTRY POINT
 # ============================================================
 
 def main():

@@ -14,10 +14,6 @@ import type {
   BackendExecutionRequest,
 } from "@/lib/quantum/backends/types";
 
-import type {
-  CircuitGate,
-} from "@/lib/quantum/types";
-
 export const dynamic =
   "force-dynamic";
 
@@ -69,13 +65,13 @@ export async function POST(
         qubits,
       ) ||
       qubits < 1 ||
-      qubits > 20
+      qubits > 30
     ) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Qubit count must be between 1 and 20.",
+            "Qubit count must be between 1 and 30.",
         },
         {
           status: 400,
@@ -120,14 +116,13 @@ export async function POST(
     }
 
     if (
-      backend ===
-      "local"
+      backend === "local"
     ) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Local simulation remains handled by the existing QuantumLearn simulator.",
+            "Local simulation uses the existing QuantumLearn simulator.",
         },
         {
           status: 400,
@@ -135,21 +130,8 @@ export async function POST(
       );
     }
 
-    if (
-      backend ===
-      "qbraid"
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "qBraid integration is not enabled yet.",
-        },
-        {
-          status: 501,
-        },
-      );
-    }
+    const startedAt =
+      Date.now();
 
     const result =
       await runPythonQuantumBackend(
@@ -157,17 +139,16 @@ export async function POST(
           backend,
           qubits,
           shots,
-          circuit:
-            circuit as CircuitGate[],
+          circuit,
         },
       );
 
-    return NextResponse.json(
-      result,
-      {
-        status: 200,
-      },
-    );
+    return NextResponse.json({
+      ...result,
+      executionTimeMs:
+        Date.now() -
+        startedAt,
+    });
   } catch (error) {
     console.error(
       "Quantum backend execution error:",

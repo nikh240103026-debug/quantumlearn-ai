@@ -26,7 +26,11 @@ export type BackendExecutionResult = {
 
   backend: QuantumBackend;
 
-  statevector: ComplexResult[];
+  /*
+   * qBraid's QIR simulator returns measurement
+   * counts rather than an exact statevector.
+   */
+  statevector: ComplexResult[] | null;
 
   probabilities: number[];
 
@@ -43,12 +47,25 @@ export type BackendExecutionResult = {
   executionTimeMs?: number;
 
   error?: string;
+
+  device?: string;
+
+  jobId?: string;
+
+  shots?: number;
+
+  qasm?: string;
+
+  qbraidStatus?: string;
 };
 
 export type BackendInfo = {
   id: QuantumBackend;
   name: string;
   description: string;
-  type: "local" | "framework" | "cloud";
+  type:
+    | "local"
+    | "framework"
+    | "cloud";
   available: boolean;
 };
