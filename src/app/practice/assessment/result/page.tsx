@@ -1,8 +1,9 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function AssessmentResultPage() {
+function AssessmentResultContent() {
   const searchParams = useSearchParams();
 
   const score = Number(searchParams.get("score") ?? 0);
@@ -16,7 +17,6 @@ export default function AssessmentResultPage() {
   return (
     <main className="mx-auto max-w-5xl p-8">
       <div className="rounded-xl border bg-white p-8 shadow-sm">
-
         <h1 className="text-center text-4xl font-bold">
           Assessment Result
         </h1>
@@ -30,60 +30,60 @@ export default function AssessmentResultPage() {
         </p>
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
-
           <div className="rounded-lg border p-5">
-            <p className="text-gray-500">
-              Score
-            </p>
-
+            <p className="text-gray-500">Score</p>
             <h2 className="mt-2 text-3xl font-bold">
               {score} / {totalMarks}
             </h2>
           </div>
 
           <div className="rounded-lg border p-5">
-            <p className="text-gray-500">
-              Accuracy
-            </p>
-
+            <p className="text-gray-500">Accuracy</p>
             <h2 className="mt-2 text-3xl font-bold">
               {accuracy}%
             </h2>
           </div>
 
           <div className="rounded-lg border p-5">
-            <p className="text-gray-500">
-              Correct Answers
-            </p>
-
+            <p className="text-gray-500">Correct Answers</p>
             <h2 className="mt-2 text-3xl font-bold text-green-600">
               {correct}
             </h2>
           </div>
 
           <div className="rounded-lg border p-5">
-            <p className="text-gray-500">
-              Wrong Answers
-            </p>
-
+            <p className="text-gray-500">Wrong Answers</p>
             <h2 className="mt-2 text-3xl font-bold text-red-600">
               {wrong}
             </h2>
           </div>
 
           <div className="rounded-lg border p-5">
-            <p className="text-gray-500">
-              Skipped Questions
-            </p>
-
+            <p className="text-gray-500">Skipped Questions</p>
             <h2 className="mt-2 text-3xl font-bold">
               {skipped}
             </h2>
           </div>
-
         </div>
-
       </div>
     </main>
+  );
+}
+
+export default function AssessmentResultPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto max-w-5xl p-8">
+          <div className="rounded-xl border bg-white p-8 shadow-sm">
+            <p className="text-center text-gray-500">
+              Loading assessment result...
+            </p>
+          </div>
+        </main>
+      }
+    >
+      <AssessmentResultContent />
+    </Suspense>
   );
 }

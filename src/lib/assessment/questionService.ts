@@ -1,4 +1,4 @@
-import { assessmentQuestions } from "@/data/assessmentQuestions";
+import { assessmentQuestions } from "@/data/assessmentQuestion";
 import { AssessmentQuestion } from "@/types/assessmentQuestion";
 
 export function getQuestionsByAssessmentId(

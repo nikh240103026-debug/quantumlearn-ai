@@ -1,12 +1,13 @@
 "use client";
 
 import {
+  Suspense,
   useEffect,
   useMemo,
   useState,
 } from "react";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -37,9 +38,31 @@ interface PracticeQuizProps {
   chapterNumber?: number;
   difficulty?: Difficulty;
   limit?: number;
+  topicId?: string;
+  moduleId?: string;
 }
 
-const CHAPTERS = Array.from({ length: 10 }, (_, index) => index + 1);
+interface CurriculumTopic {
+  id: string;
+  moduleId: string;
+  title: string;
+  description: string;
+  orderIndex: number;
+}
+
+interface CurriculumModule {
+  id: string;
+  moduleNumber: number;
+  title: string;
+  slug: string;
+  description: string;
+  topics: CurriculumTopic[];
+}
+
+const CHAPTERS = Array.from(
+  { length: 10 },
+  (_, index) => index + 1,
+);
 
 const DIFFICULTIES: {
   value: Difficulty;
@@ -64,8 +87,14 @@ function shuffleQuestions(
 ): PracticeQuestion[] {
   const shuffled = [...questions];
 
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+  for (
+    let i = shuffled.length - 1;
+    i > 0;
+    i--
+  ) {
+    const j = Math.floor(
+      Math.random() * (i + 1),
+    );
 
     [shuffled[i], shuffled[j]] = [
       shuffled[j],
@@ -76,29 +105,91 @@ function shuffleQuestions(
   return shuffled;
 }
 
-export default function PracticeQuiz({
+function PracticeQuizContent({
   chapterNumber: initialChapter = 1,
   difficulty: initialDifficulty = "easy",
   limit = 10,
+  topicId: initialTopicId,
+  moduleId: initialModuleId,
 }: PracticeQuizProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-const router = useRouter();
+  // ==========================================================
+  // CURRICULUM URL CONTEXT
+  // ==========================================================
+
+  const urlTopicId =
+    searchParams.get("topicId") ||
+    initialTopicId;
+
+  const urlModuleId =
+    searchParams.get("moduleId") ||
+    initialModuleId;
+
+  const urlChapter =
+    searchParams.get("chapterNumber");
+
+  const urlDifficulty =
+    searchParams.get("difficulty");
+
+  const resolvedInitialChapter =
+    urlChapter &&
+    Number.isInteger(
+      Number(urlChapter),
+    )
+      ? Number(urlChapter)
+      : initialChapter;
+
+  const resolvedInitialDifficulty =
+    urlDifficulty === "easy" ||
+    urlDifficulty === "medium" ||
+    urlDifficulty === "difficult"
+      ? urlDifficulty
+      : initialDifficulty;
 
   // ==========================================================
   // PRACTICE SETUP
   // ==========================================================
 
   const [selectedChapter, setSelectedChapter] =
-    useState<number>(initialChapter);
+    useState<number>(
+      resolvedInitialChapter,
+    );
 
   const [selectedDifficulty, setSelectedDifficulty] =
-    useState<Difficulty>(initialDifficulty);
+    useState<Difficulty>(
+      resolvedInitialDifficulty,
+    );
 
   const [questionLimit, setQuestionLimit] =
     useState<number>(limit);
 
+  const [selectedTopicId, setSelectedTopicId] =
+    useState<string | undefined>(
+      urlTopicId,
+    );
+
+  const [selectedModuleId, setSelectedModuleId] =
+    useState<string | undefined>(
+      urlModuleId,
+    );
+
   const [started, setStarted] =
     useState(false);
+
+  // ==========================================================
+  // CURRICULUM
+  // ==========================================================
+
+  const [curriculumModules, setCurriculumModules] =
+    useState<CurriculumModule[]>([]);
+
+  const [curriculumLoading, setCurriculumLoading] =
+    useState(true);
+
+  const [curriculumError, setCurriculumError] =
+    useState("");
 
   // ==========================================================
   // QUESTIONS
@@ -143,13 +234,133 @@ const router = useRouter();
     useState("");
 
   // ==========================================================
+  // LOAD CURRICULUM
+  // ==========================================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCurriculum() {
+      try {
+        setCurriculumLoading(true);
+        setCurriculumError("");
+
+        /*
+         * Curriculum modules/topics are read from the
+         * existing curriculum API when available.
+         *
+         * The practice system does not depend on this
+         * request to function; chapter practice remains
+         * available if the curriculum endpoint is absent.
+         */
+
+        const response = await fetch(
+          "/api/curriculum",
+          {
+            method: "GET",
+            cache: "no-store",
+          },
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        const modules =
+          Array.isArray(data.modules)
+            ? data.modules
+            : Array.isArray(data)
+              ? data
+              : [];
+
+        if (!cancelled) {
+          setCurriculumModules(
+            modules as CurriculumModule[],
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Failed to load curriculum:",
+          err,
+        );
+
+        if (!cancelled) {
+          setCurriculumError(
+            "Curriculum selection is temporarily unavailable.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setCurriculumLoading(false);
+        }
+      }
+    }
+
+    loadCurriculum();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ==========================================================
+  // CURRENT CURRICULUM MODULE
+  // ==========================================================
+
+  const selectedModule = useMemo(() => {
+    return curriculumModules.find(
+      (module) =>
+        module.id ===
+        selectedModuleId,
+    );
+  }, [
+    curriculumModules,
+    selectedModuleId,
+  ]);
+
+  const selectedTopic = useMemo(() => {
+    if (!selectedTopicId) {
+      return undefined;
+    }
+
+    for (
+      const module of curriculumModules
+    ) {
+      const topic =
+        module.topics?.find(
+          (item) =>
+            item.id ===
+            selectedTopicId,
+        );
+
+      if (topic) {
+        return topic;
+      }
+    }
+
+    return undefined;
+  }, [
+    curriculumModules,
+    selectedTopicId,
+  ]);
+
+  // ==========================================================
   // SCORE
   // ==========================================================
 
   const score = useMemo(() => {
-    return Object.entries(answers).reduce(
-      (total, [questionIndex, answer]) => {
-        const index = Number(questionIndex);
+    return Object.entries(
+      answers,
+    ).reduce(
+      (
+        total,
+        [questionIndex, answer],
+      ) => {
+        const index =
+          Number(questionIndex);
 
         if (!questions[index]) {
           return total;
@@ -157,7 +368,9 @@ const router = useRouter();
 
         return (
           total +
-          (questions[index].correctAnswer === answer
+          (questions[index]
+            .correctAnswer ===
+          answer
             ? 1
             : 0)
         );
@@ -176,12 +389,32 @@ const router = useRouter();
     setQuestions([]);
 
     try {
-      const params = new URLSearchParams();
+      const params =
+        new URLSearchParams();
 
-      params.set(
-        "chapterNumber",
-        String(selectedChapter),
-      );
+      /*
+       * Curriculum filtering takes priority.
+       * Chapter filtering remains available for
+       * backward compatibility with the original
+       * 600-question practice bank.
+       */
+
+      if (selectedTopicId) {
+        params.set(
+          "topicId",
+          selectedTopicId,
+        );
+      } else if (selectedModuleId) {
+        params.set(
+          "moduleId",
+          selectedModuleId,
+        );
+      } else {
+        params.set(
+          "chapterNumber",
+          String(selectedChapter),
+        );
+      }
 
       params.set(
         "difficulty",
@@ -201,7 +434,8 @@ const router = useRouter();
         },
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -211,9 +445,23 @@ const router = useRouter();
       }
 
       if (
-        !Array.isArray(data.questions) ||
+        !Array.isArray(
+          data.questions,
+        ) ||
         data.questions.length === 0
       ) {
+        if (selectedTopic) {
+          throw new Error(
+            `No ${selectedDifficulty} questions are available for ${selectedTopic.title}.`,
+          );
+        }
+
+        if (selectedModule) {
+          throw new Error(
+            `No ${selectedDifficulty} questions are available for ${selectedModule.title}.`,
+          );
+        }
+
         throw new Error(
           `No ${selectedDifficulty} questions are available for Chapter ${selectedChapter}.`,
         );
@@ -223,9 +471,16 @@ const router = useRouter();
         data.questions as PracticeQuestion[];
 
       const randomized =
-        shuffleQuestions(fetchedQuestions);
+        shuffleQuestions(
+          fetchedQuestions,
+        );
 
-      setQuestions(randomized.slice(0, questionLimit));
+      setQuestions(
+        randomized.slice(
+          0,
+          questionLimit,
+        ),
+      );
 
       setCurrentQuestion(0);
       setSelectedAnswer(null);
@@ -261,6 +516,67 @@ const router = useRouter();
   }
 
   // ==========================================================
+  // SELECT MODULE
+  // ==========================================================
+
+  function handleModuleChange(
+    moduleId: string,
+  ) {
+    if (!moduleId) {
+      setSelectedModuleId(
+        undefined,
+      );
+      setSelectedTopicId(
+        undefined,
+      );
+      return;
+    }
+
+    setSelectedModuleId(
+      moduleId,
+    );
+
+    setSelectedTopicId(
+      undefined,
+    );
+  }
+
+  // ==========================================================
+  // SELECT TOPIC
+  // ==========================================================
+
+  function handleTopicChange(
+    topicId: string,
+  ) {
+    if (!topicId) {
+      setSelectedTopicId(
+        undefined,
+      );
+      return;
+    }
+
+    setSelectedTopicId(
+      topicId,
+    );
+
+    const topicModule =
+      curriculumModules.find(
+        (module) =>
+          module.topics?.some(
+            (topic) =>
+              topic.id ===
+              topicId,
+          ),
+      );
+
+    if (topicModule) {
+      setSelectedModuleId(
+        topicModule.id,
+      );
+    }
+  }
+
+  // ==========================================================
   // SELECT ANSWER
   // ==========================================================
 
@@ -271,7 +587,9 @@ const router = useRouter();
       return;
     }
 
-    setSelectedAnswer(answerIndex);
+    setSelectedAnswer(
+      answerIndex,
+    );
   }
 
   // ==========================================================
@@ -279,14 +597,19 @@ const router = useRouter();
   // ==========================================================
 
   function handleSubmitAnswer() {
-    if (selectedAnswer === null) {
+    if (
+      selectedAnswer === null
+    ) {
       return;
     }
 
-    setAnswers((previous) => ({
-      ...previous,
-      [currentQuestion]: selectedAnswer,
-    }));
+    setAnswers(
+      (previous) => ({
+        ...previous,
+        [currentQuestion]:
+          selectedAnswer,
+      }),
+    );
 
     setSubmitted(true);
   }
@@ -311,10 +634,13 @@ const router = useRouter();
     const nextIndex =
       currentQuestion + 1;
 
-    setCurrentQuestion(nextIndex);
+    setCurrentQuestion(
+      nextIndex,
+    );
 
     setSelectedAnswer(
-      answers[nextIndex] ?? null,
+      answers[nextIndex] ??
+        null,
     );
 
     setSubmitted(
@@ -335,7 +661,8 @@ const router = useRouter();
 
     const finalAnswers = {
       ...answers,
-      ...(selectedAnswer !== null
+      ...(selectedAnswer !==
+      null
         ? {
             [currentQuestion]:
               selectedAnswer,
@@ -344,9 +671,20 @@ const router = useRouter();
     };
 
     const finalScore =
-      Object.entries(finalAnswers).reduce(
-        (total, [questionIndex, answer]) => {
-          const index = Number(questionIndex);
+      Object.entries(
+        finalAnswers,
+      ).reduce(
+        (
+          total,
+          [
+            questionIndex,
+            answer,
+          ],
+        ) => {
+          const index =
+            Number(
+              questionIndex,
+            );
 
           if (!questions[index]) {
             return total;
@@ -354,7 +692,8 @@ const router = useRouter();
 
           return (
             total +
-            (questions[index].correctAnswer ===
+            (questions[index]
+              .correctAnswer ===
             answer
               ? 1
               : 0)
@@ -363,60 +702,74 @@ const router = useRouter();
         0,
       );
 
-    const percentage = Math.round(
-      (finalScore / questions.length) * 100,
-    );
+    const percentage =
+      Math.round(
+        (finalScore /
+          questions.length) *
+          100,
+      );
 
     setAnswers(finalAnswers);
 
     try {
-      /*
-       * The result API can be connected to the
-       * attempts/analytics table.
-       *
-       * We send the new database-based fields.
-       */
+      const response =
+        await fetch(
+          "/api/practice/result",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              lessonSlug:
+                selectedTopicId
+                  ? `topic-${selectedTopicId}`
+                  : selectedModuleId
+                    ? `module-${selectedModuleId}`
+                    : `chapter-${selectedChapter}`,
 
-      const response = await fetch(
-        "/api/practice/result",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
+              chapterNumber:
+                selectedChapter,
+
+              difficulty:
+                selectedDifficulty,
+
+              score:
+                finalScore,
+
+              totalQuestions:
+                questions.length,
+
+              percentage,
+
+              answers:
+                finalAnswers,
+
+              questionIds:
+                questions.map(
+                  (question) =>
+                    question.id,
+                ),
+
+              curriculumTopicId:
+                selectedTopicId ??
+                null,
+
+              curriculumModuleId:
+                selectedModuleId ??
+                null,
+            }),
           },
-          body: JSON.stringify({
-          lessonSlug: `chapter-${selectedChapter}`,
-
-          chapterNumber: selectedChapter,
-
-          difficulty: selectedDifficulty,
-
-          score: finalScore,
-
-          totalQuestions: questions.length,
-
-          percentage,
-
-          answers: finalAnswers,
-
-          questionIds: questions.map(
-            (question) => question.id,
-          ),
-        }),
-        },
-      );
-
-      /*
-       * If the result endpoint does not exist
-       * or has not yet been updated, we still
-       * allow the quiz to finish locally.
-       */
+        );
 
       if (!response.ok) {
-        const data = await response.json().catch(
-          () => ({}),
-        );
+        const data =
+          await response
+            .json()
+            .catch(
+              () => ({}),
+            );
 
         throw new Error(
           data.error ||
@@ -431,12 +784,17 @@ const router = useRouter();
         err,
       );
 
-      /*
-       * Do not prevent the student from seeing
-       * their result if saving the analytics
-       * fails.
-       */
+      setResultError(
+        err instanceof Error
+          ? err.message
+          : "Practice result could not be saved.",
+      );
 
+      /*
+       * Preserve the original behavior:
+       * saving analytics must not prevent
+       * the student from seeing their result.
+       */
       setFinished(true);
     } finally {
       setSavingResult(false);
@@ -472,18 +830,26 @@ const router = useRouter();
   // ==========================================================
 
   if (finished) {
-    const finalPercentage = Math.round(
-      (score / questions.length) * 100,
-    );
+    const finalPercentage =
+      Math.round(
+        (score /
+          questions.length) *
+          100,
+      );
 
     let message =
       "Keep practicing!";
 
     if (finalPercentage >= 90) {
-      message = "Excellent work!";
-    } else if (finalPercentage >= 70) {
+      message =
+        "Excellent work!";
+    } else if (
+      finalPercentage >= 70
+    ) {
       message = "Good job!";
-    } else if (finalPercentage >= 50) {
+    } else if (
+      finalPercentage >= 50
+    ) {
       message =
         "You're making progress!";
     }
@@ -504,8 +870,12 @@ const router = useRouter();
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            Chapter {selectedChapter} ·{" "}
-            {selectedDifficulty}
+            {selectedTopic
+              ? selectedTopic.title
+              : selectedModule
+                ? selectedModule.title
+                : `Chapter ${selectedChapter}`}{" "}
+            · {selectedDifficulty}
           </p>
 
           <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-6">
@@ -528,10 +898,14 @@ const router = useRouter();
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <button
               type="button"
-              onClick={handleRestart}
+              onClick={
+                handleRestart
+              }
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
             >
-              <RotateCcw size={17} />
+              <RotateCcw
+                size={17}
+              />
               Try Another Set
             </button>
 
@@ -549,7 +923,9 @@ const router = useRouter();
               href="/"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
-              <ArrowLeft size={17} />
+              <ArrowLeft
+                size={17}
+              />
               Home
             </Link>
 
@@ -557,7 +933,9 @@ const router = useRouter();
               href="/dashboard"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
-              <ArrowLeft size={17} />
+              <ArrowLeft
+                size={17}
+              />
               Dashboard
             </Link>
           </div>
@@ -583,47 +961,159 @@ const router = useRouter();
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Select a chapter, difficulty,
-            and number of questions from
-            the database question bank.
+            Select a curriculum topic,
+            module, or legacy chapter,
+            then choose your difficulty
+            and number of questions.
           </p>
         </div>
 
         <div className="space-y-6 p-6">
-          {/* Chapter */}
+          {/* Curriculum Module */}
 
           <div>
             <label
-              htmlFor="practice-chapter"
+              htmlFor="practice-module"
               className="block text-sm font-bold text-slate-800"
             >
-              Chapter
+              Curriculum Module
             </label>
 
             <select
-              id="practice-chapter"
-              value={selectedChapter}
+              id="practice-module"
+              value={
+                selectedModuleId ??
+                ""
+              }
               onChange={(event) =>
-                setSelectedChapter(
-                  Number(
-                    event.target.value,
-                  ),
+                handleModuleChange(
+                  event.target.value,
                 )
               }
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              disabled={
+                curriculumLoading
+              }
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
             >
-              {CHAPTERS.map(
-                (chapter) => (
+              <option value="">
+                All curriculum modules
+              </option>
+
+              {curriculumModules.map(
+                (module) => (
                   <option
-                    key={chapter}
-                    value={chapter}
+                    key={module.id}
+                    value={module.id}
                   >
-                    Chapter {chapter}
+                    Module{" "}
+                    {
+                      module.moduleNumber
+                    }{" "}
+                    —{" "}
+                    {module.title}
                   </option>
                 ),
               )}
             </select>
           </div>
+
+          {/* Curriculum Topic */}
+
+          <div>
+            <label
+              htmlFor="practice-topic"
+              className="block text-sm font-bold text-slate-800"
+            >
+              Curriculum Topic
+            </label>
+
+            <select
+              id="practice-topic"
+              value={
+                selectedTopicId ??
+                ""
+              }
+              onChange={(event) =>
+                handleTopicChange(
+                  event.target.value,
+                )
+              }
+              disabled={
+                curriculumLoading ||
+                !selectedModuleId
+              }
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+            >
+              <option value="">
+                All topics in selected module
+              </option>
+
+              {selectedModule?.topics?.map(
+                (topic) => (
+                  <option
+                    key={topic.id}
+                    value={topic.id}
+                  >
+                    {topic.title}
+                  </option>
+                ),
+              )}
+            </select>
+          </div>
+
+          {curriculumError && (
+            <p className="text-xs text-slate-400">
+              {curriculumError}
+            </p>
+          )}
+
+          {/* Legacy Chapter */}
+
+          {!selectedTopicId &&
+            !selectedModuleId && (
+              <div>
+                <label
+                  htmlFor="practice-chapter"
+                  className="block text-sm font-bold text-slate-800"
+                >
+                  Legacy Chapter
+                </label>
+
+                <select
+                  id="practice-chapter"
+                  value={
+                    selectedChapter
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setSelectedChapter(
+                      Number(
+                        event.target
+                          .value,
+                      ),
+                    )
+                  }
+                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                >
+                  {CHAPTERS.map(
+                    (chapter) => (
+                      <option
+                        key={
+                          chapter
+                        }
+                        value={
+                          chapter
+                        }
+                      >
+                        Chapter{" "}
+                        {chapter}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
+            )}
 
           {/* Difficulty */}
 
@@ -656,7 +1146,9 @@ const router = useRouter();
                           : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"
                       }`}
                     >
-                      {difficulty.label}
+                      {
+                        difficulty.label
+                      }
                     </button>
                   );
                 },
@@ -676,11 +1168,14 @@ const router = useRouter();
 
             <select
               id="question-limit"
-              value={questionLimit}
+              value={
+                questionLimit
+              }
               onChange={(event) =>
                 setQuestionLimit(
                   Number(
-                    event.target.value,
+                    event.target
+                      .value,
                   ),
                 )
               }
@@ -779,9 +1274,12 @@ const router = useRouter();
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
-              Chapter{" "}
-              {selectedChapter} ·{" "}
-              {selectedDifficulty}
+              {selectedTopic
+                ? selectedTopic.title
+                : selectedModule
+                  ? selectedModule.title
+                  : `Chapter ${selectedChapter}`}{" "}
+              · {selectedDifficulty}
             </p>
 
             <h1 className="mt-1 text-xl font-black text-slate-950">
@@ -790,8 +1288,8 @@ const router = useRouter();
           </div>
 
           <div className="shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">
-            {currentQuestion + 1} /{" "}
-            {questions.length}
+            {currentQuestion + 1}{" "}
+            / {questions.length}
           </div>
         </div>
 
@@ -873,7 +1371,7 @@ const router = useRouter();
 
               return (
                 <button
-                  key={option}
+                  key={`${question.id}-${index}`}
                   type="button"
                   onClick={() =>
                     handleSelectAnswer(
@@ -959,7 +1457,9 @@ const router = useRouter();
                 </p>
 
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  {question.explanation}
+                  {
+                    question.explanation
+                  }
                 </p>
               </div>
             </div>
@@ -986,7 +1486,8 @@ const router = useRouter();
                 handleSubmitAnswer
               }
               disabled={
-                selectedAnswer === null
+                selectedAnswer ===
+                null
               }
               className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -995,8 +1496,12 @@ const router = useRouter();
           ) : (
             <button
               type="button"
-              onClick={handleNext}
-              disabled={savingResult}
+              onClick={
+                handleNext
+              }
+              disabled={
+                savingResult
+              }
               className="inline-flex items-center justify-center rounded-lg bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {savingResult
@@ -1017,5 +1522,24 @@ const router = useRouter();
         )}
       </div>
     </div>
+  );
+}
+
+export default function PracticeQuiz(
+  props: PracticeQuizProps,
+) {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+          <p className="mt-4 text-sm font-semibold text-slate-600">
+            Loading practice...
+          </p>
+        </div>
+      }
+    >
+      <PracticeQuizContent {...props} />
+    </Suspense>
   );
 }

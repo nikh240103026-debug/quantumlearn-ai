@@ -1,6 +1,6 @@
 "use client";
 
-import { AssessmentQuestion } from "@/types/assessmentQuestion";
+import type { AssessmentQuestion } from "@/types/assessmentQuestion";
 
 interface AssessmentQuestionProps {
   question: AssessmentQuestion;

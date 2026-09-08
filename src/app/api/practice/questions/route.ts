@@ -32,6 +32,12 @@ export async function GET(
     const limitParam =
       searchParams.get("limit");
 
+    const topicId =
+      searchParams.get("topicId");
+
+    const moduleId =
+      searchParams.get("moduleId");
+
     const chapterNumber =
       chapterNumberParam
         ? Number(chapterNumberParam)
@@ -103,6 +109,128 @@ export async function GET(
         : 10;
 
     // ----------------------------------------------------------
+    // RESOLVE CURRICULUM TOPICS
+    // ----------------------------------------------------------
+
+    let curriculumTopicIds: string[] =
+      [];
+
+    if (moduleId) {
+      const {
+        data: moduleTopics,
+        error: moduleError,
+      } = await supabase
+        .from("curriculum_topics")
+        .select("id")
+        .eq("module_id", moduleId)
+        .eq("is_published", true)
+        .order("order_index", {
+          ascending: true,
+        });
+
+      if (moduleError) {
+        console.error(
+          "Failed to fetch curriculum module topics:",
+          moduleError,
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Failed to fetch curriculum module topics.",
+            details:
+              moduleError.message,
+          },
+          { status: 500 },
+        );
+      }
+
+      curriculumTopicIds =
+        (moduleTopics ?? []).map(
+          (topic) => topic.id,
+        );
+    }
+
+    if (topicId) {
+      curriculumTopicIds = [
+        topicId,
+      ];
+    }
+
+    // ----------------------------------------------------------
+    // RESOLVE CURRICULUM QUESTION IDS
+    // ----------------------------------------------------------
+
+    let curriculumQuestionIds:
+      | string[]
+      | undefined;
+
+    if (
+      curriculumTopicIds.length >
+      0
+    ) {
+      const {
+        data: mappings,
+        error: mappingError,
+      } = await supabase
+        .from(
+          "curriculum_question_topics",
+        )
+        .select(
+          "question_id, relevance_score",
+        )
+        .in(
+          "topic_id",
+          curriculumTopicIds,
+        )
+        .order(
+          "relevance_score",
+          {
+            ascending: false,
+          },
+        );
+
+      if (mappingError) {
+        console.error(
+          "Failed to fetch curriculum question mappings:",
+          mappingError,
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Failed to fetch curriculum question mappings.",
+            details:
+              mappingError.message,
+          },
+          { status: 500 },
+        );
+      }
+
+      curriculumQuestionIds = [
+        ...new Set(
+          (mappings ?? []).map(
+            (mapping) =>
+              mapping.question_id,
+          ),
+        ),
+      ];
+
+      // A valid curriculum topic/module with no
+      // mapped questions should return an empty set,
+      // not all practice questions.
+      if (
+        curriculumQuestionIds
+          .length === 0
+      ) {
+        return NextResponse.json({
+          questions: [],
+          count: 0,
+        });
+      }
+    }
+
+    // ----------------------------------------------------------
     // BUILD QUERY
     // ----------------------------------------------------------
 
@@ -145,6 +273,16 @@ export async function GET(
       query = query.eq(
         "difficulty",
         difficulty,
+      );
+    }
+
+    if (
+      curriculumQuestionIds
+        !== undefined
+    ) {
+      query = query.in(
+        "id",
+        curriculumQuestionIds,
       );
     }
 
