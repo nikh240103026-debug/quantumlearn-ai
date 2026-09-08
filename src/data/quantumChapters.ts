@@ -86,3 +86,9 @@ export const quantumChapters: QuantumChapter[] = [
       "Qiskit, Cirq, quantum software, compilation, benchmarking, advanced simulation and emerging technologies.",
   },
 ];
+
+export const legacyQuantumChapters =
+  quantumChapters;
+
+export const quantumChapterCount =
+  quantumChapters.length;
