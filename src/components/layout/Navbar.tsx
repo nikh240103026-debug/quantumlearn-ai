@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Atom,
   Menu,
   X,
   ArrowRight,
@@ -18,7 +17,6 @@ import {
   LayoutDashboard,
   History,
   LogOut,
-  UserRound,
   Map,
   GraduationCap,
   PlaySquare,
@@ -180,11 +178,6 @@ const standaloneNavigation = [
     href: "/resources",
     icon: Library,
   },
-  {
-    name: "AI Tutor",
-    href: "/ai-tutor",
-    icon: Brain,
-  },
 ];
 
 export function Navbar() {
@@ -193,6 +186,7 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -205,10 +199,19 @@ export function Navbar() {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (mounted) {
-        setUserEmail(user?.email ?? null);
-        setAuthLoading(false);
-      }
+      if (!mounted) return;
+
+      setUserEmail(user?.email ?? null);
+
+      const name =
+        user?.user_metadata?.full_name ||
+        user?.user_metadata?.name ||
+        user?.user_metadata?.display_name ||
+        user?.email?.split("@")[0] ||
+        null;
+
+      setUserName(name);
+      setAuthLoading(false);
     }
 
     void loadUser();
@@ -218,7 +221,18 @@ export function Navbar() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
 
-      setUserEmail(session?.user?.email ?? null);
+      const user = session?.user;
+
+      setUserEmail(user?.email ?? null);
+
+      const name =
+        user?.user_metadata?.full_name ||
+        user?.user_metadata?.name ||
+        user?.user_metadata?.display_name ||
+        user?.email?.split("@")[0] ||
+        null;
+
+      setUserName(name);
       setAuthLoading(false);
     });
 
@@ -253,167 +267,176 @@ export function Navbar() {
     }
 
     setUserEmail(null);
+    setUserName(null);
+
     window.location.href = "/";
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-white/5 bg-[#0b0f17]/70 text-white backdrop-blur-xl">
       <nav
-        className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"
+        className="flex h-[72px] w-full items-center border-b border-white/5 px-5 sm:px-8 lg:px-10 xl:px-12"
         aria-label="Main navigation"
       >
-        {/* Logo */}
+        {/* LEFT: Logo + Website Name */}
         <Link
           href="/"
-          onClick={closeMenus}
-          className="group flex shrink-0 items-center gap-2.5"
-          aria-label="QuantumLearn AI home"
+          className="flex shrink-0 items-center gap-3 border-r border-white/10 pr-6"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
-            <Atom size={20} strokeWidth={1.8} />
-          </span>
+          <img
+            src="/images/quantumlearn-logo.png"
+            alt="QuantumLearn AI"
+            className="h-10 w-10 object-contain"
+          />
 
-          <span className="hidden text-lg font-bold tracking-tight text-slate-950 sm:block">
-            QuantumLearn
-            <span className="text-blue-600"> AI</span>
+          <span className="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white">
+            QuantumLearn{" "}
+            <span className="text-blue-500">AI</span>
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <div className="hidden items-center gap-0.5 lg:flex">
-          {navGroups.map((group) => {
-            const Icon = group.icon;
-            const active = isGroupActive(group);
-            const open = openDropdown === group.name;
+        {/* CENTER: Navigation */}
+        <div className="hidden min-w-0 flex-1 items-center justify-center px-4 lg:flex xl:px-8">
+          <div className="flex items-center gap-1 xl:gap-2">
+            {navGroups.map((group) => {
+              const Icon = group.icon;
+              const active = isGroupActive(group);
+              const open = openDropdown === group.name;
 
-            return (
-              <div
-                key={group.name}
-                className="relative"
-                onMouseEnter={() => setOpenDropdown(group.name)}
-                onMouseLeave={() => setOpenDropdown(null)}
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenDropdown((current) =>
-                      current === group.name ? null : group.name
-                    )
-                  }
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    active || open
-                      ? "bg-slate-100 text-slate-950"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                  }`}
-                  aria-expanded={open}
-                  aria-haspopup="menu"
+              return (
+                <div
+                  key={group.name}
+                  className="relative"
+                  onMouseEnter={() => setOpenDropdown(group.name)}
+                  onMouseLeave={() => setOpenDropdown(null)}
                 >
-                  <Icon size={16} strokeWidth={1.8} />
-                  {group.name}
-                  <ChevronDown
-                    size={14}
-                    className={`transition-transform duration-200 ${
-                      open ? "rotate-180" : ""
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenDropdown((current) =>
+                        current === group.name ? null : group.name
+                      )
+                    }
+                    className={`inline-flex items-center gap-1.5 border px-3 py-2 text-sm font-medium transition-colors ${
+                      active || open
+                        ? "border-white/15 bg-white/10 text-white"
+                        : "border-transparent text-white/65 hover:border-white/10 hover:bg-white/5 hover:text-white"
                     }`}
-                  />
-                </button>
+                    aria-expanded={open}
+                    aria-haspopup="menu"
+                  >
+                    <Icon size={16} strokeWidth={1.8} />
 
-                {/* Dropdown */}
-                {open && (
-                  <div className="absolute left-1/2 top-full z-50 w-[330px] -translate-x-1/2 pt-2">
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-950/10">
-                      <div className="px-3 pb-2 pt-2">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                          {group.name}
-                        </p>
-                      </div>
+                    {group.name}
 
-                      <div className="space-y-0.5">
-                        {group.items.map((item) => {
-                          const ItemIcon = item.icon;
-                          const activeItem = isRouteActive(item.href);
+                    <ChevronDown
+                      size={14}
+                      className={`transition-transform duration-200 ${
+                        open ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
-                          return (
-                            <Link
-                              key={`${group.name}-${item.name}`}
-                              href={item.href}
-                              onClick={closeMenus}
-                              className={`group/item flex items-start gap-3 rounded-xl px-3 py-2.5 transition-colors ${
-                                activeItem
-                                  ? "bg-blue-50 text-blue-700"
-                                  : "text-slate-700 hover:bg-slate-50"
-                              }`}
-                            >
-                              {ItemIcon && (
-                                <span
-                                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                                    activeItem
-                                      ? "bg-blue-100 text-blue-600"
-                                      : "bg-slate-100 text-slate-500 group-hover/item:bg-slate-200"
-                                  }`}
-                                >
-                                  <ItemIcon size={16} strokeWidth={1.8} />
-                                </span>
-                              )}
+                  {/* Dropdown */}
+                  {open && (
+                    <div className="absolute left-1/2 top-full z-50 w-[330px] -translate-x-1/2 border-x border-b border-white/10 pt-2">
+                      <div className="overflow-hidden border border-white/10 bg-[#11151f] shadow-2xl shadow-black/40">
+                        <div className="border-b border-white/10 px-4 py-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">
+                            {group.name}
+                          </p>
+                        </div>
 
-                              <span className="min-w-0">
-                                <span className="block text-sm font-semibold">
-                                  {item.name}
-                                </span>
+                        <div>
+                          {group.items.map((item) => {
+                            const ItemIcon = item.icon;
+                            const activeItem = isRouteActive(item.href);
 
-                                {item.description && (
-                                  <span className="mt-0.5 block text-xs leading-5 text-slate-500">
-                                    {item.description}
+                            return (
+                              <Link
+                                key={`${group.name}-${item.name}`}
+                                href={item.href}
+                                onClick={closeMenus}
+                                className={`group/item flex items-start gap-3 border-b border-white/5 px-4 py-3.5 transition-colors last:border-b-0 ${
+                                  activeItem
+                                    ? "bg-blue-600/10 text-blue-400"
+                                    : "text-white/80 hover:bg-white/5 hover:text-white"
+                                }`}
+                              >
+                                {ItemIcon && (
+                                  <span
+                                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center border ${
+                                      activeItem
+                                        ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
+                                        : "border-white/10 bg-white/5 text-white/45"
+                                    }`}
+                                  >
+                                    <ItemIcon
+                                      size={16}
+                                      strokeWidth={1.8}
+                                    />
                                   </span>
                                 )}
-                              </span>
-                            </Link>
-                          );
-                        })}
+
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-semibold">
+                                    {item.name}
+                                  </span>
+
+                                  {item.description && (
+                                    <span className="mt-0.5 block text-xs leading-5 text-white/40">
+                                      {item.description}
+                                    </span>
+                                  )}
+                                </span>
+                              </Link>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  )}
+                </div>
+              );
+            })}
 
-          {/* Standalone links */}
-          {standaloneNavigation.map((item) => {
-            const Icon = item.icon;
-            const active = isRouteActive(item.href);
+            {/* Resources */}
+            {standaloneNavigation.map((item) => {
+              const Icon = item.icon;
+              const active = isRouteActive(item.href);
 
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={closeMenus}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-slate-100 text-slate-950"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                }`}
-              >
-                <Icon size={16} strokeWidth={1.8} />
-                {item.name}
-              </Link>
-            );
-          })}
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={closeMenus}
+                  className={`inline-flex items-center gap-1.5 border px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-white/15 bg-white/10 text-white"
+                      : "border-transparent text-white/65 hover:border-white/10 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Icon size={16} strokeWidth={1.8} />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Desktop Actions */}
-        <div className="hidden items-center gap-2 lg:flex">
+        {/* RIGHT: Dashboard + Account */}
+        <div className="hidden shrink-0 items-center gap-2 border-white/10 pl-6 lg:flex">
           {authLoading ? (
-            <div className="h-9 w-24 animate-pulse rounded-lg bg-slate-100" />
+            <div className="h-9 w-24 animate-pulse border border-white/10 bg-white/5" />
           ) : userEmail ? (
             <>
               <Link
                 href="/dashboard"
                 onClick={closeMenus}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                className={`inline-flex items-center gap-1.5 border px-3 py-2 text-sm font-semibold transition-colors ${
                   isRouteActive("/dashboard")
-                    ? "bg-slate-100 text-slate-950"
-                    : "text-slate-700 hover:bg-slate-100 hover:text-slate-950"
+                    ? "border-white/15 bg-white/10 text-white"
+                    : "border-transparent text-white/65 hover:bg-black/20 hover:text-white"
                 }`}
               >
                 <LayoutDashboard size={16} strokeWidth={1.8} />
@@ -423,36 +446,38 @@ export function Navbar() {
               <div className="group relative">
                 <button
                   type="button"
-                  className="flex max-w-[210px] items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 transition-colors hover:bg-slate-100"
+                  className="flex max-w-[190px] items-center gap-2 px-3 py-1.5 transition-colors hover:bg-black/20"
                   aria-label="Open account menu"
                 >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-                    {userEmail.charAt(0).toUpperCase()}
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-blue-400/30 bg-blue-600 text-xs font-bold text-white">
+                    {(userName || userEmail).charAt(0).toUpperCase()}
                   </span>
 
-                  <span className="max-w-[130px] truncate text-sm font-medium text-slate-700">
-                    {userEmail}
+                  <span className="max-w-[115px] truncate text-sm font-medium text-white">
+                    {userName || userEmail}
                   </span>
 
                   <ChevronDown
                     size={14}
-                    className="shrink-0 text-slate-400 transition-transform group-hover:rotate-180"
+                    className="shrink-0 text-white/40 transition-transform group-hover:rotate-180"
                   />
                 </button>
 
-                <div className="invisible absolute right-0 top-full w-56 pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100">
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-950/10">
-                    <div className="flex items-center gap-3 border-b border-slate-100 px-3 py-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                        {userEmail.charAt(0).toUpperCase()}
+                {/* Account Dropdown */}
+                <div className="invisible absolute right-0 top-full w-60 border-x border-b border-white/10 pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100">
+                  <div className="overflow-hidden border border-white/10 bg-[#11151f] shadow-2xl shadow-black/40">
+                    <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center border border-blue-400/30 bg-blue-600 text-sm font-bold text-white">
+                        {(userName || userEmail).charAt(0).toUpperCase()}
                       </span>
 
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-slate-400">
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-white/35">
                           Signed in as
                         </p>
-                        <p className="truncate text-sm font-semibold text-slate-700">
-                          {userEmail}
+
+                        <p className="truncate text-sm font-semibold text-white">
+                          {userName || userEmail}
                         </p>
                       </div>
                     </div>
@@ -460,7 +485,7 @@ export function Navbar() {
                     <Link
                       href="/dashboard"
                       onClick={closeMenus}
-                      className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                      className="flex items-center gap-3 border-b border-white/5 px-4 py-3 text-sm font-medium text-white/75 transition-colors hover:bg-white/5 hover:text-white"
                     >
                       <LayoutDashboard size={16} />
                       Dashboard
@@ -469,7 +494,7 @@ export function Navbar() {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-red-50 hover:text-red-600"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-white/75 transition-colors hover:bg-red-500/10 hover:text-red-400"
                     >
                       <LogOut size={16} />
                       Log out
@@ -483,7 +508,7 @@ export function Navbar() {
               <Link
                 href="/login"
                 onClick={closeMenus}
-                className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950"
+                className="border border-transparent px-3 py-2 text-sm font-semibold text-white/75 transition-colors hover:border-white/10 hover:bg-white/5 hover:text-white"
               >
                 Log In
               </Link>
@@ -491,7 +516,7 @@ export function Navbar() {
               <Link
                 href="/signup"
                 onClick={closeMenus}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md"
+                className="inline-flex items-center gap-2 border border-blue-500 bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500"
               >
                 Get Started
                 <ArrowRight size={16} />
@@ -500,10 +525,10 @@ export function Navbar() {
           )}
         </div>
 
-        {/* Mobile menu button */}
+        {/* Mobile Menu Button */}
         <button
           type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-700 transition-colors hover:bg-slate-100 lg:hidden"
+          className="ml-auto inline-flex h-10 w-10 items-center justify-center border border-white/10 text-white/80 transition-colors hover:bg-white/10 lg:hidden"
           onClick={() => setMobileMenuOpen((open) => !open)}
           aria-label={
             mobileMenuOpen
@@ -518,8 +543,8 @@ export function Navbar() {
 
       {/* Mobile Navigation */}
       {mobileMenuOpen && (
-        <div className="border-t border-slate-200 bg-white lg:hidden">
-          <div className="mx-auto max-h-[calc(100vh-68px)] max-w-7xl overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="border-t border-white/10 bg-[#080b12] lg:hidden">
+          <div className="max-h-[calc(100vh-72px)] overflow-y-auto px-4 py-4 sm:px-6">
             <div className="space-y-2">
               {navGroups.map((group) => {
                 const Icon = group.icon;
@@ -529,7 +554,7 @@ export function Navbar() {
                 return (
                   <div
                     key={group.name}
-                    className="overflow-hidden rounded-xl border border-slate-200"
+                    className="overflow-hidden border border-white/10"
                   >
                     <button
                       type="button"
@@ -540,8 +565,8 @@ export function Navbar() {
                       }
                       className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold ${
                         active
-                          ? "bg-blue-50 text-blue-700"
-                          : "text-slate-800"
+                          ? "bg-white/10 text-white"
+                          : "text-white/75"
                       }`}
                       aria-expanded={open}
                     >
@@ -559,7 +584,7 @@ export function Navbar() {
                     </button>
 
                     {open && (
-                      <div className="border-t border-slate-100 bg-slate-50/70 p-2">
+                      <div className="border-t border-white/10 bg-white/[0.03]">
                         {group.items.map((item) => {
                           const ItemIcon = item.icon;
                           const activeItem = isRouteActive(item.href);
@@ -569,10 +594,10 @@ export function Navbar() {
                               key={`${group.name}-mobile-${item.name}`}
                               href={item.href}
                               onClick={closeMenus}
-                              className={`flex items-center gap-3 rounded-lg px-3 py-3 ${
+                              className={`flex items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0 ${
                                 activeItem
-                                  ? "bg-white text-blue-700 shadow-sm"
-                                  : "text-slate-700 hover:bg-white"
+                                  ? "bg-blue-600/10 text-blue-400"
+                                  : "text-white/70 hover:bg-white/5 hover:text-white"
                               }`}
                             >
                               {ItemIcon && (
@@ -595,57 +620,48 @@ export function Navbar() {
                 );
               })}
 
-              {/* Standalone mobile links */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {standaloneNavigation.map((item) => {
-                  const Icon = item.icon;
-                  const active = isRouteActive(item.href);
-
-                  return (
-                    <Link
-                      key={`mobile-${item.name}`}
-                      href={item.href}
-                      onClick={closeMenus}
-                      className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold ${
-                        active
-                          ? "border-blue-200 bg-blue-50 text-blue-700"
-                          : "border-slate-200 text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      <Icon size={17} strokeWidth={1.8} />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-              </div>
+              {/* Resources */}
+              <Link
+                href="/resources"
+                onClick={closeMenus}
+                className={`flex items-center justify-center gap-2 border px-4 py-3 text-sm font-semibold ${
+                  isRouteActive("/resources")
+                    ? "border-white/15 bg-white/10 text-white"
+                    : "border-white/10 text-white/70 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <Library size={17} strokeWidth={1.8} />
+                Resources
+              </Link>
             </div>
 
-            {/* Mobile account section */}
-            <div className="mt-4 border-t border-slate-200 pt-4">
+            {/* Mobile Account */}
+            <div className="mt-4 border-t border-white/10 pt-4">
               {authLoading ? (
-                <div className="h-12 animate-pulse rounded-xl bg-slate-100" />
+                <div className="h-12 animate-pulse border border-white/10 bg-white/5" />
               ) : userEmail ? (
                 <div className="space-y-2">
                   <Link
                     href="/dashboard"
                     onClick={closeMenus}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+                    className="flex items-center justify-center gap-2 border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/15"
                   >
                     <LayoutDashboard size={17} />
                     Dashboard
                   </Link>
 
-                  <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
-                      {userEmail.charAt(0).toUpperCase()}
+                  <div className="flex items-center gap-3 border border-white/10 bg-white/5 px-4 py-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center border border-blue-400/30 bg-blue-600 text-sm font-bold text-white">
+                      {(userName || userEmail).charAt(0).toUpperCase()}
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-slate-400">
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-white/35">
                         Signed in as
                       </p>
-                      <p className="truncate text-sm font-semibold text-slate-700">
-                        {userEmail}
+
+                      <p className="truncate text-sm font-semibold text-white">
+                        {userName || userEmail}
                       </p>
                     </div>
                   </div>
@@ -653,7 +669,7 @@ export function Navbar() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-red-50 hover:text-red-600"
+                    className="flex w-full items-center justify-center gap-2 border border-transparent px-4 py-3 text-sm font-semibold text-white/70 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-400"
                   >
                     <LogOut size={17} />
                     Log out
@@ -664,7 +680,7 @@ export function Navbar() {
                   <Link
                     href="/login"
                     onClick={closeMenus}
-                    className="flex items-center justify-center rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    className="flex items-center justify-center border border-white/10 px-4 py-3 text-sm font-semibold text-white/75 hover:bg-white/5 hover:text-white"
                   >
                     Log In
                   </Link>
@@ -672,7 +688,7 @@ export function Navbar() {
                   <Link
                     href="/signup"
                     onClick={closeMenus}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                    className="flex items-center justify-center gap-2 border border-blue-500 bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-500"
                   >
                     Get Started
                     <ArrowRight size={16} />

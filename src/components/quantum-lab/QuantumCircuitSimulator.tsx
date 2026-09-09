@@ -24,21 +24,16 @@ import MeasurementHistogram from "./MeasurementHistogram";
 import BlochSphere from "./BlochSphere";
 import QuantumTutor from "./QuantumTutor";
 import ExportCircuit from "./ExportCircuit";
-import AlgorithmTemplates from "./AlgorithmTemplates";
 import CircuitEditor from "./CircuitEditor";
 import ControlledGateEditor from "./ControlledGateEditor";
 import MeasurementPanel from "./MeasurementPanel";
 import CodeGenerator from "./CodeGenerator";
 import CircuitStorage from "./CircuitStorage";
-
 import BackendSelector from "./BackendSelector";
 import MultiBackendResult from "./MultiBackendResult";
 
 import type {
   QuantumBackend,
-} from "@/lib/quantum/backends/types";
-
-import type {
   BackendExecutionResult,
 } from "@/lib/quantum/backends/types";
 
@@ -49,36 +44,6 @@ import {
 import {
   createGateId,
 } from "@/lib/quantum/circuit";
-
-const GATES: QuantumGate[] = [
-  "X",
-  "Y",
-  "Z",
-  "H",
-  "S",
-  "T",
-  "CNOT",
-  "CZ",
-  "SWAP",
-];
-
-const GATE_DESCRIPTIONS: Record<QuantumGate, string> = {
-  I: "Identity gate",
-  X: "Pauli-X — bit flip",
-  Y: "Pauli-Y — bit and phase flip",
-  Z: "Pauli-Z — phase flip",
-  H: "Hadamard — creates superposition",
-  S: "S gate — π/2 phase rotation",
-  T: "T gate — π/4 phase rotation",
-  CNOT:
-    "Controlled-X — flips target when control is |1⟩",
-  CZ:
-    "Controlled-Z — applies phase flip when both qubits are |1⟩",
-  SWAP:
-    "SWAP — exchanges two qubit states",
-  M:
-    "Measurement — measures the qubit state",
-};
 
 const MAX_QUBITS = 5;
 const DEFAULT_COLUMNS = 6;
@@ -154,8 +119,11 @@ export default function QuantumCircuitSimulator() {
 
   const [shots, setShots] = useState(100);
 
-    // ==========================================================
-  // MULTI-BACKEND SIMULATION
+  const [measurementResults, setMeasurementResults] =
+    useState<number[]>([]);
+
+  // ==========================================================
+  // MULTI-BACKEND
   // ==========================================================
 
   const [backend, setBackend] =
@@ -171,9 +139,6 @@ export default function QuantumCircuitSimulator() {
 
   const [backendError, setBackendError] =
     useState<string | null>(null);
-
-  const [measurementResults, setMeasurementResults] =
-    useState<number[]>([]);
 
   // ==========================================================
   // CIRCUIT STATISTICS
@@ -288,10 +253,6 @@ export default function QuantumCircuitSimulator() {
         operation.column === column,
     );
 
-    // --------------------------------------------------------
-    // SINGLE QUBIT GATES
-    // --------------------------------------------------------
-
     if (
       selectedGate !== "CNOT" &&
       selectedGate !== "CZ" &&
@@ -321,10 +282,6 @@ export default function QuantumCircuitSimulator() {
       commitCircuit(nextCircuit);
       return;
     }
-
-    // --------------------------------------------------------
-    // CONTROLLED GATES
-    // --------------------------------------------------------
 
     if (qubit === 0) {
       return;
@@ -388,30 +345,6 @@ export default function QuantumCircuitSimulator() {
   }
 
   // ==========================================================
-  // CHECK WHETHER QUBIT IS PART OF CONTROLLED GATE
-  // ==========================================================
-
-  function isControlledTarget(
-    qubit: number,
-    column: number,
-  ) {
-    const operation = getOperation(
-      qubit,
-      column,
-    );
-
-    return (
-      operation?.controlQubit !==
-        undefined &&
-      (
-        operation.gate === "CNOT" ||
-        operation.gate === "CZ" ||
-        operation.gate === "SWAP"
-      )
-    );
-  }
-
-  // ==========================================================
   // REMOVE GATE
   // ==========================================================
 
@@ -431,19 +364,15 @@ export default function QuantumCircuitSimulator() {
     const nextCircuit = circuit.filter(
       (currentOperation) => {
         if (
-          currentOperation.qubit ===
-            qubit &&
-          currentOperation.column ===
-            column
+          currentOperation.qubit === qubit &&
+          currentOperation.column === column
         ) {
           return false;
         }
 
         if (
-          currentOperation.controlQubit ===
-            qubit &&
-          currentOperation.column ===
-            column
+          currentOperation.controlQubit === qubit &&
+          currentOperation.column === column
         ) {
           return false;
         }
@@ -456,7 +385,7 @@ export default function QuantumCircuitSimulator() {
   }
 
   // ==========================================================
-  // REMOVE CONTROLLED GATE FROM CONTROL CELL
+  // REMOVE CONTROLLED GATE
   // ==========================================================
 
   function removeControlledGate(
@@ -538,13 +467,10 @@ export default function QuantumCircuitSimulator() {
     const emptyCircuit: CircuitGate[] = [];
 
     setCircuit(emptyCircuit);
-
     setHistory([emptyCircuit]);
-
     setHistoryIndex(0);
 
     setMeasurementResult(null);
-
     setMeasurementResults([]);
     setBackendResult(null);
     setBackendError(null);
@@ -597,17 +523,11 @@ export default function QuantumCircuitSimulator() {
       );
 
     setQubits(next);
-
     setCircuit(nextCircuit);
-
-    setHistory([
-      nextCircuit,
-    ]);
-
+    setHistory([nextCircuit]);
     setHistoryIndex(0);
 
     setMeasurementResult(null);
-
     setMeasurementResults([]);
     setBackendResult(null);
     setBackendError(null);
@@ -696,7 +616,7 @@ export default function QuantumCircuitSimulator() {
     });
   }
 
-    // ==========================================================
+  // ==========================================================
   // MULTI-BACKEND EXECUTION
   // ==========================================================
 
@@ -782,6 +702,22 @@ export default function QuantumCircuitSimulator() {
           shots,
         });
 
+        void logLabActivity({
+          activityType:
+            "circuit_run",
+          qubits,
+          gateCount,
+          circuitDepth,
+          shots,
+          gates: circuit,
+          circuit,
+          metadata: {
+            backend: "local",
+            executionMode:
+              "multi_backend",
+          },
+        });
+
         return;
       }
 
@@ -858,19 +794,15 @@ export default function QuantumCircuitSimulator() {
     const nextIndex =
       historyIndex - 1;
 
-    const previousCircuit =
-      history[nextIndex];
-
     setHistoryIndex(
       nextIndex,
     );
 
     setCircuit(
-      previousCircuit,
+      history[nextIndex],
     );
 
     setMeasurementResult(null);
-
     setMeasurementResults([]);
   }
 
@@ -889,19 +821,15 @@ export default function QuantumCircuitSimulator() {
     const nextIndex =
       historyIndex + 1;
 
-    const nextCircuit =
-      history[nextIndex];
-
     setHistoryIndex(
       nextIndex,
     );
 
     setCircuit(
-      nextCircuit,
+      history[nextIndex],
     );
 
     setMeasurementResult(null);
-
     setMeasurementResults([]);
   }
 
@@ -927,7 +855,6 @@ export default function QuantumCircuitSimulator() {
     setHistoryIndex(0);
 
     setMeasurementResult(null);
-
     setMeasurementResults([]);
     setBackendResult(null);
     setBackendError(null);
@@ -953,13 +880,13 @@ export default function QuantumCircuitSimulator() {
       circuit:
         template.circuit,
       metadata: {
-        template: template,
+        template,
       },
     });
   }
 
   // ==========================================================
-  // VISUAL CIRCUIT EDITOR
+  // CIRCUIT EDITOR
   // ==========================================================
 
   function handleEditorCircuitChange(
@@ -1018,578 +945,1104 @@ export default function QuantumCircuitSimulator() {
 
     setHistoryIndex(0);
 
-    setMeasurementResult(
-      null,
-    );
-
-    setMeasurementResults(
-      [],
-    );
+    setMeasurementResult(null);
+    setMeasurementResults([]);
+    setBackendResult(null);
+    setBackendError(null);
   }
 
   // ==========================================================
-  // RENDER
+  // UI
   // ==========================================================
 
   return (
-    <div className="min-h-screen w-full space-y-6 bg-[#05070b] p-4 text-white md:p-6">
+    <div className="quantum-lab-shell min-h-screen w-full bg-[#111418] text-white">
 
       {/* ======================================================
-          CONTROLS
+          LAB HEADER
       ====================================================== */}
 
-      <section className="border border-slate-800 bg-[#0a0f18] p-6 shadow-sm">
+      <section className="border-b border-white/10 bg-[#15191e]">
 
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="w-full px-5 py-7 sm:px-7 lg:px-10">
 
-          <div>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
 
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
-              Quantum Circuit Simulator
-            </p>
+            <div>
 
-            <h1 className="mt-1 text-2xl font-bold text-white">
-              Build your quantum circuit
-            </h1>
+              <div className="mb-3 flex items-center gap-3">
 
-            <p className="mt-2 text-sm text-slate-400">
-              Place quantum gates on qubits
-              and observe the resulting
-              quantum state.
-            </p>
+                <span className="h-2 w-2 bg-blue-500" />
+
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-400">
+                  Quantum Lab
+                </p>
+
+                <span className="text-xs text-slate-600">
+                  /
+                </span>
+
+                <span className="text-xs text-slate-500">
+                  Interactive simulator
+                </span>
+
+              </div>
+
+              <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                Build, execute, and understand quantum circuits.
+              </h1>
+
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
+                Construct a circuit visually, choose a quantum
+                simulation backend, execute it, and inspect the
+                resulting quantum state and measurements.
+              </p>
+
+            </div>
+
+            <div className="flex items-center gap-2">
+
+              <div className="border border-white/10 bg-[#0d1014] px-4 py-3">
+
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">
+                  Backend
+                </p>
+
+                <p className="mt-1 text-sm font-semibold text-white">
+                  {backend === "local"
+                    ? "QuantumLearn Local"
+                    : backend}
+                </p>
+
+              </div>
+
+              <div className="border border-white/10 bg-[#0d1014] px-4 py-3">
+
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">
+                  Status
+                </p>
+
+                <p
+                  className={`mt-1 text-sm font-semibold ${
+                    backendLoading
+                      ? "text-blue-400"
+                      : validation.valid
+                        ? "text-emerald-400"
+                        : "text-red-400"
+                  }`}
+                >
+                  {backendLoading
+                    ? "Running"
+                    : validation.valid
+                      ? "Ready"
+                      : "Needs attention"}
+                </p>
+
+              </div>
+
+            </div>
 
           </div>
-
-          <button
-            type="button"
-            onClick={resetCircuit}
-            className="border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-blue-500 hover:bg-blue-500/10 hover:text-white"
-          >
-            Reset Circuit
-          </button>
-
-        </div>
-
-        {/* Qubit Controls */}
-
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-
-          <span className="text-sm font-medium text-slate-300">
-            Qubits
-          </span>
-
-          <button
-            type="button"
-            onClick={() =>
-              changeQubits(
-                qubits - 1,
-              )
-            }
-            disabled={
-              qubits <= 1
-            }
-            className="h-9 w-9 border border-slate-700 text-slate-300 transition hover:border-blue-500 hover:text-white disabled:opacity-40"
-          >
-            −
-          </button>
-
-          <span className="min-w-8 text-center font-semibold text-white">
-            {qubits}
-          </span>
-
-          <button
-            type="button"
-            onClick={() =>
-              changeQubits(
-                qubits + 1,
-              )
-            }
-            disabled={
-              qubits >=
-              MAX_QUBITS
-            }
-            className="h-9 w-9 border border-slate-700 text-slate-300 transition hover:border-blue-500 hover:text-white disabled:opacity-40"
-          >
-            +
-          </button>
 
         </div>
 
       </section>
 
-            {/* ======================================================
-          MULTI-BACKEND SIMULATION
+      {/* ======================================================
+          MAIN LAB
       ====================================================== */}
 
-      <BackendSelector
-        backend={backend}
-        onChange={(value) => {
-          setBackend(value);
-          setBackendResult(null);
-          setBackendError(null);
-        }}
-        disabled={backendLoading}
-      />
+      <div className="w-full">
 
-      <section className="border border-slate-800 bg-[#0a0f18] p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-bold text-white">
-              Run Quantum Simulation
-            </h2>
+        {/* ====================================================
+            CIRCUIT CONFIGURATION
+        ==================================================== */}
 
-            <p className="mt-1 text-sm text-slate-400">
-              Execute the current circuit using the selected backend.
-            </p>
+        <section className="border-b border-white/10 bg-[#13171c]">
+
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+
+            <div className="flex min-h-[86px] items-center px-5 sm:px-7 lg:px-10">
+
+              <div>
+
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+                  Circuit configuration
+                </p>
+
+                <h2 className="mt-1 text-lg font-semibold text-white">
+                  Quantum circuit
+                </h2>
+
+              </div>
+
+            </div>
+
+            <div className="flex flex-wrap items-center border-t border-white/10 lg:border-l lg:border-t-0">
+
+              <div className="flex items-center gap-3 px-5 py-4">
+
+                <span className="text-xs uppercase tracking-wider text-slate-500">
+                  Qubits
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    changeQubits(
+                      qubits - 1,
+                    )
+                  }
+                  disabled={
+                    qubits <= 1
+                  }
+                  className="flex h-8 w-8 items-center justify-center border border-white/10 bg-[#0d1014] text-slate-300 transition hover:border-blue-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  −
+                </button>
+
+                <span className="w-6 text-center text-sm font-semibold text-white">
+                  {qubits}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    changeQubits(
+                      qubits + 1,
+                    )
+                  }
+                  disabled={
+                    qubits >=
+                    MAX_QUBITS
+                  }
+                  className="flex h-8 w-8 items-center justify-center border border-white/10 bg-[#0d1014] text-slate-300 transition hover:border-blue-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  +
+                </button>
+
+              </div>
+
+              <div className="h-10 w-px bg-white/10" />
+
+              <div className="px-5 py-4">
+
+                <button
+                  type="button"
+                  onClick={
+                    resetCircuit
+                  }
+                  className="border border-white/10 bg-[#0d1014] px-4 py-2 text-xs font-semibold text-slate-300 transition hover:border-blue-500 hover:text-white"
+                >
+                  Reset circuit
+                </button>
+
+              </div>
+
+            </div>
+
           </div>
 
-          <button
-            type="button"
-            onClick={runBackendSimulation}
-            disabled={
-              backendLoading ||
-              !validation.valid
-            }
-            className="border border-blue-600 bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {backendLoading
-              ? "Running..."
-              : `Run on ${backend}`}
-          </button>
-        </div>
-      </section>
+        </section>
 
-      <MultiBackendResult
-        result={backendResult}
-        loading={backendLoading}
-        error={backendError}
-      />
-      
-      {/* ======================================================
-          CIRCUIT STATISTICS
-      ====================================================== */}
+        {/* ====================================================
+            BACKEND SECTION
+        ==================================================== */}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+        <section className="border-b border-white/10 bg-[#11151a]">
 
-        <div className="border border-slate-800 bg-[#0a0f18] p-4">
+          <div className="px-5 py-6 sm:px-7 lg:px-10">
 
-          <p className="text-xs text-slate-500">
-            Qubits
-          </p>
+            <div className="mb-5 flex flex-col gap-1">
 
-          <p className="mt-1 text-2xl font-bold text-white">
-            {qubits}
-          </p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+                Simulation infrastructure
+              </p>
 
-        </div>
+              <h2 className="text-lg font-semibold text-white">
+                Choose a quantum engine
+              </h2>
 
-        <div className="border border-slate-800 bg-[#0a0f18] p-4">
+              <p className="text-sm text-slate-500">
+                Execute the same circuit across supported
+                quantum simulation backends.
+              </p>
 
-          <p className="text-xs text-slate-500">
-            Gates
-          </p>
+            </div>
 
-          <p className="mt-1 text-2xl font-bold text-white">
-            {gateCount}
-          </p>
+            <BackendSelector
+              backend={backend}
+              onChange={(value) => {
+                setBackend(value);
+                setBackendResult(null);
+                setBackendError(null);
+              }}
+              disabled={
+                backendLoading
+              }
+            />
 
-        </div>
+          </div>
 
-        <div className="border border-slate-800 bg-[#0a0f18] p-4">
+        </section>
 
-          <p className="text-xs text-slate-500">
-            Circuit Depth
-          </p>
+        {/* ====================================================
+            EXECUTION BAR
+        ==================================================== */}
 
-          <p className="mt-1 text-2xl font-bold text-white">
-            {circuitDepth}
-          </p>
+        <section className="border-b border-white/10 bg-[#0e1216]">
 
-        </div>
+          <div className="flex flex-col gap-5 px-5 py-5 sm:px-7 lg:flex-row lg:items-center lg:justify-between lg:px-10">
+
+            <div>
+
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Execution
+              </p>
+
+              <h2 className="mt-1 text-base font-semibold text-white">
+                Run quantum simulation
+              </h2>
+
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+
+              <div className="flex items-center gap-2 border border-white/10 bg-[#15191e] px-3 py-2">
+
+                <span className="text-xs text-slate-500">
+                  Shots
+                </span>
+
+                <select
+                  value={shots}
+                  onChange={(event) =>
+                    setShots(
+                      Number(
+                        event.target.value,
+                      ),
+                    )
+                  }
+                  className="bg-transparent text-sm font-semibold text-white outline-none"
+                >
+                  <option
+                    value={10}
+                    className="bg-[#15191e]"
+                  >
+                    10
+                  </option>
+
+                  <option
+                    value={100}
+                    className="bg-[#15191e]"
+                  >
+                    100
+                  </option>
+
+                  <option
+                    value={500}
+                    className="bg-[#15191e]"
+                  >
+                    500
+                  </option>
+
+                  <option
+                    value={1000}
+                    className="bg-[#15191e]"
+                  >
+                    1000
+                  </option>
+                </select>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  runBackendSimulation
+                }
+                disabled={
+                  backendLoading ||
+                  !validation.valid
+                }
+                className="min-w-[150px] bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {backendLoading
+                  ? "Running simulation..."
+                  : `Run on ${
+                      backend === "local"
+                        ? "Local"
+                        : backend
+                    }`}
+              </button>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            RESULTS
+        ==================================================== */}
+
+        <section className="border-b border-white/10 bg-[#11151a]">
+
+          <div className="px-5 py-7 sm:px-7 lg:px-10">
+
+            <div className="mb-6 flex items-end justify-between">
+
+              <div>
+
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+                  Backend result
+                </p>
+
+                <h2 className="mt-1 text-xl font-semibold text-white">
+                  Simulation output
+                </h2>
+
+              </div>
+
+              {backendResult && (
+                <div className="text-right">
+
+                  <p className="text-[10px] uppercase tracking-wider text-slate-600">
+                    Completed
+                  </p>
+
+                  <p className="mt-1 text-xs font-semibold text-emerald-400">
+                    Successful execution
+                  </p>
+
+                </div>
+              )}
+
+            </div>
+
+            <MultiBackendResult
+              result={
+                backendResult
+              }
+              loading={
+                backendLoading
+              }
+              error={
+                backendError
+              }
+            />
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            CIRCUIT METRICS
+        ==================================================== */}
+
+        <section className="border-b border-white/10 bg-[#0e1216]">
+
+          <div className="grid grid-cols-1 sm:grid-cols-3">
+
+            <div className="border-b border-white/10 p-5 sm:border-r sm:border-b-0 sm:px-7 lg:px-10">
+
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                Qubits
+              </p>
+
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
+                {qubits}
+              </p>
+
+            </div>
+
+            <div className="border-b border-white/10 p-5 sm:border-r sm:border-b-0 sm:px-7 lg:px-10">
+
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                Gates
+              </p>
+
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
+                {gateCount}
+              </p>
+
+            </div>
+
+            <div className="p-5 sm:px-7 lg:px-10">
+
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                Circuit depth
+              </p>
+
+              <p className="mt-2 text-3xl font-semibold tracking-tight text-white">
+                {circuitDepth}
+              </p>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            VISUAL CIRCUIT BUILDER
+        ==================================================== */}
+
+        <section className="border-b border-white/10 bg-[#15191e]">
+
+          <div className="px-5 py-7 sm:px-7 lg:px-10">
+
+            <div className="mb-6">
+
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+                Circuit construction
+              </p>
+
+              <h2 className="mt-1 text-xl font-semibold text-white">
+                Visual circuit editor
+              </h2>
+
+              <p className="mt-2 max-w-2xl text-sm text-slate-500">
+                Select a gate and place it directly on the
+                circuit grid. Click an existing operation to
+                remove it.
+              </p>
+
+            </div>
+
+            <div className="overflow-hidden border border-white/10 bg-[#0c1014]">
+
+              <CircuitEditor
+                qubits={qubits}
+                columns={columns}
+                circuit={circuit}
+                selectedGate={selectedGate}
+                onSelectGate={
+                  setSelectedGate
+                }
+                onCircuitChange={
+                  handleEditorCircuitChange
+                }
+                onUndo={undo}
+                onRedo={redo}
+                canUndo={
+                  historyIndex > 0
+                }
+                canRedo={
+                  historyIndex <
+                  history.length - 1
+                }
+              />
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            CONTROLLED GATES
+        ==================================================== */}
+
+        <section className="border-b border-white/10 bg-[#11151a]">
+
+          <div className="px-5 py-7 sm:px-7 lg:px-10">
+
+            <div className="mb-5">
+
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Advanced operations
+              </p>
+
+              <h2 className="mt-1 text-lg font-semibold text-white">
+                Controlled gate configuration
+              </h2>
+
+            </div>
+
+            <ControlledGateEditor
+              qubits={qubits}
+              columns={columns}
+              circuit={circuit}
+              onCircuitChange={
+                handleEditorCircuitChange
+              }
+            />
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            VALIDATION
+        ==================================================== */}
+
+        <section className="border-b border-white/10 bg-[#0e1216]">
+
+          <div className="px-5 py-7 sm:px-7 lg:px-10">
+
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+
+              <div>
+
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+                  Circuit validation
+                </p>
+
+                <h2 className="mt-1 text-xl font-semibold text-white">
+                  Circuit integrity
+                </h2>
+
+                <p className="mt-2 text-sm text-slate-500">
+                  Structural checks are performed before
+                  backend execution.
+                </p>
+
+              </div>
+
+              <div
+                className={`inline-flex w-fit items-center gap-2 border px-4 py-2 text-xs font-bold ${
+                  validation.valid
+                    ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
+                    : "border-red-500/30 bg-red-500/5 text-red-400"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 ${
+                    validation.valid
+                      ? "bg-emerald-400"
+                      : "bg-red-400"
+                  }`}
+                />
+
+                {validation.valid
+                  ? "VALID CIRCUIT"
+                  : "INVALID CIRCUIT"}
+
+              </div>
+
+            </div>
+
+            {validation.errors.length >
+              0 && (
+              <div className="mt-6 space-y-2">
+
+                {validation.errors.map(
+                  (
+                    issue,
+                    index,
+                  ) => (
+                    <div
+                      key={`error-${index}`}
+                      className="border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-300"
+                    >
+                      {issue.message}
+                    </div>
+                  ),
+                )}
+
+              </div>
+            )}
+
+            {validation.warnings.length >
+              0 && (
+              <div className="mt-6 space-y-2">
+
+                {validation.warnings.map(
+                  (
+                    issue,
+                    index,
+                  ) => (
+                    <div
+                      key={`warning-${index}`}
+                      className="border border-yellow-500/20 bg-yellow-500/5 p-4 text-sm text-yellow-300"
+                    >
+                      {issue.message}
+                    </div>
+                  ),
+                )}
+
+              </div>
+            )}
+
+            {validation.valid &&
+              validation.warnings.length ===
+                0 && (
+                <div className="mt-6 border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-emerald-300">
+                  All circuit operations are structurally valid
+                  and ready for simulation.
+                </div>
+              )}
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            QUANTUM STATE
+        ==================================================== */}
+
+        <section className="border-b border-white/10 bg-[#15191e]">
+
+          <div className="px-5 py-7 sm:px-7 lg:px-10">
+
+            <div className="mb-7">
+
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+                Quantum state
+              </p>
+
+              <h2 className="mt-1 text-xl font-semibold text-white">
+                State vector
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-500">
+                Current quantum state after applying the
+                circuit operations.
+              </p>
+
+            </div>
+
+            <div className="grid gap-3">
+
+              {state.map(
+                (
+                  amplitude,
+                  index,
+                ) => {
+
+                  const probability =
+                    probabilities[
+                      index
+                    ];
+
+                  if (
+                    probability <
+                    0.000001
+                  ) {
+                    return null;
+                  }
+
+                  return (
+                    <div
+                      key={index}
+                      className="border border-white/10 bg-[#0d1115] p-5"
+                    >
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+                        <span className="font-mono text-sm font-semibold text-slate-200">
+                          |
+                          {
+                            basisLabel(
+                              index,
+                              qubits,
+                            )
+                          }
+                          ⟩
+                        </span>
+
+                        <span className="font-mono text-sm text-slate-400">
+                          {
+                            formatComplex(
+                              amplitude,
+                            )
+                          }
+                        </span>
+
+                      </div>
+
+                      <div className="mt-4 h-1 bg-white/10">
+
+                        <div
+                          className="h-full bg-blue-500 transition-all duration-500"
+                          style={{
+                            width: `${Math.min(
+                              probability *
+                                100,
+                              100,
+                            )}%`,
+                          }}
+                        />
+
+                      </div>
+
+                      <p className="mt-3 text-[11px] uppercase tracking-wider text-slate-600">
+                        Probability{" "}
+                        {(
+                          probability *
+                          100
+                        ).toFixed(2)}
+                        %
+                      </p>
+
+                    </div>
+                  );
+                },
+              )}
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            VISUALIZATION
+        ==================================================== */}
+
+        <section className="border-b border-white/10 bg-[#11151a]">
+
+          <div className="px-5 py-7 sm:px-7 lg:px-10">
+
+            <div className="mb-6">
+
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+                Visualization
+              </p>
+
+              <h2 className="mt-1 text-xl font-semibold text-white">
+                Quantum state visualization
+              </h2>
+
+            </div>
+
+            <div className="border border-white/10 bg-[#0d1115] p-2 sm:p-5">
+
+              <BlochSphere
+                state={state}
+                qubits={qubits}
+              />
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            MEASUREMENT
+        ==================================================== */}
+
+        <section className="border-b border-white/10 bg-[#15191e]">
+
+          <div className="px-5 py-7 sm:px-7 lg:px-10">
+
+            <div className="mb-6">
+
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Measurement
+              </p>
+
+              <h2 className="mt-1 text-xl font-semibold text-white">
+                Measure the circuit
+              </h2>
+
+            </div>
+
+            <MeasurementPanel
+              result={
+                measurementResult
+              }
+              onMeasure={
+                runMeasurement
+              }
+            />
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            DEVELOPMENT TOOLS
+        ==================================================== */}
+
+        <section className="border-b border-white/10 bg-[#11151a]">
+
+          <div className="px-5 py-7 sm:px-7 lg:px-10">
+
+            <div className="mb-6">
+
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+                Development tools
+              </p>
+
+              <h2 className="mt-1 text-xl font-semibold text-white">
+                Work with your circuit
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-500">
+                Generate code, save circuits, export them, and
+                continue experimenting.
+              </p>
+
+            </div>
+
+            <div className="space-y-5">
+
+              <div className="border border-white/10 bg-[#0d1115] p-5">
+
+                <CodeGenerator
+                  qubits={qubits}
+                  circuit={circuit}
+                />
+
+              </div>
+
+              <div className="border border-white/10 bg-[#0d1115] p-5">
+
+                <CircuitStorage
+                  qubits={qubits}
+                  circuit={circuit}
+                  onLoad={
+                    handleLoadCircuit
+                  }
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* ====================================================
+            EXPERIMENT / AI
+        ==================================================== */}
+
+        <section className="bg-[#0e1216]">
+
+          <div className="px-5 py-7 sm:px-7 lg:px-10">
+
+            <div className="mb-6">
+
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
+                Experiment and understand
+              </p>
+
+              <h2 className="mt-1 text-xl font-semibold text-white">
+                Explore the result
+              </h2>
+
+            </div>
+
+            <div className="border border-white/10 bg-[#15191e]">
+
+              {/* Experiment header */}
+
+              <div className="flex flex-col gap-5 border-b border-white/10 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+
+                <div>
+
+                  <h3 className="font-semibold text-white">
+                    Multi-shot experiment
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Run the circuit repeatedly and inspect
+                    measurement outcomes.
+                  </p>
+
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+
+                  <label
+                    htmlFor="experiment-shots"
+                    className="text-xs uppercase tracking-wider text-slate-500"
+                  >
+                    Shots
+                  </label>
+
+                  <select
+                    id="experiment-shots"
+                    value={shots}
+                    onChange={(event) =>
+                      setShots(
+                        Number(
+                          event.target.value,
+                        ),
+                      )
+                    }
+                    className="border border-white/10 bg-[#0d1115] px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                  >
+
+                    <option
+                      value={10}
+                      className="bg-[#0d1115]"
+                    >
+                      10
+                    </option>
+
+                    <option
+                      value={100}
+                      className="bg-[#0d1115]"
+                    >
+                      100
+                    </option>
+
+                    <option
+                      value={500}
+                      className="bg-[#0d1115]"
+                    >
+                      500
+                    </option>
+
+                    <option
+                      value={1000}
+                      className="bg-[#0d1115]"
+                    >
+                      1000
+                    </option>
+
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={
+                      runExperiment
+                    }
+                    className="bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-500"
+                  >
+                    Run experiment
+                  </button>
+
+                </div>
+
+              </div>
+
+              {/* Export */}
+
+              <div className="border-b border-white/10 p-5 sm:p-6">
+
+                <ExportCircuit
+                  qubits={qubits}
+                  circuit={circuit}
+                />
+
+              </div>
+
+              {/* AI Tutor */}
+
+              <div className="border-b border-white/10 p-5 sm:p-6">
+
+                <QuantumTutor
+                  qubits={qubits}
+                  circuit={circuit}
+                  state={state}
+                  probabilities={
+                    probabilities
+                  }
+                />
+
+              </div>
+
+              {/* Histogram */}
+
+              {measurementResults.length >
+                0 && (
+                <div className="p-5 sm:p-6">
+
+                  <MeasurementHistogram
+                    results={
+                      measurementResults
+                    }
+                    qubits={qubits}
+                  />
+
+                </div>
+              )}
+
+            </div>
+
+          </div>
+
+        </section>
 
       </div>
 
       {/* ======================================================
-          VISUAL CIRCUIT EDITOR
+          GLOBAL QUANTUM LAB OVERRIDES
       ====================================================== */}
 
-      <CircuitEditor
-        qubits={qubits}
-        columns={columns}
-        circuit={circuit}
-        selectedGate={selectedGate}
-        onSelectGate={
-          setSelectedGate
+      <style jsx global>{`
+
+        .quantum-lab-shell .rounded-2xl,
+        .quantum-lab-shell .rounded-xl,
+        .quantum-lab-shell .rounded-lg,
+        .quantum-lab-shell .rounded-md {
+          border-radius: 0;
         }
-        onCircuitChange={
-          handleEditorCircuitChange
+
+        .quantum-lab-shell .shadow-sm,
+        .quantum-lab-shell .shadow-md,
+        .quantum-lab-shell .shadow-lg {
+          box-shadow: none;
         }
-        onUndo={undo}
-        onRedo={redo}
-        canUndo={
-          historyIndex > 0
+
+        .quantum-lab-shell .bg-white {
+          background-color: #15191e !important;
         }
-        canRedo={
-          historyIndex <
-          history.length - 1
+
+        .quantum-lab-shell .bg-slate-50 {
+          background-color: #111418 !important;
         }
-      />
 
-      {/* ======================================================
-          CONTROLLED GATE CONFIGURATION
-      ====================================================== */}
-
-      <ControlledGateEditor
-        qubits={qubits}
-        columns={columns}
-        circuit={circuit}
-        onCircuitChange={
-          handleEditorCircuitChange
+        .quantum-lab-shell .bg-slate-100 {
+          background-color: #15191e !important;
         }
-      />
 
-      {/* ======================================================
-          CIRCUIT VALIDATION
-      ====================================================== */}
-
-      <section className="border border-slate-800 bg-black p-6">
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-          <div>
-
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-500">
-              Circuit Validation
-            </p>
-
-            <h2 className="mt-1 text-lg font-bold text-white">
-              Circuit integrity
-            </h2>
-
-          </div>
-
-          <div
-            className={`border px-3 py-2 text-xs font-bold ${
-              validation.valid
-                ? "border-green-800 text-green-400"
-                : "border-red-800 text-red-400"
-            }`}
-          >
-            {validation.valid
-              ? "VALID CIRCUIT"
-              : "INVALID CIRCUIT"}
-          </div>
-
-        </div>
-
-        {validation.errors.length >
-          0 && (
-          <div className="mt-5 space-y-2">
-
-            {validation.errors.map(
-              (
-                issue,
-                index,
-              ) => (
-                <div
-                  key={`error-${index}`}
-                  className="border border-red-900 bg-red-950/30 p-3 text-sm text-red-300"
-                >
-                  {issue.message}
-                </div>
-              ),
-            )}
-
-          </div>
-        )}
-
-        {validation.warnings.length >
-          0 && (
-          <div className="mt-5 space-y-2">
-
-            {validation.warnings.map(
-              (
-                issue,
-                index,
-              ) => (
-                <div
-                  key={`warning-${index}`}
-                  className="border border-yellow-900 bg-yellow-950/20 p-3 text-sm text-yellow-300"
-                >
-                  {issue.message}
-                </div>
-              ),
-            )}
-
-          </div>
-        )}
-
-        {validation.valid &&
-          validation.warnings.length ===
-            0 && (
-            <p className="mt-5 text-sm text-green-400">
-              All circuit operations are structurally valid.
-            </p>
-          )}
-
-      </section>
-
-      {/* ======================================================
-          STATE VECTOR
-      ====================================================== */}
-
-      <section className="border border-slate-800 bg-[#0a0f18] p-6 shadow-sm">
-
-        <div className="mb-5">
-
-          <h2 className="font-bold text-white">
-            Quantum State
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-400">
-            Current state vector after
-            applying the circuit.
-          </p>
-
-        </div>
-
-        <div className="space-y-3">
-
-          {state.map(
-            (
-              amplitude,
-              index,
-            ) => {
-
-              const probability =
-                probabilities[
-                  index
-                ];
-
-              if (
-                probability <
-                0.000001
-              ) {
-                return null;
-              }
-
-              return (
-                <div
-                  key={index}
-                  className="border border-slate-800 bg-[#070b12] p-4"
-                >
-
-                  <div className="flex items-center justify-between">
-
-                    <span className="font-mono font-semibold text-slate-200">
-                      |
-                      {
-                        basisLabel(
-                          index,
-                          qubits,
-                        )
-                      }
-                      ⟩
-                    </span>
-
-                    <span className="font-mono text-sm text-slate-300">
-                      {
-                        formatComplex(
-                          amplitude,
-                        )
-                      }
-                    </span>
-
-                  </div>
-
-                  <div className="mt-3 h-2 overflow-hidden bg-slate-800">
-
-                    <div
-                      className="h-full bg-blue-600 transition-all"
-                      style={{
-                        width: `${Math.min(
-                          probability *
-                            100,
-                          100,
-                        )}%`,
-                      }}
-                    />
-
-                  </div>
-
-                  <p className="mt-2 text-xs text-slate-500">
-                    Probability:{" "}
-                    {(
-                      probability *
-                      100
-                    ).toFixed(2)}
-                    %
-                  </p>
-
-                </div>
-              );
-            },
-          )}
-
-        </div>
-
-      </section>
-
-      {/* ======================================================
-          BLOCH SPHERE
-      ====================================================== */}
-
-      <BlochSphere
-        state={state}
-        qubits={qubits}
-      />
-
-      {/* ======================================================
-          MEASUREMENT
-      ====================================================== */}
-
-      <MeasurementPanel
-        result={
-          measurementResult
+        .quantum-lab-shell .bg-slate-200 {
+          background-color: #20252b !important;
         }
-        onMeasure={
-          runMeasurement
+
+        .quantum-lab-shell .border-slate-200,
+        .quantum-lab-shell .border-slate-300 {
+          border-color: rgba(255, 255, 255, 0.10) !important;
         }
-      />
 
-      {/* ======================================================
-          CODE GENERATION
-      ====================================================== */}
-
-      <CodeGenerator
-        qubits={qubits}
-        circuit={circuit}
-      />
-
-      {/* ======================================================
-          CIRCUIT STORAGE
-      ====================================================== */}
-
-      <CircuitStorage
-        qubits={qubits}
-        circuit={circuit}
-        onLoad={
-          handleLoadCircuit
+        .quantum-lab-shell .border-slate-400 {
+          border-color: rgba(255, 255, 255, 0.16) !important;
         }
-      />
 
-      {/* ======================================================
-          EXPERIMENT
-      ====================================================== */}
+        .quantum-lab-shell .text-slate-950,
+        .quantum-lab-shell .text-slate-900 {
+          color: #ffffff !important;
+        }
 
-      <section className="border border-slate-800 bg-[#0a0f18] p-6 shadow-sm">
+        .quantum-lab-shell .text-slate-800,
+        .quantum-lab-shell .text-slate-700 {
+          color: #d1d5db !important;
+        }
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        .quantum-lab-shell .text-slate-600 {
+          color: #9ca3af !important;
+        }
 
-          <div>
+        .quantum-lab-shell .text-slate-500 {
+          color: #737b86 !important;
+        }
 
-            <h2 className="font-bold text-white">
-              Experiment
-            </h2>
+        .quantum-lab-shell .text-slate-400 {
+          color: #8b949e !important;
+        }
 
-            <p className="mt-1 text-sm text-slate-400">
-              Run the circuit repeatedly
-              and observe measurement
-              outcomes.
-            </p>
+        .quantum-lab-shell input,
+        .quantum-lab-shell select,
+        .quantum-lab-shell textarea {
+          color-scheme: dark;
+        }
 
-          </div>
+        .quantum-lab-shell button {
+          transition:
+            background-color 160ms ease,
+            border-color 160ms ease,
+            color 160ms ease,
+            opacity 160ms ease;
+        }
 
-          <div className="flex items-center gap-3">
-
-            <label
-              htmlFor="shots"
-              className="text-sm font-medium text-slate-300"
-            >
-              Shots
-            </label>
-
-            <select
-              id="shots"
-              value={shots}
-              onChange={(event) =>
-                setShots(
-                  Number(
-                    event.target.value,
-                  ),
-                )
-              }
-              className="border border-slate-700 bg-[#070b12] px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-            >
-
-              <option value={10}>
-                10
-              </option>
-
-              <option value={100}>
-                100
-              </option>
-
-              <option value={500}>
-                500
-              </option>
-
-              <option value={1000}>
-                1000
-              </option>
-
-            </select>
-
-            <button
-              type="button"
-              onClick={
-                runExperiment
-              }
-              className="bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Run
-            </button>
-
-          </div>
-
-        </div>
-
-        {/* Export */}
-
-        <ExportCircuit
-          qubits={qubits}
-          circuit={circuit}
-        />
-
-        {/* AI Tutor */}
-
-        <QuantumTutor
-          qubits={qubits}
-          circuit={circuit}
-          state={state}
-          probabilities={
-            probabilities
-          }
-        />
-
-        {/* Histogram */}
-
-        {measurementResults.length >
-          0 && (
-
-          <div className="mt-6">
-
-            <MeasurementHistogram
-              results={
-                measurementResults
-              }
-              qubits={qubits}
-            />
-
-          </div>
-        )}
-
-      </section>
+      `}</style>
 
     </div>
   );
