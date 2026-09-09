@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -112,19 +112,18 @@ function PracticeQuizContent({
   topicId: initialTopicId,
   moduleId: initialModuleId,
 }: PracticeQuizProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // ==========================================================
-  // CURRICULUM URL CONTEXT
+  // URL CONTEXT
   // ==========================================================
 
   const urlTopicId =
-    searchParams.get("topicId") ||
+    searchParams.get("topicId")?.trim() ||
     initialTopicId;
 
   const urlModuleId =
-    searchParams.get("moduleId") ||
+    searchParams.get("moduleId")?.trim() ||
     initialModuleId;
 
   const urlChapter =
@@ -135,9 +134,9 @@ function PracticeQuizContent({
 
   const resolvedInitialChapter =
     urlChapter &&
-    Number.isInteger(
-      Number(urlChapter),
-    )
+    Number.isInteger(Number(urlChapter)) &&
+    Number(urlChapter) >= 1 &&
+    Number(urlChapter) <= 10
       ? Number(urlChapter)
       : initialChapter;
 
@@ -163,7 +162,9 @@ function PracticeQuizContent({
     );
 
   const [questionLimit, setQuestionLimit] =
-    useState<number>(limit);
+    useState<number>(
+      Math.min(Math.max(limit, 1), 100),
+    );
 
   const [selectedTopicId, setSelectedTopicId] =
     useState<string | undefined>(
@@ -234,6 +235,24 @@ function PracticeQuizContent({
     useState("");
 
   // ==========================================================
+  // SYNC URL CONTEXT
+  // ==========================================================
+
+  useEffect(() => {
+    setSelectedTopicId(urlTopicId);
+    setSelectedModuleId(urlModuleId);
+    setSelectedChapter(resolvedInitialChapter);
+    setSelectedDifficulty(
+      resolvedInitialDifficulty,
+    );
+  }, [
+    urlTopicId,
+    urlModuleId,
+    resolvedInitialChapter,
+    resolvedInitialDifficulty,
+  ]);
+
+  // ==========================================================
   // LOAD CURRICULUM
   // ==========================================================
 
@@ -245,15 +264,6 @@ function PracticeQuizContent({
         setCurriculumLoading(true);
         setCurriculumError("");
 
-        /*
-         * Curriculum modules/topics are read from the
-         * existing curriculum API when available.
-         *
-         * The practice system does not depend on this
-         * request to function; chapter practice remains
-         * available if the curriculum endpoint is absent.
-         */
-
         const response = await fetch(
           "/api/curriculum",
           {
@@ -263,7 +273,9 @@ function PracticeQuizContent({
         );
 
         if (!response.ok) {
-          return;
+          throw new Error(
+            "Failed to load curriculum.",
+          );
         }
 
         const data =
@@ -307,33 +319,33 @@ function PracticeQuizContent({
   }, []);
 
   // ==========================================================
-  // CURRENT CURRICULUM MODULE
+  // SELECTED MODULE
   // ==========================================================
 
   const selectedModule = useMemo(() => {
     return curriculumModules.find(
       (module) =>
-        module.id ===
-        selectedModuleId,
+        module.id === selectedModuleId,
     );
   }, [
     curriculumModules,
     selectedModuleId,
   ]);
 
+  // ==========================================================
+  // SELECTED TOPIC
+  // ==========================================================
+
   const selectedTopic = useMemo(() => {
     if (!selectedTopicId) {
       return undefined;
     }
 
-    for (
-      const module of curriculumModules
-    ) {
+    for (const module of curriculumModules) {
       const topic =
         module.topics?.find(
           (item) =>
-            item.id ===
-            selectedTopicId,
+            item.id === selectedTopicId,
         );
 
       if (topic) {
@@ -386,6 +398,7 @@ function PracticeQuizContent({
   async function loadQuestions() {
     setLoading(true);
     setError("");
+    setResultError("");
     setQuestions([]);
 
     try {
@@ -393,10 +406,15 @@ function PracticeQuizContent({
         new URLSearchParams();
 
       /*
-       * Curriculum filtering takes priority.
-       * Chapter filtering remains available for
-       * backward compatibility with the original
-       * 600-question practice bank.
+       * Priority:
+       *
+       * 1. Topic
+       * 2. Module
+       * 3. Legacy chapter
+       *
+       * This allows curriculum assessments to use
+       * curriculum_question_topics while preserving
+       * the original chapter-based practice system.
        */
 
       if (selectedTopicId) {
@@ -487,7 +505,6 @@ function PracticeQuizContent({
       setAnswers({});
       setSubmitted(false);
       setFinished(false);
-      setResultError("");
       setStarted(true);
     } catch (err) {
       console.error(
@@ -516,7 +533,7 @@ function PracticeQuizContent({
   }
 
   // ==========================================================
-  // SELECT MODULE
+  // MODULE CHANGE
   // ==========================================================
 
   function handleModuleChange(
@@ -542,7 +559,7 @@ function PracticeQuizContent({
   }
 
   // ==========================================================
-  // SELECT TOPIC
+  // TOPIC CHANGE
   // ==========================================================
 
   function handleTopicChange(
@@ -564,8 +581,7 @@ function PracticeQuizContent({
         (module) =>
           module.topics?.some(
             (topic) =>
-              topic.id ===
-              topicId,
+              topic.id === topicId,
           ),
       );
 
@@ -577,7 +593,7 @@ function PracticeQuizContent({
   }
 
   // ==========================================================
-  // SELECT ANSWER
+  // ANSWER SELECTION
   // ==========================================================
 
   function handleSelectAnswer(
@@ -656,6 +672,10 @@ function PracticeQuizContent({
   // ==========================================================
 
   async function finishQuiz() {
+    if (savingResult) {
+      return;
+    }
+
     setSavingResult(true);
     setResultError("");
 
@@ -676,15 +696,10 @@ function PracticeQuizContent({
       ).reduce(
         (
           total,
-          [
-            questionIndex,
-            answer,
-          ],
+          [questionIndex, answer],
         ) => {
           const index =
-            Number(
-              questionIndex,
-            );
+            Number(questionIndex);
 
           if (!questions[index]) {
             return total;
@@ -703,11 +718,13 @@ function PracticeQuizContent({
       );
 
     const percentage =
-      Math.round(
-        (finalScore /
-          questions.length) *
-          100,
-      );
+      questions.length > 0
+        ? Math.round(
+            (finalScore /
+              questions.length) *
+              100,
+          )
+        : 0;
 
     setAnswers(finalAnswers);
 
@@ -791,8 +808,7 @@ function PracticeQuizContent({
       );
 
       /*
-       * Preserve the original behavior:
-       * saving analytics must not prevent
+       * Analytics persistence must never prevent
        * the student from seeing their result.
        */
       setFinished(true);
@@ -802,7 +818,7 @@ function PracticeQuizContent({
   }
 
   // ==========================================================
-  // RESTART SAME SET
+  // RESTART
   // ==========================================================
 
   function handleRestart() {
@@ -810,7 +826,7 @@ function PracticeQuizContent({
   }
 
   // ==========================================================
-  // CHANGE SET
+  // CHANGE PRACTICE
   // ==========================================================
 
   function handleChangePractice() {
@@ -831,11 +847,13 @@ function PracticeQuizContent({
 
   if (finished) {
     const finalPercentage =
-      Math.round(
-        (score /
-          questions.length) *
-          100,
-      );
+      questions.length > 0
+        ? Math.round(
+            (score /
+              questions.length) *
+              100,
+          )
+        : 0;
 
     let message =
       "Keep practicing!";
@@ -898,14 +916,10 @@ function PracticeQuizContent({
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <button
               type="button"
-              onClick={
-                handleRestart
-              }
+              onClick={handleRestart}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
             >
-              <RotateCcw
-                size={17}
-              />
+              <RotateCcw size={17} />
               Try Another Set
             </button>
 
@@ -923,9 +937,7 @@ function PracticeQuizContent({
               href="/"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
-              <ArrowLeft
-                size={17}
-              />
+              <ArrowLeft size={17} />
               Home
             </Link>
 
@@ -933,9 +945,7 @@ function PracticeQuizContent({
               href="/dashboard"
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             >
-              <ArrowLeft
-                size={17}
-              />
+              <ArrowLeft size={17} />
               Dashboard
             </Link>
           </div>
@@ -969,7 +979,7 @@ function PracticeQuizContent({
         </div>
 
         <div className="space-y-6 p-6">
-          {/* Curriculum Module */}
+          {/* Module */}
 
           <div>
             <label
@@ -982,8 +992,7 @@ function PracticeQuizContent({
             <select
               id="practice-module"
               value={
-                selectedModuleId ??
-                ""
+                selectedModuleId ?? ""
               }
               onChange={(event) =>
                 handleModuleChange(
@@ -1017,7 +1026,7 @@ function PracticeQuizContent({
             </select>
           </div>
 
-          {/* Curriculum Topic */}
+          {/* Topic */}
 
           <div>
             <label
@@ -1030,8 +1039,7 @@ function PracticeQuizContent({
             <select
               id="practice-topic"
               value={
-                selectedTopicId ??
-                ""
+                selectedTopicId ?? ""
               }
               onChange={(event) =>
                 handleTopicChange(
@@ -1084,13 +1092,10 @@ function PracticeQuizContent({
                   value={
                     selectedChapter
                   }
-                  onChange={(
-                    event,
-                  ) =>
+                  onChange={(event) =>
                     setSelectedChapter(
                       Number(
-                        event.target
-                          .value,
+                        event.target.value,
                       ),
                     )
                   }
@@ -1099,15 +1104,10 @@ function PracticeQuizContent({
                   {CHAPTERS.map(
                     (chapter) => (
                       <option
-                        key={
-                          chapter
-                        }
-                        value={
-                          chapter
-                        }
+                        key={chapter}
+                        value={chapter}
                       >
-                        Chapter{" "}
-                        {chapter}
+                        Chapter {chapter}
                       </option>
                     ),
                   )}
@@ -1156,7 +1156,7 @@ function PracticeQuizContent({
             </div>
           </div>
 
-          {/* Number of Questions */}
+          {/* Question Count */}
 
           <div>
             <label
@@ -1174,8 +1174,7 @@ function PracticeQuizContent({
               onChange={(event) =>
                 setQuestionLimit(
                   Number(
-                    event.target
-                      .value,
+                    event.target.value,
                   ),
                 )
               }
@@ -1184,15 +1183,12 @@ function PracticeQuizContent({
               <option value={5}>
                 5 Questions
               </option>
-
               <option value={10}>
                 10 Questions
               </option>
-
               <option value={15}>
                 15 Questions
               </option>
-
               <option value={20}>
                 20 Questions
               </option>
@@ -1317,8 +1313,7 @@ function PracticeQuizContent({
         </div>
 
         <p className="mt-6 text-sm font-semibold text-slate-500">
-          Question{" "}
-          {currentQuestion + 1}
+          Question {currentQuestion + 1}
         </p>
 
         <h2 className="mt-3 text-xl font-bold leading-8 text-slate-950 sm:text-2xl">
@@ -1457,9 +1452,7 @@ function PracticeQuizContent({
                 </p>
 
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  {
-                    question.explanation
-                  }
+                  {question.explanation}
                 </p>
               </div>
             </div>
@@ -1496,9 +1489,7 @@ function PracticeQuizContent({
           ) : (
             <button
               type="button"
-              onClick={
-                handleNext
-              }
+              onClick={handleNext}
               disabled={
                 savingResult
               }
@@ -1533,6 +1524,7 @@ export default function PracticeQuiz(
       fallback={
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+
           <p className="mt-4 text-sm font-semibold text-slate-600">
             Loading practice...
           </p>

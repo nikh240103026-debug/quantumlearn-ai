@@ -29,8 +29,7 @@ function normalizeQuestion(
     chapterSlug: String(question.chapter_slug),
     chapterTitle: String(question.chapter_title),
     topic: String(question.topic),
-    difficulty:
-      question.difficulty as PracticeDifficulty,
+    difficulty: question.difficulty as PracticeDifficulty,
     question: String(question.question),
     options: Array.isArray(question.options)
       ? question.options.map(String)
@@ -43,54 +42,56 @@ function normalizeQuestion(
 }
 
 /**
- * Returns practice questions connected to the curriculum
- * through curriculum_question_topics.
+ * Loads practice questions through the curriculum mapping layer.
  *
- * Existing practice_questions remain untouched.
- * The curriculum mapping becomes the source of truth
- * whenever a topic/module-specific assessment is requested.
+ * Important:
+ * - Existing practice_questions are never modified.
+ * - Existing 600 questions remain available.
+ * - Curriculum-specific requests use curriculum_question_topics.
+ * - Questions are deduplicated when mapped to multiple topics.
+ * - Highest relevance_score wins for ranking.
  */
-export async function getCurriculumQuestions({
-  topicId,
-  topicIds,
-  moduleId,
-  chapterNumber,
-  difficulty,
-  limit = 10,
-}: CurriculumQuestionQuery = {}): Promise<
-  PracticeQuestion[]
-> {
-  const supabase =
-    await createSupabaseServerClient();
+export async function getCurriculumQuestions(
+  {
+    topicId,
+    topicIds,
+    moduleId,
+    chapterNumber,
+    difficulty,
+    limit = 10,
+  }: CurriculumQuestionQuery = {},
+): Promise<PracticeQuestion[]> {
+  const supabase = await createSupabaseServerClient();
 
-  const safeLimit = Math.min(
-    Math.max(
-      Number.isInteger(limit) ? limit : 10,
-      1,
-    ),
-    100,
-  );
+  const parsedLimit = Number(limit);
+
+  const safeLimit =
+    Number.isInteger(parsedLimit) &&
+    parsedLimit >= 1 &&
+    parsedLimit <= 100
+      ? parsedLimit
+      : 10;
 
   // ----------------------------------------------------------
-  // RESOLVE TOPICS
+  // RESOLVE CURRICULUM TOPICS
   // ----------------------------------------------------------
 
   let resolvedTopicIds: string[] = [];
 
   if (topicId) {
     resolvedTopicIds = [topicId];
-  } else if (
-    Array.isArray(topicIds) &&
-    topicIds.length > 0
-  ) {
+  } else if (topicIds?.length) {
     resolvedTopicIds = [
-      ...new Set(topicIds),
+      ...new Set(
+        topicIds.filter(
+          (id): id is string =>
+            typeof id === "string" &&
+            id.trim().length > 0,
+        ),
+      ),
     ];
   } else if (moduleId) {
-    const {
-      data: moduleTopics,
-      error: moduleTopicError,
-    } = await supabase
+    const { data, error } = await supabase
       .from("curriculum_topics")
       .select("id")
       .eq("module_id", moduleId)
@@ -99,25 +100,28 @@ export async function getCurriculumQuestions({
         ascending: true,
       });
 
-    if (moduleTopicError) {
+    if (error) {
       console.error(
         "Failed to resolve curriculum module topics:",
-        moduleTopicError,
+        error,
       );
 
       throw new Error(
-        "Failed to resolve curriculum topics.",
+        "Failed to resolve curriculum module topics.",
       );
     }
 
-    resolvedTopicIds =
-      (moduleTopics ?? []).map(
-        (topic) => topic.id,
-      );
+    resolvedTopicIds = (data ?? []).map(
+      (topic) => topic.id,
+    );
+  }
+
+  if (resolvedTopicIds.length === 0) {
+    return [];
   }
 
   // ----------------------------------------------------------
-  // RESOLVE QUESTION MAPPINGS
+  // FETCH CURRICULUM QUESTION MAPPINGS
   // ----------------------------------------------------------
 
   let mappingQuery = supabase
@@ -125,16 +129,10 @@ export async function getCurriculumQuestions({
     .select(
       "question_id, topic_id, relevance_score",
     )
+    .in("topic_id", resolvedTopicIds)
     .order("relevance_score", {
       ascending: false,
     });
-
-  if (resolvedTopicIds.length > 0) {
-    mappingQuery = mappingQuery.in(
-      "topic_id",
-      resolvedTopicIds,
-    );
-  }
 
   const {
     data: mappings,
@@ -160,47 +158,47 @@ export async function getCurriculumQuestions({
   }
 
   // ----------------------------------------------------------
-  // DEDUPLICATE QUESTIONS
+  // DEDUPLICATE + RANK QUESTION IDS
   // ----------------------------------------------------------
 
-  const questionIds: string[] = [];
   const relevanceByQuestion =
     new Map<string, number>();
 
   for (const mapping of mappingRows) {
-    const existingRelevance =
+    const questionId = String(
+      mapping.question_id,
+    );
+
+    const relevance = Number(
+      mapping.relevance_score ?? 0,
+    );
+
+    const previous =
       relevanceByQuestion.get(
-        mapping.question_id,
+        questionId,
       );
 
     if (
-      existingRelevance === undefined ||
-      mapping.relevance_score >
-        existingRelevance
+      previous === undefined ||
+      relevance > previous
     ) {
       relevanceByQuestion.set(
-        mapping.question_id,
-        mapping.relevance_score,
-      );
-    }
-
-    if (
-      !questionIds.includes(
-        mapping.question_id,
-      )
-    ) {
-      questionIds.push(
-        mapping.question_id,
+        questionId,
+        relevance,
       );
     }
   }
+
+  const questionIds = [
+    ...relevanceByQuestion.keys(),
+  ];
 
   if (questionIds.length === 0) {
     return [];
   }
 
   // ----------------------------------------------------------
-  // FETCH QUESTIONS
+  // FETCH ACTUAL PRACTICE QUESTIONS
   // ----------------------------------------------------------
 
   let questionQuery = supabase
@@ -223,22 +221,18 @@ export async function getCurriculumQuestions({
     )
     .in("id", questionIds);
 
-  if (
-    chapterNumber !== undefined
-  ) {
-    questionQuery =
-      questionQuery.eq(
-        "chapter_number",
-        chapterNumber,
-      );
+  if (chapterNumber !== undefined) {
+    questionQuery = questionQuery.eq(
+      "chapter_number",
+      chapterNumber,
+    );
   }
 
   if (difficulty) {
-    questionQuery =
-      questionQuery.eq(
-        "difficulty",
-        difficulty,
-      );
+    questionQuery = questionQuery.eq(
+      "difficulty",
+      difficulty,
+    );
   }
 
   const {
@@ -258,19 +252,18 @@ export async function getCurriculumQuestions({
   }
 
   // ----------------------------------------------------------
-  // RANK BY CURRICULUM RELEVANCE
+  // NORMALIZE + RANK
   // ----------------------------------------------------------
 
   const normalizedQuestions =
     (questions ?? []).map(
       (question) => ({
-        question:
-          normalizeQuestion(
-            question as Record<
-              string,
-              unknown
-            >,
-          ),
+        question: normalizeQuestion(
+          question as Record<
+            string,
+            unknown
+          >,
+        ),
         relevance:
           relevanceByQuestion.get(
             String(question.id),
@@ -281,19 +274,13 @@ export async function getCurriculumQuestions({
   normalizedQuestions.sort(
     (a, b) => {
       if (
-        b.relevance !==
-        a.relevance
+        b.relevance !== a.relevance
       ) {
-        return (
-          b.relevance -
-          a.relevance
-        );
+        return b.relevance - a.relevance;
       }
 
-      return (
-        a.question.id.localeCompare(
-          b.question.id,
-        )
+      return a.question.id.localeCompare(
+        b.question.id,
       );
     },
   );
@@ -301,14 +288,12 @@ export async function getCurriculumQuestions({
   return normalizedQuestions
     .slice(0, safeLimit)
     .map(
-      ({ question }) =>
-        question,
+      ({ question }) => question,
     );
 }
 
 /**
- * Convenience helper for loading one curriculum topic's
- * questions.
+ * Load questions for a single curriculum topic.
  */
 export async function getQuestionsByCurriculumTopic(
   topicId: string,
@@ -324,8 +309,8 @@ export async function getQuestionsByCurriculumTopic(
 }
 
 /**
- * Convenience helper for loading all mapped questions
- * belonging to a curriculum module.
+ * Load all mapped questions belonging
+ * to a curriculum module.
  */
 export async function getQuestionsByCurriculumModule(
   moduleId: string,

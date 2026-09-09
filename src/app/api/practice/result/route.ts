@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { updateCurriculumTopicProgress } from "@/lib/curriculum/curriculum-progress-service";
+import {
+  createNextTopicRecommendation,
+  getCurriculumProgress,
+  getOverallCurriculumProgress,
+} from "@/lib/curriculum/curriculum-recommendation-service";
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +22,8 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json(
         {
-          error: "You must be logged in to save your practice result.",
+          error:
+            "You must be logged in to save your practice result.",
         },
         { status: 401 },
       );
@@ -37,6 +44,8 @@ export async function POST(request: Request) {
       percentage,
       answers,
       questionIds,
+      curriculumTopicId,
+      curriculumModuleId,
     } = body;
 
     // ==========================================================
@@ -68,7 +77,8 @@ export async function POST(request: Request) {
     if (totalQuestions <= 0) {
       return NextResponse.json(
         {
-          error: "Total questions must be greater than zero.",
+          error:
+            "Total questions must be greater than zero.",
         },
         { status: 400 },
       );
@@ -98,22 +108,23 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
 
-    const { data: result, error: insertError } = await supabase
-      .from("practice_results")
-      .insert({
-        user_id: user.id,
-        lesson_slug: lessonSlug,
-        score,
-        total_questions: totalQuestions,
-        percentage,
-        answers: answers ?? {},
-        completed_at: now,
-        created_at: now,
-      })
-      .select(
-        "id, lesson_slug, score, total_questions, percentage, completed_at",
-      )
-      .single();
+    const { data: result, error: insertError } =
+      await supabase
+        .from("practice_results")
+        .insert({
+          user_id: user.id,
+          lesson_slug: lessonSlug,
+          score,
+          total_questions: totalQuestions,
+          percentage,
+          answers: answers ?? {},
+          completed_at: now,
+          created_at: now,
+        })
+        .select(
+          "id, lesson_slug, score, total_questions, percentage, completed_at",
+        )
+        .single();
 
     if (insertError) {
       console.error(
@@ -123,51 +134,145 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          error: "Unable to save your practice result.",
+          error:
+            "Unable to save your practice result.",
         },
         { status: 500 },
       );
     }
 
     // ==========================================================
-    // LOG AI ACTIVITY
-    // ==========================================================
-    //
-    // This is intentionally separate from the practice result.
-    // If AI activity logging fails, the already-saved practice
-    // result must still be returned successfully.
-    //
+    // CURRICULUM PROGRESS
     // ==========================================================
 
-    const { error: activityError } = await supabase
-      .from("ai_activity")
-      .insert({
-        user_id: user.id,
-        activity_type: "practice_completed",
-        source_page: "/practice",
-        topic: lessonSlug,
-        description: `Completed ${difficulty ?? "practice"} practice for ${lessonSlug} with a score of ${score}/${totalQuestions} (${percentage}%).`,
-        metadata: {
-          practice_result_id: result.id,
-          lesson_slug: lessonSlug,
-          chapter_number:
-            typeof chapterNumber === "number" ||
-            typeof chapterNumber === "string"
-              ? chapterNumber
-              : null,
-          difficulty:
-            typeof difficulty === "string"
-              ? difficulty
-              : null,
-          score,
-          total_questions: totalQuestions,
-          percentage,
-          question_count: Array.isArray(questionIds)
-            ? questionIds.length
-            : null,
-        },
-        created_at: now,
-      });
+    let curriculumProgress = null;
+    let recommendation = null;
+    let moduleProgress = null;
+    let overallProgress = null;
+
+    if (
+      typeof curriculumTopicId === "string" &&
+      curriculumTopicId.trim()
+    ) {
+      try {
+        curriculumProgress =
+          await updateCurriculumTopicProgress({
+            topicId: curriculumTopicId,
+            score,
+            totalQuestions,
+            percentage,
+          });
+
+        // ======================================================
+        // MODULE PROGRESS
+        // ======================================================
+
+        if (
+          typeof curriculumModuleId === "string" &&
+          curriculumModuleId.trim()
+        ) {
+          moduleProgress =
+            await getCurriculumProgress(
+              curriculumModuleId,
+            );
+        }
+
+        // ======================================================
+        // NEXT TOPIC RECOMMENDATION
+        // ======================================================
+
+        if (
+          typeof curriculumModuleId === "string" &&
+          curriculumModuleId.trim()
+        ) {
+          recommendation =
+            await createNextTopicRecommendation({
+              topicId: curriculumTopicId,
+              moduleId: curriculumModuleId,
+            });
+        }
+
+        // ======================================================
+        // OVERALL CURRICULUM PROGRESS
+        // ======================================================
+
+        overallProgress =
+          await getOverallCurriculumProgress();
+      } catch (progressError) {
+        console.error(
+          "Curriculum progress/recommendation error:",
+          progressError,
+        );
+
+        // Curriculum progress must never invalidate
+        // an already-saved practice result.
+      }
+    }
+
+    // ==========================================================
+    // LOG AI ACTIVITY
+    // ==========================================================
+
+    const { error: activityError } =
+      await supabase
+        .from("ai_activity")
+        .insert({
+          user_id: user.id,
+          activity_type: "practice_completed",
+          source_page: "/practice",
+          topic: lessonSlug,
+          description: `Completed ${
+            difficulty ?? "practice"
+          } practice for ${lessonSlug} with a score of ${score}/${totalQuestions} (${percentage}%).`,
+          metadata: {
+            practice_result_id: result.id,
+            lesson_slug: lessonSlug,
+
+            chapter_number:
+              typeof chapterNumber === "number" ||
+              typeof chapterNumber === "string"
+                ? chapterNumber
+                : null,
+
+            difficulty:
+              typeof difficulty === "string"
+                ? difficulty
+                : null,
+
+            score,
+            total_questions: totalQuestions,
+            percentage,
+
+            question_count:
+              Array.isArray(questionIds)
+                ? questionIds.length
+                : null,
+
+            curriculum_topic_id:
+              typeof curriculumTopicId === "string"
+                ? curriculumTopicId
+                : null,
+
+            curriculum_module_id:
+              typeof curriculumModuleId === "string"
+                ? curriculumModuleId
+                : null,
+
+            curriculum_progress:
+              curriculumProgress,
+
+            module_progress:
+              moduleProgress,
+
+            overall_progress:
+              overallProgress,
+
+            recommendation:
+              recommendation,
+          },
+
+          created_at: now,
+        });
 
     if (activityError) {
       console.error(
@@ -182,11 +287,24 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Practice result saved successfully.",
+      message:
+        "Practice result saved successfully.",
+
       result,
+
+      curriculumProgress,
+
+      moduleProgress,
+
+      overallProgress,
+
+      recommendation,
     });
   } catch (error) {
-    console.error("Practice result API error:", error);
+    console.error(
+      "Practice result API error:",
+      error,
+    );
 
     return NextResponse.json(
       {

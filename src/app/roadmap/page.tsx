@@ -2,6 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import {
+  getCurriculumProgress,
+  getOverallCurriculumProgress,
+} from "@/lib/curriculum/curriculum-recommendation-service";
+import {
   ArrowRight,
   Atom,
   Award,
@@ -33,6 +37,29 @@ type ProgressRow = {
   lesson_id: string;
   progress: number | null;
   completed: boolean;
+};
+
+type CurriculumModule = {
+  id: string;
+  module_number: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  weight: number;
+};
+
+type CurriculumTopic = {
+  id: string;
+  title: string;
+  description: string | null;
+  module_id: string;
+  order_index: number;
+};
+
+type CurriculumModuleProgress = CurriculumModule & {
+  progress: number;
+  completedTopics: number;
+  totalTopics: number;
 };
 
 type RoadmapStage = {
@@ -219,12 +246,10 @@ const ROADMAP_STAGES: RoadmapStage[] = [
   },
 ];
 
-function getDisplayName(
-  user: {
-    email?: string | null;
-    user_metadata?: Record<string, unknown>;
-  },
-): string {
+function getDisplayName(user: {
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): string {
   const metadata = user.user_metadata ?? {};
 
   const candidates = [
@@ -234,10 +259,7 @@ function getDisplayName(
   ];
 
   for (const candidate of candidates) {
-    if (
-      typeof candidate === "string" &&
-      candidate.trim()
-    ) {
+    if (typeof candidate === "string" && candidate.trim()) {
       return candidate.trim();
     }
   }
@@ -369,23 +391,7 @@ export default async function RoadmapPage() {
     totalLessons > 0
       ? Math.min(
           100,
-          Math.round(
-            (completedLessons / totalLessons) * 100,
-          ),
-        )
-      : 0;
-
-  const averageLessonProgress =
-    progressRows.length > 0
-      ? Math.min(
-          100,
-          Math.round(
-            progressRows.reduce(
-              (total, item) =>
-                total + Number(item.progress ?? 0),
-              0,
-            ) / progressRows.length,
-          ),
+          Math.round((completedLessons / totalLessons) * 100),
         )
       : 0;
 
@@ -403,11 +409,153 @@ export default async function RoadmapPage() {
     }) ?? null;
 
   // ------------------------------------------------------------
+  // REAL CURRICULUM PROGRESS
+  // ------------------------------------------------------------
+
+  let curriculumOverallProgress = 0;
+  let curriculumModules: CurriculumModuleProgress[] = [];
+  let recommendedTopic: CurriculumTopic | null = null;
+  let recommendedModule: CurriculumModule | null = null;
+
+  try {
+    curriculumOverallProgress =
+      await getOverallCurriculumProgress();
+
+    const { data: modulesData } = await supabase
+      .from("curriculum_modules")
+      .select(
+        "id, module_number, slug, title, description, weight",
+      )
+      .eq("is_published", true)
+      .order("module_number", {
+        ascending: true,
+      });
+
+    const modules = (modulesData ?? []) as CurriculumModule[];
+
+    curriculumModules = await Promise.all(
+      modules.map(async (module) => {
+        const progressData =
+          await getCurriculumProgress(module.id);
+
+        return {
+          ...module,
+          progress: Math.min(
+            100,
+            Math.max(
+              0,
+              Math.round(progressData.moduleProgress),
+            ),
+          ),
+          completedTopics:
+            progressData.completedTopics,
+          totalTopics:
+            progressData.topicCount,
+        };
+      }),
+    );
+
+    const { data: recommendation } = await supabase
+      .from("curriculum_recommendations")
+      .select("topic_id, module_id")
+      .eq("user_id", user.id)
+      .eq("recommendation_type", "next_topic")
+      .eq("is_completed", false)
+      .order("priority", {
+        ascending: false,
+      })
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(1)
+      .maybeSingle();
+
+    if (recommendation?.topic_id) {
+      const { data: topicData } = await supabase
+        .from("curriculum_topics")
+        .select(
+          "id, title, description, module_id, order_index",
+        )
+        .eq("id", recommendation.topic_id)
+        .eq("is_published", true)
+        .maybeSingle();
+
+      recommendedTopic =
+        (topicData as CurriculumTopic | null) ?? null;
+    }
+
+    if (recommendation?.module_id) {
+      const { data: moduleData } = await supabase
+        .from("curriculum_modules")
+        .select(
+          "id, module_number, slug, title, description, weight",
+        )
+        .eq("id", recommendation.module_id)
+        .eq("is_published", true)
+        .maybeSingle();
+
+      recommendedModule =
+        (moduleData as CurriculumModule | null) ?? null;
+    }
+
+    // Fallback: first incomplete topic in module order.
+    if (!recommendedTopic) {
+      for (const module of modules) {
+        const progressData =
+          await getCurriculumProgress(module.id);
+
+        if (progressData.moduleProgress >= 100) {
+          continue;
+        }
+
+        const { data: topicsData } = await supabase
+          .from("curriculum_topics")
+          .select(
+            "id, title, description, module_id, order_index",
+          )
+          .eq("module_id", module.id)
+          .eq("is_published", true)
+          .order("order_index", {
+            ascending: true,
+          });
+
+        const topics =
+          (topicsData ?? []) as CurriculumTopic[];
+
+        const completedTopicCount =
+          progressData.completedTopics;
+
+        const incompleteTopic =
+          topics[completedTopicCount] ??
+          topics[0];
+
+        if (incompleteTopic) {
+          recommendedTopic = incompleteTopic;
+          recommendedModule = module;
+          break;
+        }
+      }
+    }
+
+    if (
+      recommendedTopic &&
+      !recommendedModule
+    ) {
+      recommendedModule =
+        modules.find(
+          (module) =>
+            module.id === recommendedTopic?.module_id,
+        ) ?? null;
+    }
+  } catch {
+    curriculumOverallProgress = 0;
+    curriculumModules = [];
+    recommendedTopic = null;
+    recommendedModule = null;
+  }
+
+  // ------------------------------------------------------------
   // CURRENT ROADMAP STAGE
-  //
-  // We use the real overall course progress to position the
-  // learner on the roadmap. We do NOT invent chapter-level
-  // completion percentages.
   // ------------------------------------------------------------
 
   const currentStage =
@@ -418,8 +566,7 @@ export default async function RoadmapPage() {
           Math.max(
             1,
             Math.floor(
-              (overallProgress /
-                100) *
+              (overallProgress / 100) *
                 ROADMAP_STAGES.length,
             ) + 1,
           ),
@@ -429,11 +576,10 @@ export default async function RoadmapPage() {
     ROADMAP_STAGES[currentStage - 1] ??
     ROADMAP_STAGES[0];
 
-  const remainingLessons =
-    Math.max(
-      0,
-      totalLessons - completedLessons,
-    );
+  const remainingLessons = Math.max(
+    0,
+    totalLessons - completedLessons,
+  );
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -496,8 +642,6 @@ export default async function RoadmapPage() {
               </div>
             </div>
 
-            {/* User progress card */}
-
             <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-2xl backdrop-blur">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-sm font-bold">
@@ -518,7 +662,7 @@ export default async function RoadmapPage() {
               <div className="mt-5 flex items-end justify-between">
                 <div>
                   <p className="text-xs text-slate-500">
-                    Overall progress
+                    Overall course progress
                   </p>
 
                   <p className="mt-1 text-3xl font-bold">
@@ -549,11 +693,236 @@ export default async function RoadmapPage() {
       </section>
 
       {/* ========================================================
+          CURRICULUM SUMMARY
+      ======================================================== */}
+
+      <section className="border-b border-slate-800 bg-slate-950">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-300">
+                <Atom size={14} />
+                Structured Quantum Curriculum
+              </div>
+
+              <h2 className="mt-2 text-2xl font-bold text-white">
+                Your Curriculum Progress
+              </h2>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                Track progress across the six major curriculum
+                modules using topic mastery and learning
+                activity.
+              </p>
+            </div>
+
+            <div className="shrink-0 rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3">
+              <p className="text-xs text-slate-500">
+                Overall curriculum
+              </p>
+
+              <p className="mt-1 text-2xl font-bold text-white">
+                {curriculumOverallProgress}%
+              </p>
+            </div>
+          </div>
+
+          {curriculumModules.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {curriculumModules.map((module) => {
+                const isComplete =
+                  module.progress >= 100;
+
+                const isCurrent =
+                  recommendedModule?.id === module.id;
+
+                return (
+                  <article
+                    key={module.id}
+                    className={`rounded-2xl border p-5 transition ${
+                      isCurrent
+                        ? "border-blue-500/30 bg-blue-500/5"
+                        : isComplete
+                          ? "border-emerald-500/15 bg-slate-900/70"
+                          : "border-slate-800 bg-slate-900/50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                            Module {module.module_number}
+                          </span>
+
+                          {isComplete && (
+                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                              Completed
+                            </span>
+                          )}
+
+                          {isCurrent &&
+                            !isComplete && (
+                              <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
+                                Current
+                              </span>
+                            )}
+                        </div>
+
+                        <h3 className="mt-2 text-base font-semibold text-white">
+                          {module.title}
+                        </h3>
+                      </div>
+
+                      <div
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                          isComplete
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : "bg-slate-800 text-slate-500"
+                        }`}
+                      >
+                        {isComplete ? (
+                          <CheckCircle2 size={18} />
+                        ) : (
+                          <BookOpen size={18} />
+                        )}
+                      </div>
+                    </div>
+
+                    {module.description && (
+                      <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-500">
+                        {module.description}
+                      </p>
+                    )}
+
+                    <div className="mt-5 flex items-center justify-between text-xs">
+                      <span className="text-slate-500">
+                        {module.completedTopics}/
+                        {module.totalTopics} topics
+                      </span>
+
+                      <span className="font-semibold text-slate-300">
+                        {module.progress}%
+                      </span>
+                    </div>
+
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          isComplete
+                            ? "bg-emerald-500"
+                            : "bg-blue-500"
+                        }`}
+                        style={{
+                          width: `${module.progress}%`,
+                        }}
+                      />
+                    </div>
+
+                    {!isComplete && (
+                      <Link
+                        href={
+                          recommendedTopic &&
+                          recommendedModule?.id === module.id
+                            ? `/practice?topicId=${encodeURIComponent(
+                                recommendedTopic.id,
+                              )}&moduleId=${encodeURIComponent(
+                                module.id,
+                              )}`
+                            : `/practice?moduleId=${encodeURIComponent(
+                                module.id,
+                              )}`
+                        }
+                        className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-300 transition hover:text-blue-200"
+                      >
+                        Continue module
+                        <ChevronRight size={13} />
+                      </Link>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-center">
+              <p className="text-sm text-slate-500">
+                Curriculum progress is temporarily unavailable.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ========================================================
+          RECOMMENDED NEXT TOPIC
+      ======================================================== */}
+
+      {recommendedTopic && (
+        <section className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-purple-500/20 bg-gradient-to-br from-purple-500/10 via-slate-900 to-slate-900 p-5 sm:p-6">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-300">
+                  <Sparkles size={23} />
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-purple-300">
+                    Recommended next topic
+                  </p>
+
+                  <h2 className="mt-1 text-lg font-semibold text-white">
+                    {recommendedTopic.title}
+                  </h2>
+
+                  {recommendedModule && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Module {recommendedModule.module_number}:{" "}
+                      {recommendedModule.title}
+                    </p>
+                  )}
+
+                  {recommendedTopic.description && (
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                      {recommendedTopic.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Link
+                  href={`/practice?topicId=${encodeURIComponent(
+                    recommendedTopic.id,
+                  )}&moduleId=${encodeURIComponent(
+                    recommendedTopic.module_id,
+                  )}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2.5 text-xs font-semibold text-slate-950 transition hover:bg-slate-200"
+                >
+                  Practice Topic
+                  <ArrowRight size={14} />
+                </Link>
+
+                <Link
+                  href={`/ai-tutor?topic=${encodeURIComponent(
+                    recommendedTopic.title,
+                  )}&source=roadmap`}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
+                >
+                  <Brain size={14} />
+                  Ask AI Tutor
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ========================================================
           PROGRESS SUMMARY
       ======================================================== */}
 
       <section className="border-b border-slate-800 bg-slate-950">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-px border-x border-slate-800 bg-slate-800 sm:grid-cols-4">
+        <div className="mx-auto mt-8 grid max-w-7xl grid-cols-2 gap-px border-x border-slate-800 bg-slate-800 sm:grid-cols-4">
           <div className="bg-slate-950 px-5 py-6">
             <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
               <BookOpen size={14} />
@@ -593,15 +962,15 @@ export default async function RoadmapPage() {
           <div className="bg-slate-950 px-5 py-6">
             <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
               <Zap size={14} />
-              Course progress
+              Curriculum
             </div>
 
             <p className="mt-2 text-2xl font-bold">
-              {overallProgress}%
+              {curriculumOverallProgress}%
             </p>
 
             <p className="mt-1 text-xs text-slate-600">
-              based on completed lessons
+              topic mastery
             </p>
           </div>
 
@@ -681,7 +1050,7 @@ export default async function RoadmapPage() {
       </section>
 
       {/* ========================================================
-          ROADMAP
+          EXISTING 10-STAGE ROADMAP
       ======================================================== */}
 
       <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
@@ -697,216 +1066,182 @@ export default async function RoadmapPage() {
         </div>
 
         <div className="relative">
-          {/* Vertical roadmap line */}
-
           <div className="absolute bottom-0 left-[23px] top-0 hidden w-px bg-slate-800 sm:block" />
 
           <div className="space-y-5">
-            {ROADMAP_STAGES.map(
-              (stage) => {
-                const status = getStageStatus(
-                  stage.number,
-                  currentStage,
-                );
+            {ROADMAP_STAGES.map((stage) => {
+              const status = getStageStatus(
+                stage.number,
+                currentStage,
+              );
 
-                const StageIcon = stage.icon;
+              const StageIcon = stage.icon;
 
-                const isCompleted =
-                  status === "completed";
+              const isCompleted =
+                status === "completed";
 
-                const isCurrent =
-                  status === "current";
+              const isCurrent =
+                status === "current";
 
-                return (
-                  <article
-                    key={stage.number}
-                    className={`relative sm:pl-16 ${
-                      isCurrent
-                        ? "sm:pl-16"
-                        : ""
+              return (
+                <article
+                  key={stage.number}
+                  className="relative sm:pl-16"
+                >
+                  <div
+                    className={`absolute left-0 top-6 hidden h-12 w-12 items-center justify-center rounded-full border sm:flex ${
+                      isCompleted
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                        : isCurrent
+                          ? "border-blue-400/50 bg-blue-500/15 text-blue-300 shadow-lg shadow-blue-500/10"
+                          : "border-slate-800 bg-slate-900 text-slate-600"
                     }`}
                   >
-                    {/* Timeline node */}
+                    {isCompleted ? (
+                      <CheckCircle2 size={21} />
+                    ) : isCurrent ? (
+                      <StageIcon size={21} />
+                    ) : (
+                      <Lock size={18} />
+                    )}
+                  </div>
 
-                    <div
-                      className={`absolute left-0 top-6 hidden h-12 w-12 items-center justify-center rounded-full border sm:flex ${
-                        isCompleted
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                          : isCurrent
-                            ? "border-blue-400/50 bg-blue-500/15 text-blue-300 shadow-lg shadow-blue-500/10"
-                            : "border-slate-800 bg-slate-900 text-slate-600"
-                      }`}
-                    >
-                      {isCompleted ? (
-                        <CheckCircle2 size={21} />
-                      ) : isCurrent ? (
-                        <StageIcon size={21} />
-                      ) : (
-                        <Lock size={18} />
-                      )}
-                    </div>
-
-                    <div
-                      className={`overflow-hidden rounded-2xl border transition ${
-                        isCurrent
-                          ? "border-blue-500/30 bg-slate-900 shadow-xl shadow-blue-950/20"
-                          : isCompleted
-                            ? "border-emerald-500/15 bg-slate-900/70"
-                            : "border-slate-800 bg-slate-900/40"
-                      }`}
-                    >
-                      {/* Stage header */}
-
-                      <div className="flex flex-col gap-4 p-5 sm:p-6">
-                        <div className="flex items-start gap-4">
-                          <div
-                            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:hidden ${
-                              isCompleted
-                                ? "bg-emerald-500/10 text-emerald-400"
-                                : isCurrent
-                                  ? "bg-blue-500/10 text-blue-300"
-                                  : "bg-slate-800 text-slate-600"
-                            }`}
-                          >
-                            {isCompleted ? (
-                              <CheckCircle2
-                                size={21}
-                              />
-                            ) : isCurrent ? (
-                              <StageIcon
-                                size={21}
-                              />
-                            ) : (
-                              <Lock size={18} />
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span
-                                className={`text-xs font-bold ${
-                                  isCompleted
-                                    ? "text-emerald-400"
-                                    : isCurrent
-                                      ? "text-blue-300"
-                                      : "text-slate-600"
-                                }`}
-                              >
-                                {String(
-                                  stage.number,
-                                ).padStart(
-                                  2,
-                                  "0",
-                                )}
-                              </span>
-
-                              {isCompleted && (
-                                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                                  Completed
-                                </span>
-                              )}
-
-                              {isCurrent && (
-                                <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
-                                  Current stage
-                                </span>
-                              )}
-
-                              {status ===
-                                "upcoming" && (
-                                <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                                  Upcoming
-                                </span>
-                              )}
-                            </div>
-
-                            <h3
-                              className={`mt-1 text-lg font-semibold ${
-                                status ===
-                                "upcoming"
-                                  ? "text-slate-500"
-                                  : "text-white"
-                              }`}
-                            >
-                              {stage.title}
-                            </h3>
-
-                            <p
-                              className={`mt-2 max-w-3xl text-sm leading-6 ${
-                                status ===
-                                "upcoming"
-                                  ? "text-slate-600"
-                                  : "text-slate-400"
-                              }`}
-                            >
-                              {stage.description}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Topics */}
-
-                        <div className="flex flex-wrap gap-2 sm:ml-[60px]">
-                          {stage.topics.map(
-                            (topic) => (
-                              <span
-                                key={topic}
-                                className={`rounded-lg border px-2.5 py-1 text-[11px] ${
-                                  status ===
-                                  "upcoming"
-                                    ? "border-slate-800 text-slate-600"
-                                    : "border-slate-700 bg-slate-950/50 text-slate-400"
-                                }`}
-                              >
-                                {topic}
-                              </span>
-                            ),
+                  <div
+                    className={`overflow-hidden rounded-2xl border transition ${
+                      isCurrent
+                        ? "border-blue-500/30 bg-slate-900 shadow-xl shadow-blue-950/20"
+                        : isCompleted
+                          ? "border-emerald-500/15 bg-slate-900/70"
+                          : "border-slate-800 bg-slate-900/40"
+                    }`}
+                  >
+                    <div className="flex flex-col gap-4 p-5 sm:p-6">
+                      <div className="flex items-start gap-4">
+                        <div
+                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:hidden ${
+                            isCompleted
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : isCurrent
+                                ? "bg-blue-500/10 text-blue-300"
+                                : "bg-slate-800 text-slate-600"
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <CheckCircle2 size={21} />
+                          ) : isCurrent ? (
+                            <StageIcon size={21} />
+                          ) : (
+                            <Lock size={18} />
                           )}
                         </div>
 
-                        {/* Actions */}
-
-                        {status !==
-                          "upcoming" && (
-                          <div className="flex flex-wrap gap-2 sm:ml-[60px]">
-                            <Link
-                              href={`/practice?chapterNumber=${stage.practiceChapter}`}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`text-xs font-bold ${
+                                isCompleted
+                                  ? "text-emerald-400"
+                                  : isCurrent
+                                    ? "text-blue-300"
+                                    : "text-slate-600"
+                              }`}
                             >
-                              Practice
-                              <ChevronRight
-                                size={13}
-                              />
-                            </Link>
+                              {String(stage.number).padStart(
+                                2,
+                                "0",
+                              )}
+                            </span>
 
-                            <Link
-                              href={`/ai-tutor?topic=${encodeURIComponent(
-                                stage.tutorTopic,
-                              )}&source=roadmap`}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
-                            >
-                              AI Tutor
-                              <ChevronRight
-                                size={13}
-                              />
-                            </Link>
-                          </div>
-                        )}
+                            {isCompleted && (
+                              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                Completed
+                              </span>
+                            )}
 
-                        {status ===
-                          "upcoming" && (
-                          <div className="flex items-center gap-2 text-xs text-slate-600 sm:ml-[60px]">
-                            <Lock size={13} />
-                            Complete earlier stages to
-                            reach this topic.
+                            {isCurrent && (
+                              <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
+                                Current stage
+                              </span>
+                            )}
+
+                            {status === "upcoming" && (
+                              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                                Upcoming
+                              </span>
+                            )}
                           </div>
-                        )}
+
+                          <h3
+                            className={`mt-1 text-lg font-semibold ${
+                              status === "upcoming"
+                                ? "text-slate-500"
+                                : "text-white"
+                            }`}
+                          >
+                            {stage.title}
+                          </h3>
+
+                          <p
+                            className={`mt-2 max-w-3xl text-sm leading-6 ${
+                              status === "upcoming"
+                                ? "text-slate-600"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            {stage.description}
+                          </p>
+                        </div>
                       </div>
+
+                      <div className="flex flex-wrap gap-2 sm:ml-[60px]">
+                        {stage.topics.map((topic) => (
+                          <span
+                            key={topic}
+                            className={`rounded-lg border px-2.5 py-1 text-[11px] ${
+                              status === "upcoming"
+                                ? "border-slate-800 text-slate-600"
+                                : "border-slate-700 bg-slate-950/50 text-slate-400"
+                            }`}
+                          >
+                            {topic}
+                          </span>
+                        ))}
+                      </div>
+
+                      {status !== "upcoming" && (
+                        <div className="flex flex-wrap gap-2 sm:ml-[60px]">
+                          <Link
+                            href={`/practice?chapterNumber=${stage.practiceChapter}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
+                          >
+                            Practice
+                            <ChevronRight size={13} />
+                          </Link>
+
+                          <Link
+                            href={`/ai-tutor?topic=${encodeURIComponent(
+                              stage.tutorTopic,
+                            )}&source=roadmap`}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
+                          >
+                            AI Tutor
+                            <ChevronRight size={13} />
+                          </Link>
+                        </div>
+                      )}
+
+                      {status === "upcoming" && (
+                        <div className="flex items-center gap-2 text-xs text-slate-600 sm:ml-[60px]">
+                          <Lock size={13} />
+                          Complete earlier stages to
+                          reach this topic.
+                        </div>
+                      )}
                     </div>
-                  </article>
-                );
-              },
-            )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -968,16 +1303,18 @@ export default async function RoadmapPage() {
       {!course && (
         <section className="mx-auto max-w-3xl px-4 pb-16 sm:px-6 lg:px-8">
           <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6 text-center">
-            <Circle className="mx-auto text-amber-400" size={28} />
+            <Circle
+              className="mx-auto text-amber-400"
+              size={28}
+            />
 
             <h2 className="mt-3 text-lg font-semibold text-white">
               Course content is not available yet
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              The roadmap is ready, but the published
-              Quantum Computing Fundamentals course could
-              not be found.
+              The roadmap is ready, but the published Quantum
+              Computing Fundamentals course could not be found.
             </p>
 
             <Link
@@ -1008,8 +1345,7 @@ export default async function RoadmapPage() {
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500">
             Learn the mathematics, understand the physics,
             build circuits, run experiments, practice your
-            concepts, and use AI Tutor whenever you get
-            stuck.
+            concepts, and use AI Tutor whenever you get stuck.
           </p>
 
           <div className="mt-6 flex flex-wrap justify-center gap-3">

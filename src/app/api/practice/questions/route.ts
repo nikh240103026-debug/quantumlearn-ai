@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getCurriculumQuestions } from "@/lib/curriculum/curriculum-question-service";
 
 const VALID_DIFFICULTIES = [
   "easy",
@@ -11,20 +11,38 @@ const VALID_DIFFICULTIES = [
 type Difficulty =
   (typeof VALID_DIFFICULTIES)[number];
 
+function parsePositiveInteger(
+  value: string | null,
+): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isInteger(parsed) &&
+    parsed > 0
+    ? parsed
+    : undefined;
+}
+
 export async function GET(
   request: NextRequest,
 ) {
   try {
-    const supabase =
-      await createSupabaseServerClient();
-
     const searchParams =
       request.nextUrl.searchParams;
 
+    const topicId =
+      searchParams.get("topicId")?.trim() ||
+      undefined;
+
+    const moduleId =
+      searchParams.get("moduleId")?.trim() ||
+      undefined;
+
     const chapterNumberParam =
-      searchParams.get(
-        "chapterNumber",
-      );
+      searchParams.get("chapterNumber");
 
     const difficultyParam =
       searchParams.get("difficulty");
@@ -32,42 +50,33 @@ export async function GET(
     const limitParam =
       searchParams.get("limit");
 
-    const topicId =
-      searchParams.get("topicId");
-
-    const moduleId =
-      searchParams.get("moduleId");
-
-    const chapterNumber =
-      chapterNumberParam
-        ? Number(chapterNumberParam)
-        : undefined;
-
-    const limit =
-      limitParam
-        ? Number(limitParam)
-        : 10;
-
     // ----------------------------------------------------------
     // VALIDATE CHAPTER
     // ----------------------------------------------------------
 
-    if (
-      chapterNumber !==
-        undefined &&
-      (!Number.isInteger(
-        chapterNumber,
-      ) ||
+    let chapterNumber:
+      | number
+      | undefined;
+
+    if (chapterNumberParam) {
+      chapterNumber =
+        parsePositiveInteger(
+          chapterNumberParam,
+        );
+
+      if (
+        chapterNumber === undefined ||
         chapterNumber < 1 ||
-        chapterNumber > 10)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "chapterNumber must be an integer between 1 and 10.",
-        },
-        { status: 400 },
-      );
+        chapterNumber > 10
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "chapterNumber must be an integer between 1 and 10.",
+          },
+          { status: 400 },
+        );
+      }
     }
 
     // ----------------------------------------------------------
@@ -101,138 +110,67 @@ export async function GET(
     // VALIDATE LIMIT
     // ----------------------------------------------------------
 
-    const safeLimit =
-      Number.isInteger(limit) &&
-      limit >= 1 &&
-      limit <= 20
-        ? limit
-        : 10;
+    let limit = 10;
 
-    // ----------------------------------------------------------
-    // RESOLVE CURRICULUM TOPICS
-    // ----------------------------------------------------------
+    if (limitParam) {
+      const parsedLimit =
+        Number(limitParam);
 
-    let curriculumTopicIds: string[] =
-      [];
-
-    if (moduleId) {
-      const {
-        data: moduleTopics,
-        error: moduleError,
-      } = await supabase
-        .from("curriculum_topics")
-        .select("id")
-        .eq("module_id", moduleId)
-        .eq("is_published", true)
-        .order("order_index", {
-          ascending: true,
-        });
-
-      if (moduleError) {
-        console.error(
-          "Failed to fetch curriculum module topics:",
-          moduleError,
-        );
-
-        return NextResponse.json(
-          {
-            error:
-              "Failed to fetch curriculum module topics.",
-            details:
-              moduleError.message,
-          },
-          { status: 500 },
-        );
-      }
-
-      curriculumTopicIds =
-        (moduleTopics ?? []).map(
-          (topic) => topic.id,
-        );
-    }
-
-    if (topicId) {
-      curriculumTopicIds = [
-        topicId,
-      ];
-    }
-
-    // ----------------------------------------------------------
-    // RESOLVE CURRICULUM QUESTION IDS
-    // ----------------------------------------------------------
-
-    let curriculumQuestionIds:
-      | string[]
-      | undefined;
-
-    if (
-      curriculumTopicIds.length >
-      0
-    ) {
-      const {
-        data: mappings,
-        error: mappingError,
-      } = await supabase
-        .from(
-          "curriculum_question_topics",
-        )
-        .select(
-          "question_id, relevance_score",
-        )
-        .in(
-          "topic_id",
-          curriculumTopicIds,
-        )
-        .order(
-          "relevance_score",
-          {
-            ascending: false,
-          },
-        );
-
-      if (mappingError) {
-        console.error(
-          "Failed to fetch curriculum question mappings:",
-          mappingError,
-        );
-
-        return NextResponse.json(
-          {
-            error:
-              "Failed to fetch curriculum question mappings.",
-            details:
-              mappingError.message,
-          },
-          { status: 500 },
-        );
-      }
-
-      curriculumQuestionIds = [
-        ...new Set(
-          (mappings ?? []).map(
-            (mapping) =>
-              mapping.question_id,
-          ),
-        ),
-      ];
-
-      // A valid curriculum topic/module with no
-      // mapped questions should return an empty set,
-      // not all practice questions.
       if (
-        curriculumQuestionIds
-          .length === 0
+        !Number.isInteger(
+          parsedLimit,
+        ) ||
+        parsedLimit < 1 ||
+        parsedLimit > 100
       ) {
-        return NextResponse.json({
-          questions: [],
-          count: 0,
-        });
+        return NextResponse.json(
+          {
+            error:
+              "limit must be an integer between 1 and 100.",
+          },
+          { status: 400 },
+        );
       }
+
+      limit = parsedLimit;
     }
 
     // ----------------------------------------------------------
-    // BUILD QUERY
+    // CURRICULUM MODE
     // ----------------------------------------------------------
+
+    const curriculumMode =
+      Boolean(topicId || moduleId);
+
+    if (curriculumMode) {
+      const questions =
+        await getCurriculumQuestions({
+          topicId,
+          moduleId,
+          chapterNumber,
+          difficulty,
+          limit,
+        });
+
+      return NextResponse.json({
+        questions,
+        count: questions.length,
+        source: "curriculum",
+      });
+    }
+
+    // ----------------------------------------------------------
+    // LEGACY MODE
+    //
+    // No topicId/moduleId means the existing practice
+    // question behavior is preserved.
+    // ----------------------------------------------------------
+
+    const supabase =
+      await import("@/lib/supabase-server").then(
+        ({ createSupabaseServerClient }) =>
+          createSupabaseServerClient(),
+      );
 
     let query = supabase
       .from("practice_questions")
@@ -252,17 +190,14 @@ export async function GET(
           updated_at
         `,
       )
-      .order(
-        "chapter_number",
-        {
-          ascending: true,
-        },
-      );
+      .order("chapter_number", {
+        ascending: true,
+      })
+      .order("id", {
+        ascending: true,
+      });
 
-    if (
-      chapterNumber !==
-      undefined
-    ) {
+    if (chapterNumber !== undefined) {
       query = query.eq(
         "chapter_number",
         chapterNumber,
@@ -276,23 +211,7 @@ export async function GET(
       );
     }
 
-    if (
-      curriculumQuestionIds
-        !== undefined
-    ) {
-      query = query.in(
-        "id",
-        curriculumQuestionIds,
-      );
-    }
-
-    query = query.limit(
-      safeLimit,
-    );
-
-    // ----------------------------------------------------------
-    // EXECUTE
-    // ----------------------------------------------------------
+    query = query.limit(limit);
 
     const {
       data,
@@ -309,52 +228,35 @@ export async function GET(
         {
           error:
             "Failed to fetch practice questions from the database.",
-          details:
-            error.message,
+          details: error.message,
         },
         { status: 500 },
       );
     }
 
-    // ----------------------------------------------------------
-    // FORMAT RESPONSE
-    // ----------------------------------------------------------
-
     const questions =
       (data ?? []).map(
         (question) => ({
           id: question.id,
-
           chapterNumber:
             question.chapter_number,
-
           chapterSlug:
             question.chapter_slug,
-
           chapterTitle:
             question.chapter_title,
-
-          topic:
-            question.topic,
-
+          topic: question.topic,
           difficulty:
             question.difficulty,
-
           question:
             question.question,
-
           options:
             question.options,
-
           correctAnswer:
             question.correct_answer,
-
           explanation:
             question.explanation,
-
           createdAt:
             question.created_at,
-
           updatedAt:
             question.updated_at,
         }),
@@ -362,8 +264,8 @@ export async function GET(
 
     return NextResponse.json({
       questions,
-      count:
-        questions.length,
+      count: questions.length,
+      source: "legacy",
     });
   } catch (error) {
     console.error(
@@ -374,7 +276,9 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Unexpected error while loading practice questions.",
+          error instanceof Error
+            ? error.message
+            : "Unexpected error while loading practice questions.",
       },
       { status: 500 },
     );
