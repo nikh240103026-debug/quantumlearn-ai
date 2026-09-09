@@ -158,7 +158,7 @@ export function AboutCreator() {
 
             <div className="mt-12">
               <a
-                href="https://www.linkedin.com"
+                href="https://www.linkedin.com/in/nikhil-raj-bb8676320/"
                 target="_blank"
                 rel="noreferrer"
                 className="group inline-flex items-center gap-2 border-b border-black/20 pb-2 text-sm font-semibold transition-colors hover:border-black"
