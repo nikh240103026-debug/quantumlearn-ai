@@ -2,12 +2,16 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+} from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export default function ResetPasswordPage() {
-  const supabase = createSupabaseBrowserClient();
-
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -15,21 +19,59 @@ export default function ResetPasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [ready, setReady] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
     let mounted = true;
 
     const initializeRecovery = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        /*
+         * Supabase handles the recovery access token from the URL.
+         * We first check whether a session already exists.
+         */
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (mounted) {
-        setReady(Boolean(session));
+        if (!mounted) return;
+
+        if (session) {
+          setReady(true);
+          setCheckingSession(false);
+          return;
+        }
+
+        /*
+         * Give Supabase a moment to process the recovery URL.
+         * This is especially important when the page is opened
+         * directly from the password-reset email.
+         */
+        setTimeout(async () => {
+          if (!mounted) return;
+
+          const {
+            data: { session: recoverySession },
+          } = await supabase.auth.getSession();
+
+          if (!mounted) return;
+
+          setReady(Boolean(recoverySession));
+          setCheckingSession(false);
+        }, 500);
+      } catch {
+        if (!mounted) return;
+
+        setReady(false);
+        setCheckingSession(false);
+        setError(
+          "Unable to initialize the password reset session. Please request a new reset link.",
+        );
       }
     };
 
@@ -42,6 +84,15 @@ export default function ResetPasswordPage() {
 
       if (event === "PASSWORD_RECOVERY") {
         setReady(Boolean(session));
+        setCheckingSession(false);
+      }
+
+      if (
+        event === "SIGNED_IN" &&
+        session
+      ) {
+        setReady(true);
+        setCheckingSession(false);
       }
     });
 
@@ -49,7 +100,7 @@ export default function ResetPasswordPage() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -91,10 +142,11 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
 
-    const { error: updateError } =
-      await supabase.auth.updateUser({
-        password,
-      });
+    const supabase = createSupabaseBrowserClient();
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+    });
 
     setLoading(false);
 
@@ -105,9 +157,12 @@ export default function ResetPasswordPage() {
 
     setPassword("");
     setConfirmPassword("");
+
     setMessage(
       "Your password has been updated successfully. You can now log in with your new password.",
     );
+
+    setReady(false);
   }
 
   return (
@@ -133,7 +188,8 @@ export default function ResetPasswordPage() {
               </h1>
 
               <p className="mt-2 text-sm leading-6 text-slate-500">
-                Choose a new secure password for your QuantumLearn AI account.
+                Choose a new secure password for your QuantumLearn AI
+                account.
               </p>
             </div>
 
@@ -145,14 +201,32 @@ export default function ResetPasswordPage() {
 
             {message && (
               <div className="mb-6 flex gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                <CheckCircle2 className="mt-0.5 shrink-0" size={18} />
+                <CheckCircle2
+                  className="mt-0.5 shrink-0"
+                  size={18}
+                />
+
                 <span>{message}</span>
               </div>
             )}
 
-            {!ready && !message ? (
+            {checkingSession ? (
               <div className="rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
                 Preparing your secure password reset session...
+              </div>
+            ) : !ready && !message ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
+                This password reset link is invalid or has expired.
+                Please request a new password reset link.
+              </div>
+            ) : message ? (
+              <div className="space-y-4">
+                <Link
+                  href="/login"
+                  className="block w-full rounded-xl bg-blue-600 px-5 py-3.5 text-center text-sm font-bold text-white transition hover:bg-blue-700"
+                >
+                  Go to login
+                </Link>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5">
@@ -170,7 +244,9 @@ export default function ResetPasswordPage() {
                     <input
                       type={showPassword ? "text" : "password"}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) =>
+                        setPassword(e.target.value)
+                      }
                       className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pl-11 pr-11 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                       placeholder="New password"
                       autoComplete="new-password"
@@ -182,6 +258,11 @@ export default function ResetPasswordPage() {
                         setShowPassword((value) => !value)
                       }
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                      aria-label={
+                        showPassword
+                          ? "Hide password"
+                          : "Show password"
+                      }
                     >
                       {showPassword ? (
                         <EyeOff size={18} />
@@ -204,7 +285,11 @@ export default function ResetPasswordPage() {
                     />
 
                     <input
-                      type={showConfirmPassword ? "text" : "password"}
+                      type={
+                        showConfirmPassword
+                          ? "text"
+                          : "password"
+                      }
                       value={confirmPassword}
                       onChange={(e) =>
                         setConfirmPassword(e.target.value)
@@ -217,9 +302,16 @@ export default function ResetPasswordPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        setShowConfirmPassword((value) => !value)
+                        setShowConfirmPassword(
+                          (value) => !value,
+                        )
                       }
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                      aria-label={
+                        showConfirmPassword
+                          ? "Hide confirm password"
+                          : "Show confirm password"
+                      }
                     >
                       {showConfirmPassword ? (
                         <EyeOff size={18} />
@@ -231,8 +323,8 @@ export default function ResetPasswordPage() {
                 </div>
 
                 <div className="rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-500">
-                  Password must contain at least 8 characters, including
-                  uppercase, lowercase, and a number.
+                  Password must contain at least 8 characters,
+                  including uppercase, lowercase, and a number.
                 </div>
 
                 <button
@@ -240,7 +332,9 @@ export default function ResetPasswordPage() {
                   disabled={loading}
                   className="w-full rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-60"
                 >
-                  {loading ? "Updating..." : "Update password"}
+                  {loading
+                    ? "Updating..."
+                    : "Update password"}
                 </button>
               </form>
             )}
