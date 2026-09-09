@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+// import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 
 export function AboutCreator() {
@@ -55,14 +55,10 @@ export function AboutCreator() {
           >
             <div className="relative mx-auto max-w-[560px] overflow-hidden bg-[#111318]">
               <div className="relative aspect-[4/5] w-full">
-                <Image
+                <img
                   src="/images/creator/nikhil-raj.JPG"
                   alt="Nikhil Raj — Creator of QuantumLearn AI"
-                  fill
-                  priority
-                  unoptimized
-                  sizes="(max-width: 1024px) 90vw, 45vw"
-                  className="object-cover object-center grayscale-[15%] transition-transform duration-[1600ms] hover:scale-[1.025]"
+                  className="absolute inset-0 h-full w-full object-cover object-center grayscale-[15%] transition-transform duration-[1600ms] hover:scale-[1.025]"
                 />
 
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
