@@ -41,9 +41,13 @@ export default function ForgotPasswordPage() {
     setLoading(false);
 
     if (resetError) {
+      console.error("Password reset error:", resetError);
+
       setError(
-        "Unable to send the reset email right now. Please try again.",
+        resetError.message ||
+          "Unable to send the reset email right now. Please try again.",
       );
+
       return;
     }
 
