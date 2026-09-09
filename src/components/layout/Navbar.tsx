@@ -12,6 +12,7 @@ import {
   FlaskConical,
   Code2,
   Target,
+  Info,
   Library,
   Brain,
   LayoutDashboard,
@@ -173,6 +174,11 @@ const navGroups: NavGroup[] = [
 ];
 
 const standaloneNavigation = [
+  {
+    name: "About",
+    href: "/about",
+    icon: Info,
+  },
   {
     name: "Resources",
     href: "/resources",
@@ -400,7 +406,7 @@ export function Navbar() {
               );
             })}
 
-            {/* Resources */}
+            {/* About + Resources */}
             {standaloneNavigation.map((item) => {
               const Icon = item.icon;
               const active = isRouteActive(item.href);
@@ -620,19 +626,34 @@ export function Navbar() {
                 );
               })}
 
-              {/* Resources */}
-              <Link
-                href="/resources"
-                onClick={closeMenus}
-                className={`flex items-center justify-center gap-2 border px-4 py-3 text-sm font-semibold ${
-                  isRouteActive("/resources")
-                    ? "border-white/15 bg-white/10 text-white"
-                    : "border-white/10 text-white/70 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                <Library size={17} strokeWidth={1.8} />
-                Resources
-              </Link>
+              {/* About + Resources */}
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  href="/about"
+                  onClick={closeMenus}
+                  className={`flex items-center justify-center gap-2 border px-4 py-3 text-sm font-semibold ${
+                    isRouteActive("/about")
+                      ? "border-white/15 bg-white/10 text-white"
+                      : "border-white/10 text-white/70 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Info size={17} strokeWidth={1.8} />
+                  About
+                </Link>
+
+                <Link
+                  href="/resources"
+                  onClick={closeMenus}
+                  className={`flex items-center justify-center gap-2 border px-4 py-3 text-sm font-semibold ${
+                    isRouteActive("/resources")
+                      ? "border-white/15 bg-white/10 text-white"
+                      : "border-white/10 text-white/70 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Library size={17} strokeWidth={1.8} />
+                  Resources
+                </Link>
+              </div>
             </div>
 
             {/* Mobile Account */}
