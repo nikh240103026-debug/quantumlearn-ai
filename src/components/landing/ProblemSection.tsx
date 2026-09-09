@@ -1,87 +1,141 @@
+import Link from "next/link";
 import {
+  ArrowUpRight,
+  BookOpen,
   Brain,
-  Layers3,
+  Code2,
   FlaskConical,
-  UserRoundCheck,
 } from "lucide-react";
-
-import { Card } from "@/components/ui/Card";
-import { SectionHeading } from "@/components/ui/SectionHeading";
 
 const problems = [
   {
-    icon: Brain,
     number: "01",
-    title: "Abstract Concepts",
+    title: "Quantum concepts stay abstract",
     description:
-      "Superposition, entanglement and quantum states are difficult to understand from theory alone.",
+      "Move beyond static explanations with interactive visual learning that connects theory to observable quantum behavior.",
+    icon: BookOpen,
   },
   {
-    icon: Layers3,
     number: "02",
-    title: "Fragmented Tools",
+    title: "Building circuits is difficult",
     description:
-      "Learning materials, circuit builders, simulators and coding environments are often separated.",
-  },
-  {
+      "Experiment with quantum gates visually and understand how each operation changes the circuit and its state.",
     icon: FlaskConical,
-    number: "03",
-    title: "Limited Hands-on Practice",
-    description:
-      "Students need practical experimentation to understand how quantum algorithms actually behave.",
   },
   {
-    icon: UserRoundCheck,
-    number: "04",
-    title: "Lack of Personalized Guidance",
+    number: "03",
+    title: "Quantum code has a steep learning curve",
     description:
-      "Traditional learning platforms cannot continuously adapt to individual mistakes and learning gaps.",
+      "Write and execute programs across major quantum SDKs while learning the ideas behind the code.",
+    icon: Code2,
+  },
+  {
+    number: "04",
+    title: "Learners lack personalized guidance",
+    description:
+      "Use AI-powered assistance for explanations, mistakes, optimization suggestions, and a learning path adapted to progress.",
+    icon: Brain,
   },
 ];
 
 export function ProblemSection() {
   return (
-    <section className="border-y border-slate-200 bg-slate-50 py-20 sm:py-24 lg:py-28">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionHeading
-          eyebrow="The Challenge"
-          title="Quantum Computing Shouldn't Be This Difficult to Learn."
-          description="Understanding quantum computing requires more than reading theory. Learners need a connected environment where concepts, experimentation and feedback come together."
-        />
+    <section className="border-b border-slate-200 bg-white">
+      <div className="mx-auto max-w-[1600px]">
+        {/* Section introduction */}
+        <div className="grid lg:grid-cols-[0.8fr_1.2fr]">
+          <div className="border-b border-slate-200 px-6 py-14 sm:px-10 lg:border-b-0 lg:border-r lg:px-16 lg:py-20 xl:px-24">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+              The learning gap
+            </p>
 
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:mt-16 lg:grid-cols-4">
-          {problems.map((problem) => {
+            <h2 className="mt-5 max-w-md text-4xl font-semibold leading-[1.05] tracking-[-0.04em] text-slate-950 sm:text-5xl">
+              Quantum computing should be learned by doing.
+            </h2>
+          </div>
+
+          <div className="flex items-end px-6 py-14 sm:px-10 lg:px-16 lg:py-20 xl:px-24">
+            <div className="max-w-2xl">
+              <p className="text-lg leading-8 text-slate-600">
+                Traditional learning often separates theory, coding,
+                experimentation, and feedback. QuantumLearn AI brings them
+                together in one continuous learning environment.
+              </p>
+
+              <Link
+                href="/roadmap"
+                className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-slate-950 transition-colors hover:text-blue-600"
+              >
+                Explore the learning journey
+                <ArrowUpRight size={16} />
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Problem grid */}
+        <div className="grid border-t border-slate-200 md:grid-cols-2 lg:grid-cols-4">
+          {problems.map((problem, index) => {
             const Icon = problem.icon;
 
             return (
-              <Card
+              <article
                 key={problem.number}
-                className="group relative overflow-hidden p-6 transition-all duration-300 hover:-translate-y-1 hover:border-slate-300 hover:shadow-lg"
+                className={`group relative px-6 py-10 transition-colors hover:bg-slate-50 sm:px-10 lg:px-8 xl:px-10 ${
+                  index !== problems.length - 1
+                    ? "border-b border-slate-200 md:border-r"
+                    : ""
+                } ${
+                  index === 1
+                    ? "lg:border-r"
+                    : index === 2
+                      ? "lg:border-r"
+                      : ""
+                } ${
+                  index === 0 || index === 1
+                    ? "lg:border-b-0"
+                    : "lg:border-b-0"
+                }`}
               >
-                {/* Number */}
-                <div className="absolute right-5 top-5 text-xs font-bold tracking-widest text-slate-300 transition-colors group-hover:text-blue-200">
-                  {problem.number}
+                <div className="flex items-start justify-between">
+                  <span className="text-xs font-semibold tracking-[0.16em] text-slate-400">
+                    {problem.number}
+                  </span>
+
+                  <div className="flex h-9 w-9 items-center justify-center border border-slate-200 bg-white text-slate-500 transition-colors group-hover:border-blue-200 group-hover:text-blue-600">
+                    <Icon size={17} strokeWidth={1.7} />
+                  </div>
                 </div>
 
-                {/* Icon */}
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-blue-600 transition-colors group-hover:border-blue-200 group-hover:bg-blue-50">
-                  <Icon size={21} strokeWidth={1.8} />
-                </div>
-
-                {/* Content */}
-                <h3 className="mt-6 text-lg font-semibold text-slate-950">
+                <h3 className="mt-12 max-w-xs text-xl font-semibold leading-7 tracking-[-0.02em] text-slate-950">
                   {problem.title}
                 </h3>
 
-                <p className="mt-3 text-sm leading-6 text-slate-600">
+                <p className="mt-4 max-w-sm text-sm leading-6 text-slate-500">
                   {problem.description}
                 </p>
 
-                {/* Bottom accent */}
-                <div className="mt-6 h-px w-10 bg-slate-200 transition-all duration-300 group-hover:w-16 group-hover:bg-blue-500" />
-              </Card>
+                <div className="mt-10 h-px w-10 bg-slate-300 transition-all duration-300 group-hover:w-16 group-hover:bg-blue-600" />
+              </article>
             );
           })}
+        </div>
+
+        {/* Statement */}
+        <div className="grid border-t border-slate-200 bg-[#050816] text-white lg:grid-cols-[1fr_2fr]">
+          <div className="border-b border-white/10 px-6 py-10 sm:px-10 lg:border-b-0 lg:border-r lg:px-16 xl:px-24">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-400">
+              QuantumLearn AI
+            </p>
+          </div>
+
+          <div className="px-6 py-10 sm:px-10 lg:px-16 xl:px-24">
+            <p className="max-w-4xl text-2xl font-medium leading-9 tracking-[-0.02em] text-white sm:text-3xl sm:leading-10">
+              A single environment where learners can understand the
+              fundamentals, build circuits, execute quantum programs, analyze
+              results, and receive intelligent guidance.
+            </p>
+          </div>
         </div>
       </div>
     </section>
