@@ -1,350 +1,352 @@
-import Link from "next/link";
-import { ArrowRight, Atom, Play, Terminal, Waves } from "lucide-react";
+"use client";
 
-const qubits = [
-  { label: "q₀", gates: ["H", "●", "M"] },
-  { label: "q₁", gates: ["", "X", "M"] },
-  { label: "q₂", gates: ["H", "Z", "M"] },
-];
+import Link from "next/link";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BookOpen,
+  Code2,
+  FlaskConical,
+  Play,
+  Sparkles,
+} from "lucide-react";
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden border-b border-slate-200 bg-white">
-      {/* Background */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_30%,rgba(37,99,235,0.12),transparent_30%),radial-gradient(circle_at_20%_0%,rgba(99,102,241,0.06),transparent_25%)]" />
-
-        <div
-          className="absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage:
-              "linear-gradient(#0f172a 1px, transparent 1px), linear-gradient(90deg, #0f172a 1px, transparent 1px)",
-            backgroundSize: "64px 64px",
-          }}
+    <section className="hero-section relative w-full overflow-hidden bg-black text-white">
+      {/* Background image */}
+      <div className="hero-image absolute inset-0">
+        <img
+          src="/images/quantum-computer.jpg"
+          alt="Quantum computer"
+          className="h-full w-full object-cover object-center"
         />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px]">
-        {/* Main Hero */}
-        <div className="grid min-h-[760px] lg:grid-cols-[0.95fr_1.05fr]">
-          {/* Left */}
-          <div className="flex flex-col justify-center border-b border-slate-200 px-6 py-20 sm:px-10 lg:border-b-0 lg:border-r lg:px-16 lg:py-24 xl:px-24">
-            <div className="max-w-3xl">
-              {/* Eyebrow */}
-              <div className="mb-8 inline-flex items-center gap-2 border border-slate-300 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600 shadow-sm">
-                <Atom size={14} className="text-blue-600" />
-                Interactive Quantum Learning
+      {/* Cinematic overlay */}
+      <div className="hero-overlay absolute inset-0" />
+
+      {/* Content */}
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-[1800px] flex-col justify-between px-6 py-10 sm:px-10 lg:px-14 xl:px-20">
+        <div className="flex flex-1 items-center">
+          <div className="grid w-full grid-cols-1 gap-14 lg:grid-cols-[1.25fr_0.75fr] lg:items-center lg:gap-20">
+            {/* LEFT SIDE */}
+            <div className="hero-left max-w-5xl">
+              <div className="mb-8 inline-flex items-center gap-2 border border-white/25 bg-black/20 px-4 py-2 backdrop-blur-md">
+                <Sparkles
+                  size={14}
+                  strokeWidth={1.7}
+                  className="text-blue-400"
+                />
+
+                <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-white/85">
+                  Interactive Quantum Learning
+                </span>
               </div>
 
-              {/* Heading */}
-              <h1 className="max-w-4xl text-[3.5rem] font-semibold leading-[0.94] tracking-[-0.055em] text-slate-950 sm:text-6xl lg:text-[5.2rem] xl:text-[6.1rem]">
+              <h1 className="max-w-5xl text-[clamp(3.7rem,7.5vw,8.8rem)] font-semibold leading-[0.87] tracking-[-0.065em]">
                 Learn quantum
                 <br />
                 computing by
                 <br />
-                <span className="text-blue-600">building it.</span>
+                <span className="text-blue-500">building it.</span>
               </h1>
 
-              {/* Description */}
-              <p className="mt-9 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+              <p className="mt-8 max-w-2xl text-base leading-7 text-white/75 sm:text-lg">
                 An interactive AI-powered platform for learning quantum
                 computing through concepts, circuits, simulations, coding,
                 experimentation, and intelligent guidance.
               </p>
+            </div>
 
-              {/* Actions */}
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            {/* RIGHT SIDE */}
+            <div className="hero-right w-full lg:ml-auto lg:max-w-[470px]">
+              <div className="border border-white/15 bg-black/35 p-6 backdrop-blur-xl sm:p-8">
+                <div className="mb-7">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-blue-400">
+                    Start your journey
+                  </p>
+
+                  <h2 className="mt-3 text-2xl font-medium tracking-tight sm:text-3xl">
+                    Learn. Build. Execute.
+                  </h2>
+
+                  <p className="mt-3 text-sm leading-6 text-white/60">
+                    Move from quantum fundamentals to real circuits and
+                    executable algorithms in one continuous environment.
+                  </p>
+                </div>
+
                 <Link
                   href="/signup"
-                  className="inline-flex items-center justify-center gap-2 bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/20"
+                  className="group flex w-full items-center justify-between bg-blue-600 px-5 py-4 text-sm font-medium transition-colors hover:bg-blue-500"
                 >
-                  Start Learning
-                  <ArrowRight size={17} />
+                  <span>Start Learning</span>
+
+                  <ArrowRight
+                    size={18}
+                    strokeWidth={1.8}
+                    className="transition-transform duration-300 group-hover:translate-x-1"
+                  />
                 </Link>
 
                 <Link
                   href="/quantum-lab"
-                  className="inline-flex items-center justify-center gap-2 border border-slate-300 bg-white px-6 py-3.5 text-sm font-semibold text-slate-800 transition-all hover:border-slate-500 hover:bg-slate-50"
+                  className="group mt-3 flex w-full items-center justify-between border border-white/20 bg-white/5 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:bg-white/10"
                 >
-                  <Play size={15} />
-                  Explore Quantum Lab
+                  <span>Explore Quantum Lab</span>
+
+                  <ArrowUpRight
+                    size={17}
+                    strokeWidth={1.8}
+                    className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                  />
                 </Link>
-              </div>
 
-              {/* Product promise */}
-              <div className="mt-12 grid max-w-2xl grid-cols-3 border-y border-slate-200">
-                <div className="py-5 pr-4">
-                  <p className="text-sm font-semibold text-slate-950">
-                    Learn
+                <div className="mt-8 border-t border-white/10 pt-6">
+                  <p className="mb-4 text-[10px] uppercase tracking-[0.2em] text-white/40">
+                    Platform workflow
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Structured concepts
-                  </p>
-                </div>
 
-                <div className="border-l border-slate-200 px-4 py-5">
-                  <p className="text-sm font-semibold text-slate-950">
-                    Build
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Interactive circuits
-                  </p>
-                </div>
+                  <div className="grid grid-cols-3">
+                    <div className="border-r border-white/10 pr-3">
+                      <BookOpen
+                        size={17}
+                        strokeWidth={1.5}
+                        className="mb-3 text-blue-400"
+                      />
 
-                <div className="border-l border-slate-200 pl-4 py-5">
-                  <p className="text-sm font-semibold text-slate-950">
-                    Understand
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    AI-guided results
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+                      <p className="text-sm font-medium">Learn</p>
 
-          {/* Right */}
-          <div className="relative flex min-h-[760px] items-center overflow-hidden bg-[#050816] px-5 py-16 sm:px-10 lg:px-12 xl:px-20">
-            {/* Quantum grid */}
-            <div
-              className="pointer-events-none absolute inset-0 opacity-40"
-              style={{
-                backgroundImage:
-                  "linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px)",
-                backgroundSize: "48px 48px",
-              }}
-            />
+                      <p className="mt-1 text-[11px] leading-5 text-white/45">
+                        Concepts
+                      </p>
+                    </div>
 
-            {/* Ambient glow */}
-            <div className="pointer-events-none absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-blue-600/20 blur-3xl" />
+                    <div className="border-r border-white/10 px-3">
+                      <FlaskConical
+                        size={17}
+                        strokeWidth={1.5}
+                        className="mb-3 text-blue-400"
+                      />
 
-            <div className="pointer-events-none absolute -bottom-40 left-1/4 h-[26rem] w-[26rem] rounded-full bg-indigo-600/15 blur-3xl" />
+                      <p className="text-sm font-medium">Build</p>
 
-            <div className="relative mx-auto w-full max-w-3xl">
-              {/* Workspace header */}
-              <div className="mb-4 flex items-center justify-between border border-white/10 bg-white/[0.035] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <Terminal size={16} className="text-blue-400" />
+                      <p className="mt-1 text-[11px] leading-5 text-white/45">
+                        Circuits
+                      </p>
+                    </div>
 
-                  <div>
-                    <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-500">
-                      Quantum workspace
-                    </p>
+                    <div className="pl-3">
+                      <Play
+                        size={17}
+                        strokeWidth={1.5}
+                        className="mb-3 text-blue-400"
+                      />
 
-                    <p className="mt-0.5 text-sm font-medium text-white">
-                      Bell State Experiment
-                    </p>
-                  </div>
-                </div>
+                      <p className="text-sm font-medium">Execute</p>
 
-                <span className="flex items-center gap-2 text-xs text-emerald-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  Simulation ready
-                </span>
-              </div>
-
-              {/* Circuit panel */}
-              <div className="border border-white/10 bg-[#0a1020] shadow-2xl shadow-black/40">
-                {/* Panel header */}
-                <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-7">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
-                      Circuit
-                    </p>
-
-                    <p className="mt-1 text-sm font-semibold text-white">
-                      3 qubits · 6 gates
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <Waves size={14} className="text-cyan-400" />
-                    Live state
-                  </div>
-                </div>
-
-                {/* Circuit */}
-                <div className="p-5 sm:p-8">
-                  <div className="border border-white/10 bg-[#050816] p-4 sm:p-7">
-                    {qubits.map((qubit, rowIndex) => (
-                      <div
-                        key={qubit.label}
-                        className="flex h-20 items-center"
-                      >
-                        <div className="w-10 shrink-0 text-xs font-semibold text-slate-400 sm:w-12 sm:text-sm">
-                          {qubit.label}
-                        </div>
-
-                        <div className="relative flex flex-1 items-center">
-                          {/* Wire */}
-                          <div className="absolute left-0 right-0 h-px bg-slate-700" />
-
-                          <div className="relative z-10 flex w-full items-center justify-around">
-                            {qubit.gates.map((gate, gateIndex) => {
-                              const isControl =
-                                rowIndex === 0 && gateIndex === 1;
-
-                              const isTarget =
-                                rowIndex === 1 && gateIndex === 1;
-
-                              if (!gate) {
-                                return (
-                                  <div
-                                    key={`${qubit.label}-${gateIndex}`}
-                                    className="h-9 w-9"
-                                  />
-                                );
-                              }
-
-                              if (isControl) {
-                                return (
-                                  <div
-                                    key={`${qubit.label}-${gateIndex}`}
-                                    className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-cyan-400 bg-[#050816]"
-                                  >
-                                    <div className="h-2 w-2 rounded-full bg-cyan-400" />
-                                  </div>
-                                );
-                              }
-
-                              if (isTarget) {
-                                return (
-                                  <div
-                                    key={`${qubit.label}-${gateIndex}`}
-                                    className="flex h-9 w-9 items-center justify-center rounded-md border border-violet-400/70 bg-violet-500/10 text-xs font-bold text-violet-300"
-                                  >
-                                    X
-                                  </div>
-                                );
-                              }
-
-                              return (
-                                <div
-                                  key={`${qubit.label}-${gateIndex}`}
-                                  className="flex h-9 w-9 items-center justify-center rounded-md border border-blue-400/60 bg-blue-500/10 text-xs font-bold text-blue-300"
-                                >
-                                  {gate}
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* Control connector */}
-                          {rowIndex === 0 && (
-                            <div className="absolute left-1/2 top-1/2 z-0 h-20 w-px -translate-y-1/2 bg-cyan-400/50" />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Measurement */}
-                  <div className="mt-5 grid grid-cols-2 gap-3">
-                    <ProbabilityCard
-                      state="|00⟩"
-                      probability="50%"
-                    />
-
-                    <ProbabilityCard
-                      state="|11⟩"
-                      probability="50%"
-                    />
-                  </div>
-                </div>
-
-                {/* SDK strip */}
-                <div className="grid grid-cols-3 border-t border-white/10 text-xs">
-                  <div className="border-r border-white/10 px-4 py-4 text-slate-500">
-                    Qiskit
-                  </div>
-
-                  <div className="border-r border-white/10 px-4 py-4 text-slate-500">
-                    PennyLane
-                  </div>
-
-                  <div className="px-4 py-4 text-slate-500">
-                    Cirq
+                      <p className="mt-1 text-[11px] leading-5 text-white/45">
+                        Simulations
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Feature strip */}
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                {[
-                  ["01", "Concepts", "Understand the theory"],
-                  ["02", "Circuits", "Build and experiment"],
-                  ["03", "Results", "Interpret what happened"],
-                ].map(([number, title, description]) => (
-                  <div
-                    key={number}
-                    className="border border-white/10 bg-white/[0.035] p-4"
-                  >
-                    <p className="text-[10px] font-semibold tracking-[0.18em] text-blue-400">
-                      {number}
-                    </p>
+              {/* SDK strip */}
+              <div className="mt-3 grid grid-cols-3 border border-white/10 bg-black/30 backdrop-blur-md">
+                <div className="border-r border-white/10 px-4 py-3">
+                  <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">
+                    SDK
+                  </p>
 
-                    <p className="mt-2 text-sm font-semibold text-white">
-                      {title}
-                    </p>
+                  <p className="mt-1 text-xs text-white/75">Qiskit</p>
+                </div>
 
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {description}
-                    </p>
-                  </div>
-                ))}
+                <div className="border-r border-white/10 px-4 py-3">
+                  <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">
+                    SDK
+                  </p>
+
+                  <p className="mt-1 text-xs text-white/75">PennyLane</p>
+                </div>
+
+                <div className="px-4 py-3">
+                  <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">
+                    SDK
+                  </p>
+
+                  <p className="mt-1 text-xs text-white/75">Cirq</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom statement */}
-        <div className="grid border-t border-slate-200 bg-slate-50 lg:grid-cols-4">
-          <div className="border-b border-slate-200 px-6 py-6 sm:px-10 lg:border-b-0 lg:border-r lg:px-12">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-              One platform
-            </p>
+        {/* Bottom information */}
+        <div className="hero-bottom mt-10 grid border-t border-white/15 sm:grid-cols-3">
+          <div className="border-b border-white/10 py-5 sm:border-b-0 sm:border-r sm:pr-8">
+            <div className="flex items-center gap-3">
+              <BookOpen
+                size={16}
+                strokeWidth={1.5}
+                className="text-blue-400"
+              />
+
+              <span className="text-sm font-medium">
+                Understand the theory
+              </span>
+            </div>
           </div>
 
-          <div className="border-b border-slate-200 px-6 py-6 sm:px-10 lg:border-b-0 lg:border-r lg:px-12">
-            <p className="text-sm font-medium text-slate-900">
-              Learn quantum fundamentals
-            </p>
+          <div className="border-b border-white/10 py-5 sm:border-b-0 sm:border-r sm:px-8">
+            <div className="flex items-center gap-3">
+              <Code2
+                size={16}
+                strokeWidth={1.5}
+                className="text-blue-400"
+              />
+
+              <span className="text-sm font-medium">
+                Write quantum code
+              </span>
+            </div>
           </div>
 
-          <div className="border-b border-slate-200 px-6 py-6 sm:px-10 lg:border-b-0 lg:border-r lg:px-12">
-            <p className="text-sm font-medium text-slate-900">
-              Build and simulate circuits
-            </p>
-          </div>
+          <div className="py-5 sm:pl-8">
+            <div className="flex items-center gap-3">
+              <FlaskConical
+                size={16}
+                strokeWidth={1.5}
+                className="text-blue-400"
+              />
 
-          <div className="px-6 py-6 sm:px-10 lg:px-12">
-            <p className="text-sm font-medium text-slate-900">
-              Write code and understand results
-            </p>
+              <span className="text-sm font-medium">
+                Experiment and understand results
+              </span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Animation styles */}
+      <style jsx>{`
+        .hero-image {
+          opacity: 0;
+          transform: translateY(-34px) scale(1.035);
+          animation: imageEnter 1.4s cubic-bezier(0.22, 1, 0.36, 1)
+            forwards;
+        }
+
+        .hero-overlay {
+          opacity: 0;
+          background:
+            linear-gradient(
+              90deg,
+              rgba(0, 0, 0, 0.58) 0%,
+              rgba(0, 0, 0, 0.39) 48%,
+              rgba(0, 0, 0, 0.32) 100%
+            ),
+            linear-gradient(
+              180deg,
+              rgba(0, 0, 0, 0.2) 0%,
+              rgba(0, 0, 0, 0.34) 100%
+            );
+          animation: overlayEnter 1.2s ease-out 0.2s forwards;
+        }
+
+        .hero-left {
+          opacity: 0;
+          transform: translateX(-70px);
+          animation: leftEnter 1s cubic-bezier(0.22, 1, 0.36, 1) 0.55s
+            forwards;
+        }
+
+        .hero-right {
+          opacity: 0;
+          transform: translateX(70px);
+          animation: rightEnter 1s cubic-bezier(0.22, 1, 0.36, 1) 0.7s
+            forwards;
+        }
+
+        .hero-bottom {
+          opacity: 0;
+          transform: translateY(30px);
+          animation: bottomEnter 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1s
+            forwards;
+        }
+
+        @keyframes imageEnter {
+          0% {
+            opacity: 0;
+            transform: translateY(-34px) scale(1.035);
+          }
+
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes overlayEnter {
+          0% {
+            opacity: 0;
+          }
+
+          100% {
+            opacity: 1;
+          }
+        }
+
+        @keyframes leftEnter {
+          0% {
+            opacity: 0;
+            transform: translateX(-70px);
+          }
+
+          100% {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes rightEnter {
+          0% {
+            opacity: 0;
+            transform: translateX(70px);
+          }
+
+          100% {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes bottomEnter {
+          0% {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hero-image,
+          .hero-overlay,
+          .hero-left,
+          .hero-right,
+          .hero-bottom {
+            animation: none;
+            opacity: 1;
+            transform: none;
+          }
+        }
+      `}</style>
     </section>
-  );
-}
-
-function ProbabilityCard({
-  state,
-  probability,
-}: {
-  state: string;
-  probability: string;
-}) {
-  return (
-    <div className="border border-white/10 bg-white/[0.03] p-3">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-medium text-slate-300">{state}</span>
-        <span className="text-slate-500">{probability}</span>
-      </div>
-
-      <div className="mt-2 h-1 overflow-hidden bg-slate-800">
-        <div className="h-full w-1/2 bg-cyan-400" />
-      </div>
-    </div>
   );
 }
