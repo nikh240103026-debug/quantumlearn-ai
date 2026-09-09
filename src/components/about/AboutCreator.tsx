@@ -56,7 +56,7 @@ export function AboutCreator() {
             <div className="relative mx-auto max-w-[560px] overflow-hidden bg-[#111318]">
               <div className="relative aspect-[4/5] w-full">
                 <img
-                  src="/images/creator/nikhil-raj.JPG"
+                  src="/images/creator/nikhil-raj.jpg"
                   alt="Nikhil Raj — Creator of QuantumLearn AI"
                   className="absolute inset-0 h-full w-full object-cover object-center grayscale-[15%] transition-transform duration-[1600ms] hover:scale-[1.025]"
                 />
