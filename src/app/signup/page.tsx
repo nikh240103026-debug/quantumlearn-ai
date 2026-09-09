@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -14,8 +14,19 @@ import {
   GraduationCap,
   Building2,
   CalendarDays,
+  ArrowUpRight,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+
+/*
+ * IMPORTANT:
+ * Replace this value with the EXACT background-image path
+ * already used by your landing page.
+ *
+ * Example:
+ * "/images/landing/hero-bg.jpg"
+ */
+const BACKGROUND_IMAGE = "/images/quantum-computer.jpg";
 
 const GENDER_OPTIONS = [
   { value: "male", label: "Male" },
@@ -38,13 +49,15 @@ const EXPERIENCE_OPTIONS = [
 ];
 
 const inputClass =
-  "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
+  "w-full border border-white/15 bg-white/[0.07] px-4 py-3 text-sm text-white outline-none transition-all duration-300 placeholder:text-white/35 focus:border-blue-400/70 focus:bg-white/[0.10] focus:ring-1 focus:ring-blue-400/30";
 
 const labelClass =
-  "mb-2 block text-sm font-semibold text-slate-700";
+  "mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-white/55";
 
 export default function SignupPage() {
   const supabase = createSupabaseBrowserClient();
+
+  const [mounted, setMounted] = useState(false);
 
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -69,6 +82,10 @@ export default function SignupPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   async function handleSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -90,7 +107,12 @@ export default function SignupPage() {
 
     const numericAge = Number(age);
 
-    if (!age || !Number.isInteger(numericAge) || numericAge < 13 || numericAge > 100) {
+    if (
+      !age ||
+      !Number.isInteger(numericAge) ||
+      numericAge < 13 ||
+      numericAge > 100
+    ) {
       setError("Please enter a valid age between 13 and 100.");
       return;
     }
@@ -193,381 +215,623 @@ export default function SignupPage() {
       return;
     }
 
-    setLoading(false);
-
-    setMessage(
-      "Account created successfully. Please check your email to verify your account before logging in.",
-    );
+    /*
+     * Signup successful:
+     * immediately move the user to the login page.
+     */
+    window.location.replace("/login");
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
+    <main className="relative h-[100dvh] w-full overflow-hidden bg-[#070a10] text-white">
+      {/* ================================================================
+          FULL-SCREEN BACKGROUND IMAGE
+      ================================================================= */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `url("${BACKGROUND_IMAGE}")`,
+        }}
+      />
+
+      {/* ================================================================
+          SINGLE DARK OVERLAY
+          Covers the complete page so the background remains visible.
+      ================================================================= */}
+      <div className="absolute inset-0 bg-black/55" />
+
+      {/* Subtle blue atmospheric lighting */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-[8%] top-[20%] h-80 w-80 rounded-full bg-blue-600/10 blur-[120px]" />
+        <div className="absolute bottom-[5%] left-[35%] h-72 w-72 rounded-full bg-violet-600/10 blur-[120px]" />
+        <div className="absolute right-[5%] top-[10%] h-96 w-96 rounded-full bg-blue-500/10 blur-[140px]" />
+      </div>
+
+      {/* ================================================================
+          PAGE CONTENT
+      ================================================================= */}
+      <div className="relative z-10 flex h-full w-full">
+        {/* ==============================================================
+            LEFT BRANDING AREA
+        ============================================================== */}
+        <section className="hidden flex-1 items-center lg:flex">
+          <div
+            className={`w-full max-w-3xl px-12 py-10 transition-all duration-1000 xl:px-20 ${
+              mounted
+                ? "translate-x-0 opacity-100"
+                : "-translate-x-8 opacity-0"
+            }`}
           >
-            <ArrowLeft size={16} />
-            Back to home
-          </Link>
-        </div>
+            <Link
+              href="/"
+              className="group mb-12 inline-flex items-center gap-2 border-b border-white/20 pb-2 text-sm font-medium text-white/65 transition hover:border-white/50 hover:text-white"
+            >
+              <ArrowLeft
+                className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-1"
+              />
+              Back to home
+            </Link>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-gradient-to-r from-slate-950 to-blue-950 px-6 py-8 text-white sm:px-10">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-white text-lg font-bold text-blue-700">
-              Q
-            </div>
+            <p className="mb-5 text-xs font-semibold uppercase tracking-[0.28em] text-blue-400">
+              QuantumLearn AI
+            </p>
 
-            <h1 className="text-3xl font-bold tracking-tight">
-              Create your QuantumLearn AI account
+            <h1 className="max-w-2xl text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-white xl:text-6xl">
+              Start learning quantum computing by building it.
             </h1>
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-              Tell us a little about yourself so QuantumLearn AI can personalize
-              your learning experience.
+            <p className="mt-7 max-w-xl text-base leading-7 text-white/60 xl:text-lg">
+              Create your account and enter a connected learning environment
+              for quantum concepts, circuits, simulations, practice, and
+              AI-guided learning.
             </p>
+
+            <div className="mt-9 h-px w-24 bg-white/25" />
+
+            <p className="mt-5 max-w-lg text-sm leading-6 text-white/45">
+              Learn concepts. Build circuits. Run experiments. Understand
+              quantum algorithms.
+            </p>
+
+            <div className="mt-12 flex items-center gap-4 text-xs uppercase tracking-[0.18em] text-white/30">
+              <span>Learn</span>
+              <span className="h-px w-8 bg-white/15" />
+              <span>Build</span>
+              <span className="h-px w-8 bg-white/15" />
+              <span>Understand</span>
+            </div>
           </div>
+        </section>
 
-          <form onSubmit={handleSignup} className="p-6 sm:p-10">
-            {error && (
-              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                {error}
-              </div>
-            )}
+        {/* ==============================================================
+            RIGHT SIGNUP PANEL
+            Only this rectangular area has its own scroll.
+        ============================================================== */}
+        <section className="flex h-full w-full items-center justify-center px-4 py-5 sm:px-8 lg:w-[46%] lg:px-8 xl:w-[44%]">
+          <div
+            className={`flex h-[calc(100dvh-40px)] max-h-[760px] w-full max-w-[500px] flex-col overflow-hidden border border-white/20 bg-white/[0.075] shadow-2xl shadow-black/30 backdrop-blur-2xl transition-all duration-1000 sm:h-[82dvh] lg:h-[68dvh] ${
+              mounted
+                ? "translate-x-0 opacity-100"
+                : "translate-x-10 opacity-0"
+            }`}
+          >
+            {/* ==========================================================
+                PANEL HEADER
+                Fixed while form scrolls.
+            ========================================================== */}
+            <div className="shrink-0 border-b border-white/10 px-6 py-5 sm:px-8">
+              <div className="flex items-start justify-between gap-5">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-400">
+                    QuantumLearn AI
+                  </p>
 
-            {message && (
-              <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-                {message}
-              </div>
-            )}
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
+                    Create your account
+                  </h2>
 
-            <section>
-              <h2 className="text-lg font-bold text-slate-950">
-                Personal information
-              </h2>
-
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className={labelClass}>Full name *</label>
-                  <div className="relative">
-                    <User
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className={`${inputClass} pl-11`}
-                      placeholder="Enter your full name"
-                      autoComplete="name"
-                    />
-                  </div>
+                  <p className="mt-1 text-xs leading-5 text-white/45">
+                    Set up your learning profile to get started.
+                  </p>
                 </div>
 
-                <div>
-                  <label className={labelClass}>Age *</label>
-                  <div className="relative">
-                    <CalendarDays
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      type="number"
-                      min={13}
-                      max={100}
-                      value={age}
-                      onChange={(e) => setAge(e.target.value)}
-                      className={`${inputClass} pl-11`}
-                      placeholder="e.g. 21"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Gender *</label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="">Select gender</option>
-                    {GENDER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>City *</label>
-                  <div className="relative">
-                    <MapPin
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className={`${inputClass} pl-11`}
-                      placeholder="e.g. Imphal"
-                      autoComplete="address-level2"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>I am a *</label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className={inputClass}
-                  >
-                    {ROLE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </section>
-
-            <section className="mt-10 border-t border-slate-200 pt-8">
-              <h2 className="text-lg font-bold text-slate-950">
-                Academic information
-              </h2>
-
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className={labelClass}>Institute *</label>
-                  <div className="relative">
-                    <Building2
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      value={institute}
-                      onChange={(e) => setInstitute(e.target.value)}
-                      className={`${inputClass} pl-11`}
-                      placeholder="College / University / Organization"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>
-                    Branch / field of study *
-                  </label>
-                  <div className="relative">
-                    <GraduationCap
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      value={branch}
-                      onChange={(e) => setBranch(e.target.value)}
-                      className={`${inputClass} pl-11`}
-                      placeholder="e.g. CSE, Physics, ECE"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>
-                    Quantum experience
-                  </label>
-                  <select
-                    value={experience}
-                    onChange={(e) => setExperience(e.target.value)}
-                    className={inputClass}
-                  >
-                    {EXPERIENCE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>
-                    Learning goal
-                  </label>
-                  <input
-                    value={learningGoal}
-                    onChange={(e) => setLearningGoal(e.target.value)}
-                    className={inputClass}
-                    placeholder="e.g. Learn quantum algorithms"
+                <Link
+                  href="/login"
+                  className="group inline-flex shrink-0 items-center gap-1.5 border-b border-white/15 pb-1 text-xs font-medium text-white/50 transition hover:border-blue-400/60 hover:text-white"
+                >
+                  Log in
+                  <ArrowUpRight
+                    size={13}
+                    className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                   />
-                </div>
+                </Link>
               </div>
-            </section>
-
-            <section className="mt-10 border-t border-slate-200 pt-8">
-              <h2 className="text-lg font-bold text-slate-950">
-                Account information
-              </h2>
-
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className={labelClass}>Email address *</label>
-                  <div className="relative">
-                    <Mail
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className={`${inputClass} pl-11`}
-                      placeholder="you@example.com"
-                      autoComplete="email"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>
-                    Phone number
-                  </label>
-                  <div className="relative">
-                    <Phone
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className={`${inputClass} pl-11`}
-                      placeholder="+91 9876543210"
-                      autoComplete="tel"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Password *</label>
-                  <div className="relative">
-                    <LockKeyhole
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className={`${inputClass} pl-11 pr-11`}
-                      placeholder="Minimum 8 characters"
-                      autoComplete="new-password"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((value) => !value)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                      aria-label={
-                        showPassword ? "Hide password" : "Show password"
-                      }
-                    >
-                      {showPassword ? (
-                        <EyeOff size={18} />
-                      ) : (
-                        <Eye size={18} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Confirm password *</label>
-                  <div className="relative">
-                    <LockKeyhole
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-
-                    <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) =>
-                        setConfirmPassword(e.target.value)
-                      }
-                      className={`${inputClass} pl-11 pr-11`}
-                      placeholder="Re-enter your password"
-                      autoComplete="new-password"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowConfirmPassword((value) => !value)
-                      }
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                      aria-label={
-                        showConfirmPassword
-                          ? "Hide password"
-                          : "Show password"
-                      }
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff size={18} />
-                      ) : (
-                        <Eye size={18} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-xl bg-slate-50 p-4 text-xs leading-5 text-slate-500">
-                Password must contain at least 8 characters, including
-                uppercase, lowercase, and a number.
-              </div>
-            </section>
-
-            <div className="mt-8 flex items-start gap-3">
-              <input
-                id="terms"
-                type="checkbox"
-                checked={agreeToTerms}
-                onChange={(e) => setAgreeToTerms(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-              />
-
-              <label
-                htmlFor="terms"
-                className="text-sm leading-6 text-slate-600"
-              >
-                I agree to the QuantumLearn AI Terms of Service and Privacy
-                Policy.
-              </label>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-8 w-full rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            {/* ==========================================================
+                SCROLLABLE FORM ONLY
+            ========================================================== */}
+            <div
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "rgba(255,255,255,0.25) transparent",
+              }}
             >
-              {loading ? "Creating account..." : "Create account"}
-            </button>
-
-            <p className="mt-6 text-center text-sm text-slate-500">
-              Already have an account?{" "}
-              <Link
-                href="/login"
-                className="font-semibold text-blue-600 hover:text-blue-700"
+              <form
+                onSubmit={handleSignup}
+                className="space-y-7 px-6 py-6 sm:px-8"
               >
-                Log in
-              </Link>
-            </p>
-          </form>
-        </div>
+                {/* ======================================================
+                    PERSONAL INFORMATION
+                ====================================================== */}
+                <div>
+                  <SectionTitle>Personal information</SectionTitle>
+
+                  <div className="space-y-5">
+                    <Field label="Full name" htmlFor="name">
+                      <IconInput
+                        icon={<User />}
+                        id="name"
+                        type="text"
+                        value={name}
+                        onChange={setName}
+                        placeholder="Enter your full name"
+                        autoComplete="name"
+                      />
+                    </Field>
+
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                      <Field label="Age" htmlFor="age">
+                        <IconInput
+                          icon={<CalendarDays />}
+                          id="age"
+                          type="number"
+                          min="13"
+                          max="100"
+                          value={age}
+                          onChange={setAge}
+                          placeholder="Age"
+                        />
+                      </Field>
+
+                      <Field label="Gender" htmlFor="gender">
+                        <select
+                          id="gender"
+                          value={gender}
+                          onChange={(event) => setGender(event.target.value)}
+                          className={inputClass}
+                        >
+                          <option value="" className="bg-[#11151f]">
+                            Select gender
+                          </option>
+
+                          {GENDER_OPTIONS.map((option) => (
+                            <option
+                              key={option.value}
+                              value={option.value}
+                              className="bg-[#11151f]"
+                            >
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    </div>
+
+                    <Field label="City" htmlFor="city">
+                      <IconInput
+                        icon={<MapPin />}
+                        id="city"
+                        type="text"
+                        value={city}
+                        onChange={setCity}
+                        placeholder="Enter your city"
+                        autoComplete="address-level2"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                {/* ======================================================
+                    EDUCATION & ROLE
+                ====================================================== */}
+                <div>
+                  <SectionTitle>Education & role</SectionTitle>
+
+                  <div className="space-y-5">
+                    <Field label="Role" htmlFor="role">
+                      <select
+                        id="role"
+                        value={role}
+                        onChange={(event) => setRole(event.target.value)}
+                        className={inputClass}
+                      >
+                        {ROLE_OPTIONS.map((option) => (
+                          <option
+                            key={option.value}
+                            value={option.value}
+                            className="bg-[#11151f]"
+                          >
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field label="Institute" htmlFor="institute">
+                      <IconInput
+                        icon={<Building2 />}
+                        id="institute"
+                        type="text"
+                        value={institute}
+                        onChange={setInstitute}
+                        placeholder="College, university, or organization"
+                      />
+                    </Field>
+
+                    <Field label="Branch / field of study" htmlFor="branch">
+                      <IconInput
+                        icon={<GraduationCap />}
+                        id="branch"
+                        type="text"
+                        value={branch}
+                        onChange={setBranch}
+                        placeholder="e.g. Computer Science"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                {/* ======================================================
+                    CONTACT
+                ====================================================== */}
+                <div>
+                  <SectionTitle>Contact</SectionTitle>
+
+                  <div className="space-y-5">
+                    <Field label="Email address" htmlFor="email">
+                      <IconInput
+                        icon={<Mail />}
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={setEmail}
+                        placeholder="you@example.com"
+                        autoComplete="email"
+                      />
+                    </Field>
+
+                    <Field
+                      label={
+                        <>
+                          Phone number{" "}
+                          <span className="normal-case tracking-normal text-white/30">
+                            (optional)
+                          </span>
+                        </>
+                      }
+                      htmlFor="phone"
+                    >
+                      <IconInput
+                        icon={<Phone />}
+                        id="phone"
+                        type="tel"
+                        value={phone}
+                        onChange={setPhone}
+                        placeholder="+91 XXXXX XXXXX"
+                        autoComplete="tel"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                {/* ======================================================
+                    LEARNING PROFILE
+                ====================================================== */}
+                <div>
+                  <SectionTitle>Learning profile</SectionTitle>
+
+                  <div className="space-y-5">
+                    <Field
+                      label="Quantum computing experience"
+                      htmlFor="experience"
+                    >
+                      <select
+                        id="experience"
+                        value={experience}
+                        onChange={(event) =>
+                          setExperience(event.target.value)
+                        }
+                        className={inputClass}
+                      >
+                        {EXPERIENCE_OPTIONS.map((option) => (
+                          <option
+                            key={option.value}
+                            value={option.value}
+                            className="bg-[#11151f]"
+                          >
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field
+                      label={
+                        <>
+                          Learning goal{" "}
+                          <span className="normal-case tracking-normal text-white/30">
+                            (optional)
+                          </span>
+                        </>
+                      }
+                      htmlFor="learningGoal"
+                    >
+                      <textarea
+                        id="learningGoal"
+                        value={learningGoal}
+                        onChange={(event) =>
+                          setLearningGoal(event.target.value)
+                        }
+                        placeholder="What do you want to achieve?"
+                        rows={3}
+                        className={`${inputClass} resize-none`}
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                {/* ======================================================
+                    SECURITY
+                ====================================================== */}
+                <div>
+                  <SectionTitle>Security</SectionTitle>
+
+                  <div className="space-y-5">
+                    <PasswordField
+                      label="Password"
+                      id="password"
+                      value={password}
+                      visible={showPassword}
+                      onChange={setPassword}
+                      onToggle={() =>
+                        setShowPassword((current) => !current)
+                      }
+                      placeholder="Create a strong password"
+                    />
+
+                    <p className="-mt-2 text-[11px] leading-5 text-white/35">
+                      At least 8 characters, including uppercase, lowercase,
+                      and a number.
+                    </p>
+
+                    <PasswordField
+                      label="Confirm password"
+                      id="confirmPassword"
+                      value={confirmPassword}
+                      visible={showConfirmPassword}
+                      onChange={setConfirmPassword}
+                      onToggle={() =>
+                        setShowConfirmPassword((current) => !current)
+                      }
+                      placeholder="Re-enter your password"
+                    />
+                  </div>
+                </div>
+
+                {/* ======================================================
+                    TERMS
+                ====================================================== */}
+                <label className="flex cursor-pointer items-start gap-3 border border-white/10 bg-white/[0.035] p-4 transition-colors hover:bg-white/[0.055]">
+                  <input
+                    type="checkbox"
+                    checked={agreeToTerms}
+                    onChange={(event) =>
+                      setAgreeToTerms(event.target.checked)
+                    }
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500"
+                  />
+
+                  <span className="text-[11px] leading-5 text-white/45">
+                    I agree to the{" "}
+                    <span className="font-medium text-white/70">
+                      Terms of Service
+                    </span>{" "}
+                    and{" "}
+                    <span className="font-medium text-white/70">
+                      Privacy Policy
+                    </span>
+                    .
+                  </span>
+                </label>
+
+                {/* ======================================================
+                    SUBMIT + MESSAGE
+                ====================================================== */}
+                <div className="pb-2">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="group relative w-full overflow-hidden border border-blue-400/50 bg-blue-600 px-5 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:border-blue-300 hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-900/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className="relative z-10">
+                      {loading ? "Creating account..." : "Create account"}
+                    </span>
+
+                    <span className="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-500 group-hover:translate-x-0" />
+                  </button>
+
+                  {/* ====================================================
+                      ERROR / SUCCESS MESSAGE
+                      ALWAYS BELOW BUTTON
+                  ==================================================== */}
+                  {error && (
+                    <div
+                      role="alert"
+                      className="mt-3 border border-red-400/25 bg-red-500/10 px-4 py-3 text-xs leading-5 text-red-200"
+                    >
+                      {error}
+                    </div>
+                  )}
+
+                  {message && (
+                    <div
+                      role="status"
+                      className="mt-3 border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-xs leading-5 text-emerald-200"
+                    >
+                      {message}
+                    </div>
+                  )}
+                </div>
+
+                <p className="pb-1 text-center text-xs text-white/40">
+                  Already have an account?{" "}
+                  <Link
+                    href="/login"
+                    className="font-semibold text-blue-400 transition hover:text-blue-300"
+                  >
+                    Log in
+                  </Link>
+                </p>
+              </form>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
+  );
+}
+
+/* ========================================================================
+   REUSABLE UI COMPONENTS
+========================================================================= */
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-5 flex items-center gap-3">
+      <div className="h-px flex-1 bg-white/10" />
+
+      <span className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.2em] text-white/30">
+        {children}
+      </span>
+
+      <div className="h-px flex-1 bg-white/10" />
+    </div>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: React.ReactNode;
+  htmlFor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label htmlFor={htmlFor} className={labelClass}>
+        {label}
+      </label>
+
+      {children}
+    </div>
+  );
+}
+
+function IconInput({
+  icon,
+  id,
+  type,
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+  min,
+  max,
+}: {
+  icon: React.ReactNode;
+  id: string;
+  type: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  autoComplete?: string;
+  min?: string;
+  max?: string;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30">
+        {icon}
+      </span>
+
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        min={min}
+        max={max}
+        className={`${inputClass} pl-10`}
+      />
+    </div>
+  );
+}
+
+function PasswordField({
+  label,
+  id,
+  value,
+  visible,
+  onChange,
+  onToggle,
+  placeholder,
+}: {
+  label: string;
+  id: string;
+  value: string;
+  visible: boolean;
+  onChange: (value: string) => void;
+  onToggle: () => void;
+  placeholder: string;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className={labelClass}>
+        {label}
+      </label>
+
+      <div className="relative">
+        <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+
+        <input
+          id={id}
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          autoComplete="new-password"
+          className={`${inputClass} pl-10 pr-11`}
+        />
+
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={visible ? `Hide ${label}` : `Show ${label}`}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 transition hover:text-white/70"
+        >
+          {visible ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
