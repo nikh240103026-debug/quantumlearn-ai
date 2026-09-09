@@ -9,6 +9,10 @@ export function AboutCreator() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    const element = ref.current;
+
+    if (!element) return;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -16,10 +20,13 @@ export function AboutCreator() {
           observer.disconnect();
         }
       },
-      { threshold: 0.15 }
+      {
+        threshold: 0.05,
+        rootMargin: "0px 0px -50px 0px",
+      }
     );
 
-    if (ref.current) observer.observe(ref.current);
+    observer.observe(element);
 
     return () => observer.disconnect();
   }, []);
@@ -30,6 +37,7 @@ export function AboutCreator() {
       className="border-b border-black/10 bg-[#f5f5f3]"
     >
       <div className="mx-auto max-w-[1600px]">
+        {/* Section heading */}
         <div className="border-b border-black/10 p-6 sm:p-10 lg:p-16">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">
             05 — The creator
@@ -37,11 +45,12 @@ export function AboutCreator() {
         </div>
 
         <div className="grid lg:grid-cols-[.9fr_1.1fr]">
+          {/* Creator image */}
           <div
             className={`relative border-b border-black/10 p-6 transition-all duration-1000 sm:p-10 lg:border-b-0 lg:border-r lg:p-16 ${
               visible
                 ? "translate-x-0 opacity-100"
-                : "-translate-x-12 opacity-0"
+                : "-translate-x-8 opacity-0"
             }`}
           >
             <div className="relative mx-auto max-w-[560px] overflow-hidden bg-[#111318]">
@@ -50,14 +59,16 @@ export function AboutCreator() {
                   src="/images/creator/nikhil-raj.JPG"
                   alt="Nikhil Raj — Creator of QuantumLearn AI"
                   fill
-                  priority={false}
+                  priority
+                  unoptimized
                   sizes="(max-width: 1024px) 90vw, 45vw"
                   className="object-cover object-center grayscale-[15%] transition-transform duration-[1600ms] hover:scale-[1.025]"
                 />
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
               </div>
 
+              {/* Image caption */}
               <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between p-6 text-white sm:p-8">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.2em] text-white/60">
@@ -76,11 +87,12 @@ export function AboutCreator() {
             </div>
           </div>
 
+          {/* Creator information */}
           <div
-            className={`p-6 sm:p-10 lg:p-16 transition-all delay-150 duration-1000 ${
+            className={`p-6 transition-all delay-150 duration-1000 sm:p-10 lg:p-16 ${
               visible
                 ? "translate-x-0 opacity-100"
-                : "translate-x-12 opacity-0"
+                : "translate-x-8 opacity-0"
             }`}
           >
             <p className="text-sm uppercase tracking-[0.18em] text-blue-600">
@@ -120,6 +132,7 @@ export function AboutCreator() {
               </p>
             </div>
 
+            {/* Creator details */}
             <div className="mt-14 border-y border-black/10">
               <div className="grid sm:grid-cols-2">
                 {[
@@ -144,9 +157,10 @@ export function AboutCreator() {
               </div>
             </div>
 
+            {/* Creator's note */}
             <div className="mt-14 border-l-2 border-blue-500 pl-6">
               <p className="text-xs uppercase tracking-[0.18em] text-black/35">
-                Creator's note
+                Creator&apos;s note
               </p>
 
               <blockquote className="mt-5 max-w-2xl text-xl font-medium leading-8 tracking-tight text-black/80">
@@ -156,14 +170,16 @@ export function AboutCreator() {
               </blockquote>
             </div>
 
+            {/* LinkedIn */}
             <div className="mt-12">
               <a
                 href="https://www.linkedin.com/in/nikhil-raj-bb8676320/"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="group inline-flex items-center gap-2 border-b border-black/20 pb-2 text-sm font-semibold transition-colors hover:border-black"
               >
                 Connect with the creator
+
                 <ArrowUpRight
                   size={15}
                   className="transition-transform group-hover:translate-x-1 group-hover:-translate-y-1"
