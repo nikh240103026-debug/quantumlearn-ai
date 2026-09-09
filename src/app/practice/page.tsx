@@ -5,7 +5,6 @@ import PracticeQuiz from "@/components/practice/PracticeQuiz";
 export default function PracticePage() {
   return (
     <main className="min-h-screen bg-slate-50">
-      {/* Header */}
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <Link
@@ -16,7 +15,6 @@ export default function PracticePage() {
               size={16}
               className="transition-transform group-hover:-translate-x-0.5"
             />
-
             Back to Home
           </Link>
 
@@ -35,15 +33,14 @@ export default function PracticePage() {
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                Test your understanding, review your mistakes, and track
-                your progress across quantum computing fundamentals.
+                Test your understanding, review your mistakes, and track your
+                progress across quantum computing fundamentals.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Practice */}
       <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <PracticeQuiz />
       </section>

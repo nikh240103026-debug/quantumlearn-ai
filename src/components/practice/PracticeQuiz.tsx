@@ -11,8 +11,10 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   RotateCcw,
+  Sparkles,
   Trophy,
   XCircle,
 } from "lucide-react";
@@ -59,6 +61,13 @@ interface CurriculumModule {
   topics: CurriculumTopic[];
 }
 
+interface NextTopicRecommendation {
+  topicId: string;
+  moduleId?: string | null;
+  reason?: string | null;
+  priority?: number;
+}
+
 const CHAPTERS = Array.from(
   { length: 10 },
   (_, index) => index + 1,
@@ -87,14 +96,8 @@ function shuffleQuestions(
 ): PracticeQuestion[] {
   const shuffled = [...questions];
 
-  for (
-    let i = shuffled.length - 1;
-    i > 0;
-    i--
-  ) {
-    const j = Math.floor(
-      Math.random() * (i + 1),
-    );
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
 
     [shuffled[i], shuffled[j]] = [
       shuffled[j],
@@ -152,14 +155,10 @@ function PracticeQuizContent({
   // ==========================================================
 
   const [selectedChapter, setSelectedChapter] =
-    useState<number>(
-      resolvedInitialChapter,
-    );
+    useState<number>(resolvedInitialChapter);
 
   const [selectedDifficulty, setSelectedDifficulty] =
-    useState<Difficulty>(
-      resolvedInitialDifficulty,
-    );
+    useState<Difficulty>(resolvedInitialDifficulty);
 
   const [questionLimit, setQuestionLimit] =
     useState<number>(
@@ -167,14 +166,10 @@ function PracticeQuizContent({
     );
 
   const [selectedTopicId, setSelectedTopicId] =
-    useState<string | undefined>(
-      urlTopicId,
-    );
+    useState<string | undefined>(urlTopicId);
 
   const [selectedModuleId, setSelectedModuleId] =
-    useState<string | undefined>(
-      urlModuleId,
-    );
+    useState<string | undefined>(urlModuleId);
 
   const [started, setStarted] =
     useState(false);
@@ -234,6 +229,9 @@ function PracticeQuizContent({
   const [resultError, setResultError] =
     useState("");
 
+  const [nextRecommendation, setNextRecommendation] =
+    useState<NextTopicRecommendation | null>(null);
+
   // ==========================================================
   // SYNC URL CONTEXT
   // ==========================================================
@@ -278,8 +276,7 @@ function PracticeQuizContent({
           );
         }
 
-        const data =
-          await response.json();
+        const data = await response.json();
 
         const modules =
           Array.isArray(data.modules)
@@ -342,11 +339,10 @@ function PracticeQuizContent({
     }
 
     for (const module of curriculumModules) {
-      const topic =
-        module.topics?.find(
-          (item) =>
-            item.id === selectedTopicId,
-        );
+      const topic = module.topics?.find(
+        (item) =>
+          item.id === selectedTopicId,
+      );
 
       if (topic) {
         return topic;
@@ -357,6 +353,59 @@ function PracticeQuizContent({
   }, [
     curriculumModules,
     selectedTopicId,
+  ]);
+
+  // ==========================================================
+  // RECOMMENDED TOPIC
+  // ==========================================================
+
+  const recommendedTopic = useMemo(() => {
+    if (!nextRecommendation?.topicId) {
+      return undefined;
+    }
+
+    for (const module of curriculumModules) {
+      const topic = module.topics?.find(
+        (item) =>
+          item.id ===
+          nextRecommendation.topicId,
+      );
+
+      if (topic) {
+        return topic;
+      }
+    }
+
+    return undefined;
+  }, [
+    curriculumModules,
+    nextRecommendation,
+  ]);
+
+  const recommendedModule = useMemo(() => {
+    if (
+      !nextRecommendation?.moduleId
+    ) {
+      if (recommendedTopic?.moduleId) {
+        return curriculumModules.find(
+          (module) =>
+            module.id ===
+            recommendedTopic.moduleId,
+        );
+      }
+
+      return undefined;
+    }
+
+    return curriculumModules.find(
+      (module) =>
+        module.id ===
+        nextRecommendation.moduleId,
+    );
+  }, [
+    curriculumModules,
+    nextRecommendation,
+    recommendedTopic,
   ]);
 
   // ==========================================================
@@ -400,6 +449,7 @@ function PracticeQuizContent({
     setError("");
     setResultError("");
     setQuestions([]);
+    setNextRecommendation(null);
 
     try {
       const params =
@@ -411,10 +461,6 @@ function PracticeQuizContent({
        * 1. Topic
        * 2. Module
        * 3. Legacy chapter
-       *
-       * This allows curriculum assessments to use
-       * curriculum_question_topics while preserving
-       * the original chapter-based practice system.
        */
 
       if (selectedTopicId) {
@@ -540,22 +586,13 @@ function PracticeQuizContent({
     moduleId: string,
   ) {
     if (!moduleId) {
-      setSelectedModuleId(
-        undefined,
-      );
-      setSelectedTopicId(
-        undefined,
-      );
+      setSelectedModuleId(undefined);
+      setSelectedTopicId(undefined);
       return;
     }
 
-    setSelectedModuleId(
-      moduleId,
-    );
-
-    setSelectedTopicId(
-      undefined,
-    );
+    setSelectedModuleId(moduleId);
+    setSelectedTopicId(undefined);
   }
 
   // ==========================================================
@@ -566,15 +603,11 @@ function PracticeQuizContent({
     topicId: string,
   ) {
     if (!topicId) {
-      setSelectedTopicId(
-        undefined,
-      );
+      setSelectedTopicId(undefined);
       return;
     }
 
-    setSelectedTopicId(
-      topicId,
-    );
+    setSelectedTopicId(topicId);
 
     const topicModule =
       curriculumModules.find(
@@ -603,9 +636,7 @@ function PracticeQuizContent({
       return;
     }
 
-    setSelectedAnswer(
-      answerIndex,
-    );
+    setSelectedAnswer(answerIndex);
   }
 
   // ==========================================================
@@ -613,19 +644,15 @@ function PracticeQuizContent({
   // ==========================================================
 
   function handleSubmitAnswer() {
-    if (
-      selectedAnswer === null
-    ) {
+    if (selectedAnswer === null) {
       return;
     }
 
-    setAnswers(
-      (previous) => ({
-        ...previous,
-        [currentQuestion]:
-          selectedAnswer,
-      }),
-    );
+    setAnswers((previous) => ({
+      ...previous,
+      [currentQuestion]:
+        selectedAnswer,
+    }));
 
     setSubmitted(true);
   }
@@ -650,13 +677,10 @@ function PracticeQuizContent({
     const nextIndex =
       currentQuestion + 1;
 
-    setCurrentQuestion(
-      nextIndex,
-    );
+    setCurrentQuestion(nextIndex);
 
     setSelectedAnswer(
-      answers[nextIndex] ??
-        null,
+      answers[nextIndex] ?? null,
     );
 
     setSubmitted(
@@ -665,6 +689,88 @@ function PracticeQuizContent({
         nextIndex,
       ),
     );
+  }
+
+  // ==========================================================
+  // EXTRACT RECOMMENDATION
+  // ==========================================================
+
+  function extractRecommendation(
+    data: unknown,
+  ): NextTopicRecommendation | null {
+    if (
+      !data ||
+      typeof data !== "object"
+    ) {
+      return null;
+    }
+
+    const payload =
+      data as Record<string, unknown>;
+
+    const candidates = [
+      payload.nextTopicRecommendation,
+      payload.recommendation,
+      payload.nextRecommendation,
+    ];
+
+    for (const candidate of candidates) {
+      if (
+        !candidate ||
+        typeof candidate !== "object"
+      ) {
+        continue;
+      }
+
+      const recommendation =
+        candidate as Record<
+          string,
+          unknown
+        >;
+
+      const topicId =
+        typeof recommendation.topicId ===
+        "string"
+          ? recommendation.topicId
+          : typeof recommendation.topic_id ===
+              "string"
+            ? recommendation.topic_id
+            : null;
+
+      if (!topicId) {
+        continue;
+      }
+
+      const moduleId =
+        typeof recommendation.moduleId ===
+        "string"
+          ? recommendation.moduleId
+          : typeof recommendation.module_id ===
+              "string"
+            ? recommendation.module_id
+            : null;
+
+      const reason =
+        typeof recommendation.reason ===
+        "string"
+          ? recommendation.reason
+          : null;
+
+      const priority =
+        typeof recommendation.priority ===
+        "number"
+          ? recommendation.priority
+          : undefined;
+
+      return {
+        topicId,
+        moduleId,
+        reason,
+        priority,
+      };
+    }
+
+    return null;
   }
 
   // ==========================================================
@@ -678,11 +784,11 @@ function PracticeQuizContent({
 
     setSavingResult(true);
     setResultError("");
+    setNextRecommendation(null);
 
     const finalAnswers = {
       ...answers,
-      ...(selectedAnswer !==
-      null
+      ...(selectedAnswer !== null
         ? {
             [currentQuestion]:
               selectedAnswer,
@@ -752,8 +858,7 @@ function PracticeQuizContent({
               difficulty:
                 selectedDifficulty,
 
-              score:
-                finalScore,
+              score: finalScore,
 
               totalQuestions:
                 questions.length,
@@ -780,17 +885,26 @@ function PracticeQuizContent({
           },
         );
 
-      if (!response.ok) {
-        const data =
-          await response
-            .json()
-            .catch(
-              () => ({}),
-            );
+      const data =
+        await response
+          .json()
+          .catch(() => ({}));
 
+      if (!response.ok) {
         throw new Error(
           data.error ||
             "Practice result could not be saved.",
+        );
+      }
+
+      const recommendation =
+        extractRecommendation(
+          data,
+        );
+
+      if (recommendation) {
+        setNextRecommendation(
+          recommendation,
         );
       }
 
@@ -808,8 +922,8 @@ function PracticeQuizContent({
       );
 
       /*
-       * Analytics persistence must never prevent
-       * the student from seeing their result.
+       * Result visibility is never blocked by
+       * analytics/recommendation persistence.
        */
       setFinished(true);
     } finally {
@@ -839,6 +953,7 @@ function PracticeQuizContent({
     setSubmitted(false);
     setError("");
     setResultError("");
+    setNextRecommendation(null);
   }
 
   // ==========================================================
@@ -859,15 +974,10 @@ function PracticeQuizContent({
       "Keep practicing!";
 
     if (finalPercentage >= 90) {
-      message =
-        "Excellent work!";
-    } else if (
-      finalPercentage >= 70
-    ) {
+      message = "Excellent work!";
+    } else if (finalPercentage >= 70) {
       message = "Good job!";
-    } else if (
-      finalPercentage >= 50
-    ) {
+    } else if (finalPercentage >= 50) {
       message =
         "You're making progress!";
     }
@@ -913,7 +1023,60 @@ function PracticeQuizContent({
             </p>
           </div>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          {/* Next Topic Recommendation */}
+
+          {nextRecommendation &&
+            recommendedTopic && (
+              <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-left">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
+                    <Sparkles size={19} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
+                      Recommended Next Topic
+                    </p>
+
+                    <h2 className="mt-1 text-lg font-black text-slate-950">
+                      {recommendedTopic.title}
+                    </h2>
+
+                    {recommendedModule && (
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        Module{" "}
+                        {
+                          recommendedModule.moduleNumber
+                        }{" "}
+                        ·{" "}
+                        {
+                          recommendedModule.title
+                        }
+                      </p>
+                    )}
+
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      {nextRecommendation.reason ||
+                        "Continue with this topic to keep progressing through your quantum computing curriculum."}
+                    </p>
+
+                    <Link
+                      href={`/practice?topicId=${encodeURIComponent(
+                        recommendedTopic.id,
+                      )}&moduleId=${encodeURIComponent(
+                        recommendedTopic.moduleId,
+                      )}`}
+                      className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                    >
+                      Continue to Next Topic
+                      <ArrowRight size={16} />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
             <button
               type="button"
               onClick={handleRestart}
@@ -949,6 +1112,12 @@ function PracticeQuizContent({
               Dashboard
             </Link>
           </div>
+
+          {resultError && (
+            <p className="mt-4 text-sm text-red-600">
+              {resultError}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -991,17 +1160,13 @@ function PracticeQuizContent({
 
             <select
               id="practice-module"
-              value={
-                selectedModuleId ?? ""
-              }
+              value={selectedModuleId ?? ""}
               onChange={(event) =>
                 handleModuleChange(
                   event.target.value,
                 )
               }
-              disabled={
-                curriculumLoading
-              }
+              disabled={curriculumLoading}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
             >
               <option value="">
@@ -1015,10 +1180,7 @@ function PracticeQuizContent({
                     value={module.id}
                   >
                     Module{" "}
-                    {
-                      module.moduleNumber
-                    }{" "}
-                    —{" "}
+                    {module.moduleNumber} —{" "}
                     {module.title}
                   </option>
                 ),
@@ -1038,9 +1200,7 @@ function PracticeQuizContent({
 
             <select
               id="practice-topic"
-              value={
-                selectedTopicId ?? ""
-              }
+              value={selectedTopicId ?? ""}
               onChange={(event) =>
                 handleTopicChange(
                   event.target.value,
@@ -1089,9 +1249,7 @@ function PracticeQuizContent({
 
                 <select
                   id="practice-chapter"
-                  value={
-                    selectedChapter
-                  }
+                  value={selectedChapter}
                   onChange={(event) =>
                     setSelectedChapter(
                       Number(
@@ -1146,9 +1304,7 @@ function PracticeQuizContent({
                           : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"
                       }`}
                     >
-                      {
-                        difficulty.label
-                      }
+                      {difficulty.label}
                     </button>
                   );
                 },
@@ -1168,9 +1324,7 @@ function PracticeQuizContent({
 
             <select
               id="question-limit"
-              value={
-                questionLimit
-              }
+              value={questionLimit}
               onChange={(event) =>
                 setQuestionLimit(
                   Number(
@@ -1207,9 +1361,7 @@ function PracticeQuizContent({
 
           <button
             type="button"
-            onClick={
-              handleStartPractice
-            }
+            onClick={handleStartPractice}
             disabled={loading}
             className="w-full rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -1284,8 +1436,8 @@ function PracticeQuizContent({
           </div>
 
           <div className="shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">
-            {currentQuestion + 1}{" "}
-            / {questions.length}
+            {currentQuestion + 1} /{" "}
+            {questions.length}
           </div>
         </div>
 
@@ -1326,8 +1478,7 @@ function PracticeQuizContent({
           {question.options.map(
             (option, index) => {
               const isSelected =
-                selectedAnswer ===
-                index;
+                selectedAnswer === index;
 
               const isCorrectOption =
                 submitted &&
@@ -1350,16 +1501,12 @@ function PracticeQuizContent({
                   "border-blue-500 bg-blue-50 ring-2 ring-blue-100";
               }
 
-              if (
-                isCorrectOption
-              ) {
+              if (isCorrectOption) {
                 optionClass =
                   "border-green-300 bg-green-50";
               }
 
-              if (
-                isWrongSelection
-              ) {
+              if (isWrongSelection) {
                 optionClass =
                   "border-red-300 bg-red-50";
               }
@@ -1479,8 +1626,7 @@ function PracticeQuizContent({
                 handleSubmitAnswer
               }
               disabled={
-                selectedAnswer ===
-                null
+                selectedAnswer === null
               }
               className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -1490,16 +1636,13 @@ function PracticeQuizContent({
             <button
               type="button"
               onClick={handleNext}
-              disabled={
-                savingResult
-              }
+              disabled={savingResult}
               className="inline-flex items-center justify-center rounded-lg bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {savingResult
                 ? "Saving..."
                 : currentQuestion ===
-                    questions.length -
-                      1
+                    questions.length - 1
                   ? "Finish Quiz"
                   : "Next Question"}
             </button>
