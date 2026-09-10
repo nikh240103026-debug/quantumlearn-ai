@@ -1,4 +1,4 @@
-# QuantumLearn AI ⚛️
+# QuantumLearn AI 
 
 ### AI-Based Interactive Quantum Algorithm Learning Platform
 
@@ -14,7 +14,7 @@
 
 ---
 
-## 📌 Table of Contents
+## Table of Contents
 
 * [Overview](#-overview)
 * [Problem Statement](#-problem-statement)
@@ -66,7 +66,7 @@
 
 ---
 
-# 🌌 Overview
+# Overview
 
 **QuantumLearn AI** is an AI-based interactive learning platform focused on making **Quantum Computing education more accessible, practical, visual, and personalized**.
 
@@ -102,7 +102,7 @@ The platform is designed around the principle:
 
 ---
 
-# 🎯 Problem Statement
+# Problem Statement
 
 ## AI-Based Interactive Quantum Algorithm Learning Platform
 
@@ -128,7 +128,7 @@ into one platform.
 
 ---
 
-# 🚀 Vision
+# Vision
 
 The long-term vision of QuantumLearn AI is to become a comprehensive educational ecosystem for Quantum Computing where users can move from **zero knowledge to advanced quantum algorithms and experimentation** inside one platform.
 
@@ -156,7 +156,7 @@ Potentially use structured content, exercises, and interactive experiments as te
 
 ---
 
-# 🎯 Objectives
+# Objectives
 
 QuantumLearn AI is designed around the following objectives:
 
@@ -176,9 +176,9 @@ QuantumLearn AI is designed around the following objectives:
 
 ---
 
-# ✨ Key Features
+# Key Features
 
-## 🧠 AI-Powered Learning
+## AI-Powered Learning
 
 * AI Tutor powered by Google Gemini.
 * Context-aware educational assistance.
@@ -191,7 +191,7 @@ QuantumLearn AI is designed around the following objectives:
 
 ---
 
-## 📚 Structured Quantum Curriculum
+## Structured Quantum Curriculum
 
 The platform is designed around a progressive curriculum:
 
@@ -227,7 +227,7 @@ Topics include:
 
 ---
 
-## ⚛️ Interactive Quantum Lab
+## Interactive Quantum Lab
 
 The Quantum Lab allows users to experiment with quantum circuits.
 
@@ -258,7 +258,7 @@ Current simulator capabilities include:
 
 ---
 
-## 📊 Learning Analytics
+## Learning Analytics
 
 The platform tracks learning activity and provides analytical insights such as:
 
@@ -278,7 +278,7 @@ The goal is to transform raw learning activity into **actionable educational ins
 
 ---
 
-## 📝 Practice & Assessment
+## Practice & Assessment
 
 Users can practice concepts through question-based activities.
 
@@ -297,7 +297,7 @@ This information can then contribute to the user's learning analytics.
 
 ---
 
-## 👤 User Accounts
+## User Accounts
 
 QuantumLearn AI supports authenticated users and personalized experiences.
 
@@ -323,7 +323,7 @@ The information can be used to provide a more personalized educational experienc
 
 ---
 
-# 🏗️ Platform Architecture
+# Platform Architecture
 
 At a high level, QuantumLearn AI follows this architecture:
 
@@ -371,7 +371,7 @@ At a high level, QuantumLearn AI follows this architecture:
 
 ---
 
-# 🔄 Application Workflow
+# Application Workflow
 
 The overall user workflow is designed as:
 
@@ -419,7 +419,7 @@ The overall user workflow is designed as:
 
 ---
 
-# 🧩 Core Modules
+# Core Modules
 
 ## 1. Landing Page
 
@@ -444,7 +444,7 @@ The design focuses on communicating QuantumLearn AI as an interactive technology
 
 ---
 
-# 🔐 2. Authentication & User Profile
+# 2. Authentication & User Profile
 
 Authentication is implemented using **Supabase Auth**.
 
@@ -464,7 +464,7 @@ The authentication layer is integrated with the application backend so that lear
 
 ---
 
-# 📊 3. AI-Powered Dashboard
+# 3. AI-Powered Dashboard
 
 The dashboard acts as the user's central learning command center.
 
@@ -504,7 +504,7 @@ The dashboard is intended to continuously evolve as the user interacts with the 
 
 ---
 
-# 📖 4. Quantum Learning Platform
+# 4. Quantum Learning Platform
 
 The learning system provides structured educational content.
 
@@ -557,7 +557,7 @@ Advanced Quantum Algorithms
 
 ---
 
-# 📝 5. Practice and Assessment
+# 5. Practice and Assessment
 
 The Practice module allows learners to test their understanding.
 
@@ -592,7 +592,7 @@ This hierarchy makes it possible to identify not only that a learner is struggli
 
 ---
 
-# ⚛️ 6. Quantum Lab
+# 6. Quantum Lab
 
 The Quantum Lab is one of the central interactive components of QuantumLearn AI.
 
@@ -677,7 +677,7 @@ Instead of simply constructing circuits, learners can use AI assistance to under
 
 ---
 
-# 🤖 7. AI Tutor
+# 7. AI Tutor
 
 The AI Tutor is the intelligent educational layer of QuantumLearn AI.
 
@@ -739,7 +739,7 @@ The backend performs authentication and validates the Gemini API configuration b
 
 ---
 
-# 📈 8. Learning Analytics
+# 8. Learning Analytics
 
 QuantumLearn AI is designed to treat learning as a continuously measurable process.
 
@@ -775,7 +775,7 @@ The platform can collect activity from multiple sources:
 
 ---
 
-# 📌 9. Progress Tracking
+# 9. Progress Tracking
 
 Progress is not limited to a single percentage.
 
@@ -805,7 +805,7 @@ This enables personalized learning analytics rather than generic course completi
 
 ---
 
-# 📚 10. Resources
+# 10. Resources
 
 The platform also provides a resources area intended to connect learners with additional educational material.
 
@@ -821,7 +821,7 @@ Future resources can include:
 
 ---
 
-# 📘 Quantum Computing Curriculum
+# Quantum Computing Curriculum
 
 QuantumLearn AI follows a progressive learning structure.
 
@@ -906,7 +906,7 @@ Advanced topics can include:
 
 ---
 
-# 🧠 AI Intelligence Layer
+# AI Intelligence Layer
 
 QuantumLearn AI is not intended to use AI only as a chatbot.
 
@@ -967,7 +967,7 @@ Learn Again
 
 ---
 
-# 🗄️ Database Architecture
+# Database Architecture
 
 Supabase acts as the main backend data platform.
 
@@ -1025,7 +1025,7 @@ ai_conversations
 
 ---
 
-# 🛠️ Technology Stack
+# Technology Stack
 
 ## Frontend
 
@@ -1067,7 +1067,7 @@ The Quantum Lab provides an in-browser interactive quantum circuit environment c
 
 ---
 
-# 📁 Project Structure
+# Project Structure
 
 A simplified representation of the project structure:
 
@@ -1131,7 +1131,7 @@ quantumlearn-ai/
 
 ---
 
-# 🔐 Authentication Flow
+# Authentication Flow
 
 The authentication architecture follows:
 
@@ -1164,7 +1164,7 @@ When a user is not authenticated and attempts to access protected functionality,
 
 ---
 
-# 🤖 AI Tutor Architecture
+# AI Tutor Architecture
 
 The AI Tutor follows a server-mediated architecture.
 
@@ -1200,7 +1200,7 @@ This approach avoids exposing sensitive server-side configuration directly to th
 
 ---
 
-# ⚛️ Quantum Lab Architecture
+# Quantum Lab Architecture
 
 The Quantum Lab can be conceptually represented as:
 
@@ -1230,7 +1230,7 @@ The Quantum Lab can be conceptually represented as:
 
 ---
 
-# 📊 Learning Analytics Architecture
+# Learning Analytics Architecture
 
 Learning data originates from different parts of the platform.
 
@@ -1266,7 +1266,7 @@ Learning data originates from different parts of the platform.
 
 ---
 
-# 🔌 API Architecture
+# API Architecture
 
 The application uses Next.js server-side API routes.
 
@@ -1304,7 +1304,7 @@ The practice API handles practice-related activity and stores relevant performan
 
 ---
 
-# 🔑 Environment Variables
+# Environment Variables
 
 Create a local environment file:
 
@@ -1322,7 +1322,7 @@ GEMINI_API_KEY=your_gemini_api_key
 
 If additional services are enabled, their credentials should also be configured through environment variables.
 
-### ⚠️ Important
+### Important
 
 Never commit `.env.local` or private API keys to GitHub.
 
@@ -1336,7 +1336,7 @@ Make sure `.gitignore` contains:
 
 ---
 
-# 💻 Installation
+# Installation
 
 ## Prerequisites
 
@@ -1385,7 +1385,7 @@ GEMINI_API_KEY=your_gemini_api_key
 
 ---
 
-# ▶️ Running Locally
+# Running Locally
 
 Start the development server:
 
@@ -1401,7 +1401,7 @@ http://localhost:3000
 
 ---
 
-# 🏗️ Production Build
+# Production Build
 
 To create a production build:
 
@@ -1417,7 +1417,7 @@ npm start
 
 ---
 
-# 🚀 Deployment
+# Deployment
 
 QuantumLearn AI is designed as a production-oriented Next.js application.
 
@@ -1446,7 +1446,7 @@ Never place secret API credentials directly inside client-side code.
 
 ---
 
-# 👥 GitHub Collaboration
+# GitHub Collaboration
 
 QuantumLearn AI can be developed collaboratively using GitHub.
 
@@ -1487,7 +1487,7 @@ Avoid directly pushing experimental changes into the production branch.
 
 ---
 
-# 🔒 Security Considerations
+# Security Considerations
 
 QuantumLearn AI handles user accounts and learning data, therefore security is an important part of the architecture.
 
@@ -1530,7 +1530,7 @@ to the repository.
 
 ---
 
-# 📌 Current Prototype Status
+# Current Prototype Status
 
 QuantumLearn AI has progressed beyond a simple landing-page prototype.
 
@@ -1573,7 +1573,7 @@ The platform should be considered an **active prototype/product-in-development**
 
 ---
 
-# 🛣️ Future Roadmap
+# Future Roadmap
 
 QuantumLearn AI is designed to expand significantly beyond the current prototype.
 
@@ -1671,7 +1671,7 @@ Potential future capabilities:
 
 ---
 
-# 🎓 Use Cases
+# Use Cases
 
 ## Student Learning
 
@@ -1721,7 +1721,7 @@ The AI Tutor can provide immediate educational support without requiring users t
 
 ---
 
-# 👨‍🎓 Target Users
+# Target Users
 
 QuantumLearn AI is primarily designed for:
 
@@ -1750,7 +1750,7 @@ Teachers and tutors who want interactive quantum-computing teaching material.
 
 ---
 
-# 🧑‍🏫 Educational Approach
+# Educational Approach
 
 QuantumLearn AI follows an interactive learning philosophy.
 
@@ -1802,7 +1802,7 @@ Ask AI Tutor Why
 
 ---
 
-# 💡 Why QuantumLearn AI?
+# Why QuantumLearn AI?
 
 QuantumLearn AI attempts to solve a fundamental problem in quantum-computing education:
 
@@ -1833,7 +1833,7 @@ Instead of requiring learners to switch between several disconnected tools, Quan
 
 ---
 
-# 🔬 Educational Example
+# Educational Example
 
 Consider a learner studying **quantum superposition**.
 
@@ -1877,7 +1877,7 @@ This turns a theoretical concept into an interactive learning experience.
 
 ---
 
-# 📐 Design Philosophy
+# Design Philosophy
 
 QuantumLearn AI is built around several principles.
 
@@ -1907,7 +1907,7 @@ Users should be able to move from beginner concepts to advanced algorithms witho
 
 ---
 
-# 📊 Learning Intelligence Model
+# Learning Intelligence Model
 
 The long-term learning model can be represented as:
 
@@ -1951,7 +1951,7 @@ This creates a continuously improving learning loop.
 
 ---
 
-# 🌐 Product Architecture Philosophy
+# Product Architecture Philosophy
 
 QuantumLearn AI is designed as a modular platform.
 
@@ -1979,7 +1979,7 @@ This separation allows the platform to evolve without requiring the entire appli
 
 ---
 
-# 🧪 Prototype Philosophy
+# Prototype Philosophy
 
 QuantumLearn AI is currently developed as a prototype intended to demonstrate the complete concept of an AI-powered quantum education ecosystem.
 
@@ -1998,7 +1998,7 @@ The architecture is intentionally designed so that individual modules can be exp
 
 ---
 
-# 🔮 Long-Term Vision
+# Long-Term Vision
 
 The ultimate goal is to evolve QuantumLearn AI into a platform where a learner can complete an entire Quantum Computing journey without needing to constantly switch between separate applications.
 
@@ -2036,7 +2036,7 @@ Explore Research Topics
 
 ---
 
-# 🤝 Contributing
+# Contributing
 
 Contributions are welcome as QuantumLearn AI evolves.
 
@@ -2069,7 +2069,7 @@ Before contributing:
 
 ---
 
-# 🐛 Issues & Feature Requests
+# Issues & Feature Requests
 
 If you discover a bug or have an idea for improving QuantumLearn AI, create an issue describing:
 
@@ -2090,7 +2090,7 @@ If you discover a bug or have an idea for improving QuantumLearn AI, create an i
 
 ---
 
-# 📄 License
+# License
 
 This project is currently released under the **MIT License**.
 
@@ -2122,7 +2122,7 @@ THE SOFTWARE.
 
 ---
 
-# 🙏 Acknowledgements
+# Acknowledgements
 
 QuantumLearn AI is built using and inspired by the broader open-source and research ecosystem surrounding:
 
@@ -2138,7 +2138,7 @@ Special appreciation to the developers and researchers contributing to the open-
 
 ---
 
-# 👨‍💻 Author
+# Author
 
 ## Nikhil Raj
 
@@ -2159,19 +2159,19 @@ AI
 
 ---
 
-# ⭐ Project
+#  Project
 
 If you find QuantumLearn AI interesting, consider:
 
-* ⭐ Starring the repository
-* 🍴 Forking the project
-* 🐛 Reporting issues
-* 💡 Suggesting improvements
-* 🤝 Contributing to development
+*  Starring the repository
+*  Forking the project
+*  Reporting issues
+*  Suggesting improvements
+*  Contributing to development
 
 ---
 
-# ⚛️ QuantumLearn AI
+# QuantumLearn AI
 
 ### Learn Quantum Computing. Build Circuits. Experiment. Practice. Understand.
 
@@ -2183,17 +2183,17 @@ If you find QuantumLearn AI interesting, consider:
              ┌─────────────────┼─────────────────┐
              │                 │                 │
              ▼                 ▼                 ▼
-         📚 LEARN          ⚛️ EXPERIMENT      🤖 ASK AI
+          LEARN           EXPERIMENT          ASK AI
              │                 │                 │
              └─────────────────┼─────────────────┘
                                ▼
-                         📊 ANALYZE
+                            ANALYZE
                                │
                                ▼
-                       🎯 PERSONALIZE
+                          PERSONALIZE
                                │
                                ▼
-                         🚀 IMPROVE
+                            IMPROVE
 ```
 
 > **QuantumLearn AI is an ongoing effort to make Quantum Computing education more interactive, intelligent, practical, and accessible.**
