@@ -31,7 +31,13 @@ export interface RecentActivity {
   title: string;
   description: string;
   timestamp: string;
-  type: "lesson" | "circuit" | "quiz" | "practice";
+  type:
+    | "lesson"
+    | "circuit"
+    | "quiz"
+    | "practice"
+    | "ai"
+    | "lab";
 }
 
 export interface DashboardData {

@@ -1,10 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import {
-  ArrowRight,
-  CheckCircle2,
-  Circle,
-  Lock,
-} from "lucide-react";
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 interface RoadmapLesson {
   id: string;
@@ -24,147 +25,198 @@ export function CourseRoadmap({
   lessons,
   completedLessonIds,
 }: CourseRoadmapProps) {
-  const completedSet = new Set(completedLessonIds);
+  const completedSet =
+    new Set(completedLessonIds);
+
+  const ref =
+    useRef<HTMLElement>(null);
+
+  const [visible, setVisible] =
+    useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+
+    if (!element) {
+      return;
+    }
+
+    const observer =
+      new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            observer.disconnect();
+          }
+        },
+        {
+          threshold: 0.08,
+        },
+      );
+
+    observer.observe(element);
+
+    return () =>
+      observer.disconnect();
+  }, []);
 
   return (
     <section
+      ref={ref}
       id="course-roadmap"
-      className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+      className="border-b border-black/10 bg-[#f5f5f3]"
     >
-      {/* Header */}
-      <div className="mb-8">
-        <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
-          Course Roadmap
-        </p>
+      <div className="mx-auto max-w-[1600px]">
+        <div className="grid lg:grid-cols-[0.35fr_1fr]">
+          {/* LEFT LABEL */}
 
-        <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
-          Quantum Computing Fundamentals
-        </h2>
+          <div className="border-b border-black/10 p-6 sm:p-10 lg:border-b-0 lg:border-r lg:p-16">
+            <div
+              className={`transition-all duration-900 ${
+                visible
+                  ? "translate-x-0 opacity-100"
+                  : "-translate-x-8 opacity-0"
+              }`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">
+                03 — Course roadmap
+              </p>
 
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Follow the lessons in order and build your understanding of quantum
-          computing step by step.
-        </p>
-      </div>
+              <p className="mt-24 max-w-xs text-4xl font-medium leading-[1.02] tracking-[-0.04em]">
+                Follow the sequence from foundation to understanding.
+              </p>
+            </div>
+          </div>
 
-      {/* Lessons */}
-      <div className="relative">
-        {/* Vertical timeline */}
-        <div className="absolute left-[19px] top-5 hidden h-[calc(100%-40px)] w-px bg-slate-200 sm:block" />
+          {/* ROADMAP */}
 
-        <div className="space-y-4">
-          {lessons.map((lesson) => {
-            const completed = completedSet.has(lesson.id);
+          <div className="p-6 sm:p-10 lg:p-16">
+            <div
+              className={`transition-all duration-900 ${
+                visible
+                  ? "translate-x-0 opacity-100"
+                  : "translate-x-8 opacity-0"
+              }`}
+            >
+              <p className="text-xs uppercase tracking-[0.18em] text-blue-600">
+                Quantum Computing Fundamentals
+              </p>
 
-            return (
-              <Link
-                key={lesson.id}
-                href={`/learn/${lesson.slug}`}
-                className={`group relative block rounded-xl border p-4 transition-all sm:p-5 ${
-                  completed
-                    ? "border-green-200 bg-green-50/40 hover:border-green-300 hover:shadow-sm"
-                    : "border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm"
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  {/* Status icon */}
-                  <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white">
-                    {completed ? (
-                      <CheckCircle2
-                        size={25}
-                        className="text-green-600"
-                      />
-                    ) : (
-                      <Circle
-                        size={25}
-                        className="text-slate-300 group-hover:text-blue-500"
-                      />
-                    )}
-                  </div>
+              <h2 className="mt-5 text-4xl font-medium leading-[1.02] tracking-[-0.045em] sm:text-5xl">
+                Course roadmap
+              </h2>
 
-                  {/* Lesson information */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p
-                          className={`text-xs font-semibold uppercase tracking-wide ${
-                            completed
-                              ? "text-green-600"
-                              : "text-blue-600"
-                          }`}
-                        >
-                          Lesson {lesson.order_index}
-                        </p>
+              <p className="mt-6 max-w-2xl text-base leading-7 text-black/55">
+                Move through the published lessons in sequence.
+                Completed lessons remain available for review.
+              </p>
+            </div>
 
-                        <h3 className="mt-1 text-base font-bold text-slate-950 sm:text-lg">
-                          {lesson.title}
-                        </h3>
-                      </div>
+            {lessons.length > 0 ? (
+              <div className="mt-14 border-t border-black/10">
+                {lessons.map(
+                  (lesson, index) => {
+                    const completed =
+                      completedSet.has(
+                        lesson.id,
+                      );
 
-                      <div className="flex shrink-0 items-center gap-2">
-                        {lesson.duration_minutes && (
-                          <span className="text-xs font-medium text-slate-500">
-                            {lesson.duration_minutes} min
+                    return (
+                      <Link
+                        key={lesson.id}
+                        href={`/learn/${lesson.slug}`}
+                        className={`group grid gap-6 border-b border-black/10 py-8 transition-all duration-700 md:grid-cols-[70px_1fr_auto] md:items-start ${
+                          visible
+                            ? "translate-y-0 opacity-100"
+                            : "translate-y-8 opacity-0"
+                        }`}
+                        style={{
+                          transitionDelay: `${
+                            100 + index * 70
+                          }ms`,
+                        }}
+                      >
+                        <div>
+                          <span
+                            className={`text-xs font-semibold ${
+                              completed
+                                ? "text-blue-600"
+                                : "text-black/25"
+                            }`}
+                          >
+                            {String(
+                              lesson.order_index,
+                            ).padStart(
+                              2,
+                              "0",
+                            )}
                           </span>
-                        )}
+                        </div>
 
-                        {completed ? (
-                          <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">
-                            Completed
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                            Not started
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                            <h3 className="text-xl font-medium tracking-tight transition-colors group-hover:text-blue-600">
+                              {lesson.title}
+                            </h3>
 
-                    {lesson.description && (
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                        {lesson.description}
-                      </p>
-                    )}
+                            {completed && (
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-600">
+                                Completed
+                              </span>
+                            )}
+                          </div>
 
-                    <div
-                      className={`mt-3 inline-flex items-center gap-1.5 text-sm font-semibold ${
-                        completed
-                          ? "text-green-700"
-                          : "text-blue-600"
-                      }`}
-                    >
-                      {completed ? "Review lesson" : "Start lesson"}
+                          {lesson.description && (
+                            <p className="mt-3 max-w-2xl text-sm leading-6 text-black/50">
+                              {
+                                lesson.description
+                              }
+                            </p>
+                          )}
 
-                      <ArrowRight
-                        size={15}
-                        className="transition-transform group-hover:translate-x-0.5"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
+                          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs uppercase tracking-[0.14em] text-black/35">
+                            <span>
+                              Lesson{" "}
+                              {
+                                lesson.order_index
+                              }
+                            </span>
+
+                            {lesson.duration_minutes && (
+                              <span>
+                                {
+                                  lesson.duration_minutes
+                                }{" "}
+                                min
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-black/40 transition-colors group-hover:text-blue-600 md:text-right">
+                          {completed
+                            ? "Review"
+                            : "Start"}
+                        </div>
+                      </Link>
+                    );
+                  },
+                )}
+              </div>
+            ) : (
+              <div className="mt-14 border-y border-dashed border-black/15 py-14">
+                <p className="text-sm font-semibold">
+                  No lessons available yet.
+                </p>
+
+                <p className="mt-2 text-sm text-black/45">
+                  Lessons will appear here once they are published.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Empty state */}
-      {lessons.length === 0 && (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-          <Lock
-            size={28}
-            className="mx-auto text-slate-400"
-          />
-
-          <p className="mt-3 text-sm font-semibold text-slate-700">
-            No lessons available yet
-          </p>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Lessons will appear here once they are published.
-          </p>
-        </div>
-      )}
     </section>
   );
 }

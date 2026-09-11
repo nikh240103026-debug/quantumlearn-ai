@@ -1,16 +1,10 @@
 "use client";
 
 import {
-  ArrowRight,
-  Brain,
-  CheckCircle2,
-  Lightbulb,
-  RefreshCw,
-  Target,
-  Zap,
-} from "lucide-react";
-
-import { useState } from "react";
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 type Analysis = {
   strengths: string[];
@@ -31,6 +25,12 @@ type AnalysisResponse = {
 };
 
 export default function PersonalizedLearningPath() {
+  const ref =
+    useRef<HTMLElement>(null);
+
+  const [visible, setVisible] =
+    useState(false);
+
   const [analysis, setAnalysis] =
     useState<Analysis | null>(null);
 
@@ -39,6 +39,32 @@ export default function PersonalizedLearningPath() {
 
   const [error, setError] =
     useState<string | null>(null);
+
+  useEffect(() => {
+    const element = ref.current;
+
+    if (!element) {
+      return;
+    }
+
+    const observer =
+      new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            observer.disconnect();
+          }
+        },
+        {
+          threshold: 0.08,
+        },
+      );
+
+    observer.observe(element);
+
+    return () =>
+      observer.disconnect();
+  }, []);
 
   async function generateAnalysis() {
     if (loading) {
@@ -90,337 +116,343 @@ export default function PersonalizedLearningPath() {
   }
 
   return (
-    <section className="mt-8">
-      <div className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm sm:p-8">
+    <section
+      ref={ref}
+      className="border-b border-black/10 bg-[#f5f5f3]"
+    >
+      <div className="mx-auto max-w-[1600px]">
+        <div className="grid lg:grid-cols-[0.35fr_1fr]">
+          {/* LEFT */}
 
-        {/* HEADER */}
+          <div className="border-b border-black/10 p-6 sm:p-10 lg:border-b-0 lg:border-r lg:p-16">
+            <div
+              className={`transition-all duration-900 ${
+                visible
+                  ? "translate-x-0 opacity-100"
+                  : "-translate-x-8 opacity-0"
+              }`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">
+                06 — AI intelligence
+              </p>
 
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
-              <Brain size={14} />
-              AI Learning Intelligence
-            </div>
-
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950">
-              Personalized Learning Path
-            </h2>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              AI analyzes your real learning activity and recommends what you should study next.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={
-              generateAnalysis
-            }
-            disabled={loading}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RefreshCw
-              size={15}
-              className={
-                loading
-                  ? "animate-spin"
-                  : ""
-              }
-            />
-
-            {loading
-              ? "Analyzing..."
-              : analysis
-                ? "Refresh Path"
-                : "Generate My Path"}
-          </button>
-        </div>
-
-        {/* ERROR */}
-
-        {error && (
-          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4">
-            <p className="text-sm font-medium text-red-700">
-              {error}
-            </p>
-          </div>
-        )}
-
-        {/* EMPTY */}
-
-        {!analysis &&
-          !loading &&
-          !error && (
-            <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-              <Brain
-                size={30}
-                className="mx-auto text-blue-500"
-              />
-
-              <h3 className="mt-3 text-sm font-bold text-slate-900">
-                Build your personalized roadmap
-              </h3>
-
-              <p className="mx-auto mt-1 max-w-xl text-sm leading-6 text-slate-500">
-                Generate an AI analysis from your actual lessons, practice performance, coding activity, and Quantum Lab usage.
+              <p className="mt-24 max-w-xs text-4xl font-medium leading-[1.02] tracking-[-0.04em]">
+                Turn your learning activity into a focused next step.
               </p>
             </div>
-          )}
-
-        {/* LOADING */}
-
-        {loading && (
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <LoadingCard />
-            <LoadingCard />
-            <LoadingCard />
           </div>
-        )}
 
-        {/* RESULT */}
+          {/* RIGHT */}
 
-        {analysis &&
-          !loading && (
-            <div className="mt-8 space-y-6">
+          <div className="p-6 sm:p-10 lg:p-16">
+            <div
+              className={`transition-all duration-900 ${
+                visible
+                  ? "translate-x-0 opacity-100"
+                  : "translate-x-8 opacity-0"
+              }`}
+            >
+              <div className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-blue-600">
+                    AI learning intelligence
+                  </p>
 
-              {/* NEXT STEP */}
+                  <h2 className="mt-5 text-4xl font-medium leading-[1.02] tracking-[-0.045em] sm:text-5xl">
+                    Personalized learning path
+                  </h2>
 
-              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-700">
-                      <Target size={14} />
-                      Recommended Next Step
-                    </div>
+                  <p className="mt-6 max-w-2xl text-base leading-7 text-black/55">
+                    AI analyzes your actual lessons, practice performance,
+                    coding activity, and Quantum Lab usage to recommend
+                    what to focus on next.
+                  </p>
+                </div>
 
-                    <h3 className="mt-2 text-xl font-bold text-slate-950">
-                      {
-                        analysis.recommendedNextTopic
-                      }
-                    </h3>
+                <button
+                  type="button"
+                  onClick={
+                    generateAnalysis
+                  }
+                  disabled={loading}
+                  className="shrink-0 border border-black/20 px-6 py-3.5 text-sm font-semibold transition-all hover:border-blue-600 hover:bg-blue-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {loading
+                    ? "Analyzing..."
+                    : analysis
+                      ? "Refresh path"
+                      : "Generate path"}
+                </button>
+              </div>
+            </div>
 
-                    {analysis.recommendedChapter && (
-                      <p className="mt-2 text-sm text-slate-600">
-                        Recommended chapter:{" "}
-                        <span className="font-semibold">
-                          Chapter{" "}
+            {/* ERROR */}
+
+            {error && (
+              <div className="mt-10 border border-red-500/30 bg-red-500/5 p-5">
+                <p className="text-sm leading-6 text-red-700">
+                  {error}
+                </p>
+              </div>
+            )}
+
+            {/* EMPTY */}
+
+            {!analysis &&
+              !loading &&
+              !error && (
+                <div
+                  className={`mt-14 border-y border-dashed border-black/15 py-14 transition-all duration-900 delay-200 ${
+                    visible
+                      ? "translate-y-0 opacity-100"
+                      : "translate-y-8 opacity-0"
+                  }`}
+                >
+                  <p className="text-xs uppercase tracking-[0.16em] text-black/30">
+                    Awaiting analysis
+                  </p>
+
+                  <h3 className="mt-5 text-2xl font-medium tracking-tight">
+                    Build your personalized roadmap.
+                  </h3>
+
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-black/50">
+                    Generate an analysis from your recorded learning,
+                    practice, coding, and Quantum Lab activity.
+                  </p>
+                </div>
+              )}
+
+            {/* LOADING */}
+
+            {loading && (
+              <div className="mt-14 grid gap-6 md:grid-cols-3">
+                <LoadingBlock />
+                <LoadingBlock />
+                <LoadingBlock />
+              </div>
+            )}
+
+            {/* RESULT */}
+
+            {analysis &&
+              !loading && (
+                <div className="mt-14">
+                  {/* NEXT STEP */}
+
+                  <div
+                    className={`border-y border-black/10 py-9 transition-all duration-900 ${
+                      visible
+                        ? "translate-y-0 opacity-100"
+                        : "translate-y-8 opacity-0"
+                    }`}
+                  >
+                    <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-blue-600">
+                          Recommended next step
+                        </p>
+
+                        <h3 className="mt-5 max-w-3xl text-3xl font-medium leading-tight tracking-[-0.04em]">
                           {
-                            analysis.recommendedChapter
+                            analysis.recommendedNextTopic
+                          }
+                        </h3>
+
+                        {analysis.recommendedChapter && (
+                          <p className="mt-4 text-xs uppercase tracking-[0.14em] text-black/40">
+                            Chapter{" "}
+                            {
+                              analysis.recommendedChapter
+                            }
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <span className="border border-black/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                          {
+                            analysis.recommendedDifficulty
                           }
                         </span>
+
+                        {analysis.recommendedChapter && (
+                          <a
+                            href={`/roadmap?chapter=${analysis.recommendedChapter}`}
+                            className="bg-[#090c11] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
+                          >
+                            Open roadmap
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="mt-7 max-w-3xl border-l-2 border-blue-500 pl-5 text-sm leading-7 text-black/55">
+                      {analysis.reason}
+                    </p>
+                  </div>
+
+                  {/* STRENGTHS / WEAK AREAS */}
+
+                  <div className="grid border-b border-black/10 lg:grid-cols-2">
+                    <InsightColumn
+                      title="Your strengths"
+                      items={
+                        analysis.strengths
+                      }
+                      emptyText="Not enough evidence yet."
+                      delay={100}
+                    />
+
+                    <InsightColumn
+                      title="Focus areas"
+                      items={
+                        analysis.weakAreas
+                      }
+                      emptyText="No clear weak areas detected yet."
+                      delay={180}
+                      bordered
+                    />
+                  </div>
+
+                  {/* PATTERNS */}
+
+                  <div className="grid border-b border-black/10 lg:grid-cols-2">
+                    <PatternBlock
+                      title="Learning pattern"
+                      text={
+                        analysis.learningPattern
+                      }
+                    />
+
+                    <PatternBlock
+                      title="Practice pattern"
+                      text={
+                        analysis.practicePattern
+                      }
+                      bordered
+                    />
+                  </div>
+
+                  {/* PRIORITY ACTIONS */}
+
+                  <div className="pt-10">
+                    <p className="text-xs uppercase tracking-[0.16em] text-black/35">
+                      Priority actions
+                    </p>
+
+                    {analysis.priorityActions.length >
+                    0 ? (
+                      <div className="mt-7 grid border-t border-black/10 md:grid-cols-2">
+                        {analysis.priorityActions.map(
+                          (
+                            action,
+                            index,
+                          ) => (
+                            <div
+                              key={`${action}-${index}`}
+                              className={`border-b border-black/10 py-6 transition-all duration-700 ${
+                                visible
+                                  ? "translate-y-0 opacity-100"
+                                  : "translate-y-6 opacity-0"
+                              } ${
+                                index %
+                                  2 ===
+                                0
+                                  ? "md:border-r md:pr-8"
+                                  : "md:pl-8"
+                              }`}
+                              style={{
+                                transitionDelay: `${
+                                  200 +
+                                  index *
+                                    80
+                                }ms`,
+                              }}
+                            >
+                              <div className="flex gap-5">
+                                <span className="text-xs text-black/25">
+                                  {String(
+                                    index +
+                                      1,
+                                  ).padStart(
+                                    2,
+                                    "0",
+                                  )}
+                                </span>
+
+                                <p className="max-w-xl text-sm leading-7 text-black/55">
+                                  {
+                                    action
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-5 text-sm text-black/45">
+                        No priority actions were generated.
                       </p>
                     )}
                   </div>
-
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className="rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold capitalize text-blue-700">
-                      {
-                        analysis.recommendedDifficulty
-                      }
-                    </span>
-
-                    {analysis.recommendedChapter && (
-                      <a
-                        href={`/roadmap?chapter=${analysis.recommendedChapter}`}
-                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-                      >
-                        Open Roadmap
-                        <ArrowRight
-                          size={15}
-                        />
-                      </a>
-                    )}
-                  </div>
                 </div>
-
-                <div className="mt-5 border-t border-blue-200 pt-4">
-                  <p className="text-sm leading-6 text-slate-700">
-                    {analysis.reason}
-                  </p>
-                </div>
-              </div>
-
-              {/* STRENGTHS + WEAK AREAS */}
-
-              <div className="grid gap-4 lg:grid-cols-2">
-
-                <InsightCard
-                  icon={
-                    <CheckCircle2
-                      size={18}
-                    />
-                  }
-                  title="Your strengths"
-                  items={
-                    analysis.strengths
-                  }
-                  emptyText="Not enough evidence yet."
-                  variant="success"
-                />
-
-                <InsightCard
-                  icon={
-                    <Target
-                      size={18}
-                    />
-                  }
-                  title="Focus areas"
-                  items={
-                    analysis.weakAreas
-                  }
-                  emptyText="No clear weak areas detected yet."
-                  variant="warning"
-                />
-
-              </div>
-
-              {/* LEARNING PATTERNS */}
-
-              <div className="grid gap-4 lg:grid-cols-2">
-
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex items-center gap-2">
-                    <Brain
-                      size={17}
-                      className="text-blue-600"
-                    />
-
-                    <h3 className="text-sm font-bold text-slate-900">
-                      Learning pattern
-                    </h3>
-                  </div>
-
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {
-                      analysis.learningPattern
-                    }
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="flex items-center gap-2">
-                    <Zap
-                      size={17}
-                      className="text-amber-500"
-                    />
-
-                    <h3 className="text-sm font-bold text-slate-900">
-                      Practice pattern
-                    </h3>
-                  </div>
-
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {
-                      analysis.practicePattern
-                    }
-                  </p>
-                </div>
-
-              </div>
-
-              {/* PRIORITY ACTIONS */}
-
-              <div className="rounded-xl border border-slate-200 bg-white p-5">
-                <div className="flex items-center gap-2">
-                  <Lightbulb
-                    size={17}
-                    className="text-blue-600"
-                  />
-
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Priority actions
-                  </h3>
-                </div>
-
-                {analysis.priorityActions.length >
-                0 ? (
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    {analysis.priorityActions.map(
-                      (
-                        action,
-                        index,
-                      ) => (
-                        <div
-                          key={`${action}-${index}`}
-                          className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4"
-                        >
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                            {index +
-                              1}
-                          </span>
-
-                          <p className="text-sm leading-6 text-slate-600">
-                            {action}
-                          </p>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                ) : (
-                  <p className="mt-3 text-sm text-slate-500">
-                    No priority actions were generated.
-                  </p>
-                )}
-              </div>
-
-            </div>
-          )}
+              )}
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-function InsightCard({
-  icon,
+// ============================================================
+// INSIGHT COLUMN
+// ============================================================
+
+function InsightColumn({
   title,
   items,
   emptyText,
-  variant,
+  delay,
+  bordered = false,
 }: {
-  icon: React.ReactNode;
   title: string;
   items: string[];
   emptyText: string;
-  variant:
-    | "success"
-    | "warning";
+  delay: number;
+  bordered?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="flex items-center gap-2">
-        <div
-          className={`${
-            variant === "success"
-              ? "text-emerald-600"
-              : "text-amber-600"
-          }`}
-        >
-          {icon}
-        </div>
-
-        <h3 className="text-sm font-bold text-slate-900">
-          {title}
-        </h3>
-      </div>
+    <div
+      className={`py-9 transition-all duration-800 ${
+        bordered
+          ? "border-t border-black/10 lg:border-l lg:border-t-0 lg:pl-10"
+          : "lg:pr-10"
+      }`}
+      style={{
+        transitionDelay: `${delay}ms`,
+      }}
+    >
+      <p className="text-xs uppercase tracking-[0.16em] text-black/35">
+        {title}
+      </p>
 
       {items.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-6 space-y-4">
           {items.map(
-            (
-              item,
-              index,
-            ) => (
-              <span
+            (item, index) => (
+              <div
                 key={`${item}-${index}`}
-                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700"
+                className="border-b border-black/10 pb-4 text-sm leading-6 text-black/60"
               >
                 {item}
-              </span>
+              </div>
             ),
           )}
         </div>
       ) : (
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-6 text-sm text-black/45">
           {emptyText}
         </p>
       )}
@@ -428,13 +460,52 @@ function InsightCard({
   );
 }
 
-function LoadingCard() {
+// ============================================================
+// PATTERN
+// ============================================================
+
+function PatternBlock({
+  title,
+  text,
+  bordered = false,
+}: {
+  title: string;
+  text: string;
+  bordered?: boolean;
+}) {
   return (
-    <div className="animate-pulse rounded-xl border border-slate-200 bg-slate-50 p-5">
-      <div className="h-4 w-32 rounded bg-slate-200" />
-      <div className="mt-4 h-6 w-3/4 rounded bg-slate-200" />
-      <div className="mt-3 h-4 w-full rounded bg-slate-200" />
-      <div className="mt-2 h-4 w-5/6 rounded bg-slate-200" />
+    <div
+      className={`py-9 ${
+        bordered
+          ? "border-t border-black/10 lg:border-l lg:border-t-0 lg:pl-10"
+          : "lg:pr-10"
+      }`}
+    >
+      <p className="text-xs uppercase tracking-[0.16em] text-black/35">
+        {title}
+      </p>
+
+      <p className="mt-5 max-w-xl text-base leading-7 text-black/55">
+        {text}
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
+// LOADING
+// ============================================================
+
+function LoadingBlock() {
+  return (
+    <div className="border-y border-black/10 py-8">
+      <div className="h-3 w-24 animate-pulse bg-black/10" />
+
+      <div className="mt-6 h-6 w-3/4 animate-pulse bg-black/10" />
+
+      <div className="mt-4 h-3 w-full animate-pulse bg-black/10" />
+
+      <div className="mt-3 h-3 w-5/6 animate-pulse bg-black/10" />
     </div>
   );
 }

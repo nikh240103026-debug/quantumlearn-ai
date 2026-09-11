@@ -1,248 +1,509 @@
+"use client";
+
 import {
-  Activity,
-  BarChart3,
-  Brain,
-  Code2,
-  FlaskConical,
-  Target,
-} from "lucide-react";
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import type {
   ProgressAnalytics as ProgressAnalyticsData,
 } from "@/lib/progress/progress-engine";
 
+interface PracticeHistoryPoint {
+  label: string;
+  value: number;
+}
+
 interface ProgressAnalyticsProps {
   analytics: ProgressAnalyticsData;
+  practiceHistory?: PracticeHistoryPoint[];
 }
 
 export function ProgressAnalytics({
   analytics,
+  practiceHistory = [],
 }: ProgressAnalyticsProps) {
+  const ref =
+    useRef<HTMLElement>(null);
+
+  const [visible, setVisible] =
+    useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+
+    if (!element) {
+      return;
+    }
+
+    const observer =
+      new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            observer.disconnect();
+          }
+        },
+        {
+          threshold: 0.08,
+        },
+      );
+
+    observer.observe(element);
+
+    return () =>
+      observer.disconnect();
+  }, []);
+
+  const codingProgress =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        analytics.codingPoints,
+      ),
+    );
+
+  const labProgress =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        analytics.labRuns * 10,
+      ),
+    );
+
+  const graphData =
+    practiceHistory.length > 0
+      ? practiceHistory
+      : [
+          {
+            label: "Average",
+            value:
+              analytics.practiceAverage,
+          },
+          {
+            label: "Best",
+            value:
+              analytics.practiceBest,
+          },
+        ];
+
   return (
-    <section className="mt-8">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
-              <BarChart3 size={14} />
-              Progress Analytics
-            </div>
+    <section
+      ref={ref}
+      className="border-b border-black/10 bg-[#090c11] text-white"
+    >
+      <div className="mx-auto max-w-[1600px]">
+        <div className="grid lg:grid-cols-[0.35fr_1fr]">
+          {/* LABEL */}
 
-            <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950">
-              Your learning performance
-            </h2>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Real progress from lessons, practice, coding challenges, and Quantum Lab activity.
-            </p>
-          </div>
-
-          <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-2xl bg-slate-950 text-white">
-            <span className="text-2xl font-bold">
-              {analytics.overallMastery}%
-            </span>
-
-            <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-              mastery
-            </span>
-          </div>
-        </div>
-
-        {/* MASTER INDICATOR */}
-
-        <div className="mt-8">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-semibold text-slate-700">
-              Overall learning mastery
-            </span>
-
-            <span className="text-sm font-bold text-blue-600">
-              {analytics.overallMastery}%
-            </span>
-          </div>
-
-          <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+          <div className="border-b border-white/10 p-6 sm:p-10 lg:border-b-0 lg:border-r lg:p-16">
             <div
-              className="h-full rounded-full bg-blue-600 transition-all duration-500"
-              style={{
-                width: `${analytics.overallMastery}%`,
-              }}
-            />
-          </div>
-        </div>
+              className={`transition-all duration-900 ${
+                visible
+                  ? "translate-x-0 opacity-100"
+                  : "-translate-x-8 opacity-0"
+              }`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/35">
+                05 — Analytics
+              </p>
 
-        {/* PRIMARY ANALYTICS */}
-
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-          <AnalyticsCard
-            icon={<Target size={20} />}
-            title="Curriculum"
-            value={`${analytics.lessonProgress}%`}
-            description={`${analytics.lessonsCompleted}/${analytics.totalLessons} lessons completed`}
-          />
-
-          <AnalyticsCard
-            icon={<Brain size={20} />}
-            title="Practice"
-            value={`${analytics.practiceAverage}%`}
-            description={`${analytics.practiceAttempts} attempts`}
-          />
-
-          <AnalyticsCard
-            icon={<Code2 size={20} />}
-            title="Coding"
-            value={String(
-              analytics.codingChallengesCompleted,
-            )}
-            description={`${analytics.codingPoints} points earned`}
-          />
-
-          <AnalyticsCard
-            icon={<FlaskConical size={20} />}
-            title="Quantum Lab"
-            value={String(
-              analytics.labRuns,
-            )}
-            description={`Runs · ${analytics.maxQubitsUsed} max qubits`}
-          />
-
-        </div>
-
-        {/* DETAILED METRICS */}
-
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-
-          <MetricBlock
-            label="Best Practice Score"
-            value={`${analytics.practiceBest}%`}
-          />
-
-          <MetricBlock
-            label="Questions Answered"
-            value={String(
-              analytics.questionsAnswered,
-            )}
-          />
-
-          <MetricBlock
-            label="Active Learning Days"
-            value={String(
-              analytics.recentActiveDays,
-            )}
-          />
-
-        </div>
-
-        {/* LAB + ACTIVITY */}
-
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-            <div className="flex items-center gap-2">
-              <FlaskConical
-                size={17}
-                className="text-blue-600"
-              />
-
-              <h3 className="text-sm font-bold text-slate-900">
-                Quantum Lab
-              </h3>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-
-              <SmallMetric
-                label="Circuit runs"
-                value={String(
-                  analytics.labRuns,
-                )}
-              />
-
-              <SmallMetric
-                label="Measurements"
-                value={String(
-                  analytics.labMeasurements,
-                )}
-              />
-
+              <p className="mt-24 max-w-xs text-4xl font-medium leading-[1.02] tracking-[-0.04em]">
+                See how your learning activity becomes progress.
+              </p>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-            <div className="flex items-center gap-2">
-              <Activity
-                size={17}
-                className="text-blue-600"
-              />
+          {/* ANALYTICS */}
 
-              <h3 className="text-sm font-bold text-slate-900">
-                Learning Activity
-              </h3>
+          <div className="p-6 sm:p-10 lg:p-16">
+            <div
+              className={`transition-all duration-900 ${
+                visible
+                  ? "translate-x-0 opacity-100"
+                  : "translate-x-8 opacity-0"
+              }`}
+            >
+              <p className="text-xs uppercase tracking-[0.18em] text-blue-400">
+                Progress analytics
+              </p>
+
+              <div className="mt-5 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h2 className="text-4xl font-medium leading-[1.02] tracking-[-0.045em] sm:text-5xl">
+                    Your learning performance
+                  </h2>
+
+                  <p className="mt-6 max-w-2xl text-base leading-7 text-white/50">
+                    Progress combines curriculum completion,
+                    practice performance, coding activity,
+                    and Quantum Lab experimentation.
+                  </p>
+                </div>
+
+                <div className="shrink-0">
+                  <p className="text-7xl font-medium tracking-[-0.06em]">
+                    {analytics.overallMastery}
+                    <span className="text-2xl text-white/30">
+                      %
+                    </span>
+                  </p>
+
+                  <p className="mt-2 text-xs uppercase tracking-[0.16em] text-white/30">
+                    Overall mastery
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-4 flex items-end justify-between">
+            {/* MASTERY GRAPH */}
 
+            <div
+              className={`mt-16 grid gap-10 border-y border-white/10 py-10 lg:grid-cols-[1fr_220px] transition-all duration-1000 delay-150 ${
+                visible
+                  ? "translate-y-0 opacity-100"
+                  : "translate-y-8 opacity-0"
+              }`}
+            >
               <div>
-                <p className="text-3xl font-bold text-slate-950">
-                  {analytics.totalActivity}
-                </p>
+                <div className="mb-5 flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-[0.16em] text-white/35">
+                    Mastery profile
+                  </p>
 
-                <p className="mt-1 text-xs text-slate-500">
-                  total recorded activities
+                  <p className="text-xs text-white/35">
+                    0 — 100
+                  </p>
+                </div>
+
+                <div className="space-y-6">
+                  <ProgressBar
+                    label="Curriculum"
+                    value={
+                      analytics.lessonProgress
+                    }
+                    visible={visible}
+                    delay={200}
+                  />
+
+                  <ProgressBar
+                    label="Practice"
+                    value={
+                      analytics.practiceAverage
+                    }
+                    visible={visible}
+                    delay={300}
+                  />
+
+                  <ProgressBar
+                    label="Coding"
+                    value={codingProgress}
+                    visible={visible}
+                    delay={400}
+                  />
+
+                  <ProgressBar
+                    label="Quantum Lab"
+                    value={labProgress}
+                    visible={visible}
+                    delay={500}
+                  />
+                </div>
+              </div>
+
+              {/* DONUT */}
+
+              <div className="flex items-center justify-center border-t border-white/10 pt-10 lg:border-l lg:border-t-0 lg:pt-0">
+                <MasteryRing
+                  value={
+                    analytics.overallMastery
+                  }
+                  visible={visible}
+                />
+              </div>
+            </div>
+
+            {/* PRACTICE GRAPH */}
+
+            <div
+              className={`mt-10 border-b border-white/10 pb-10 transition-all duration-1000 delay-300 ${
+                visible
+                  ? "translate-y-0 opacity-100"
+                  : "translate-y-8 opacity-0"
+              }`}
+            >
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.16em] text-white/35">
+                    Practice trajectory
+                  </p>
+
+                  <p className="mt-2 text-sm text-white/45">
+                    Recent practice performance
+                  </p>
+                </div>
+
+                <p className="text-xs text-white/30">
+                  Percentage
                 </p>
               </div>
 
-              <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
-                {analytics.recentActiveDays} active days
-              </span>
+              <div className="mt-8 flex h-48 items-end gap-3 border-b border-white/10">
+                {graphData.map(
+                  (point, index) => (
+                    <div
+                      key={`${point.label}-${index}`}
+                      className="group flex h-full flex-1 flex-col justify-end"
+                    >
+                      <div className="relative flex h-full items-end">
+                        <div
+                          className={`w-full bg-blue-500/70 transition-all duration-1000 ease-out group-hover:bg-blue-400 ${
+                            visible
+                              ? "scale-y-100"
+                              : "scale-y-0"
+                          }`}
+                          style={{
+                            height: `${Math.max(
+                              3,
+                              point.value,
+                            )}%`,
+                            transformOrigin:
+                              "bottom",
+                            transitionDelay: `${
+                              350 +
+                              index * 70
+                            }ms`,
+                          }}
+                        />
 
+                        <span className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 text-[10px] text-white/0 transition-colors group-hover:text-white/70">
+                          {point.value}%
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-center text-[10px] uppercase tracking-[0.12em] text-white/25">
+                        {point.label}
+                      </p>
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+
+            {/* METRICS */}
+
+            <div
+              className={`mt-10 grid border-t border-white/10 sm:grid-cols-3 transition-all duration-900 delay-500 ${
+                visible
+                  ? "translate-y-0 opacity-100"
+                  : "translate-y-8 opacity-0"
+              }`}
+            >
+              <DarkMetric
+                label="Best practice score"
+                value={`${analytics.practiceBest}%`}
+              />
+
+              <DarkMetric
+                label="Questions answered"
+                value={String(
+                  analytics.questionsAnswered,
+                )}
+              />
+
+              <DarkMetric
+                label="Recorded activities"
+                value={String(
+                  analytics.totalActivity,
+                )}
+              />
+            </div>
+
+            {/* LAB + ACTIVITY */}
+
+            <div className="mt-10 grid gap-10 border-t border-white/10 pt-10 md:grid-cols-2">
+              <div
+                className={`transition-all duration-900 delay-500 ${
+                  visible
+                    ? "translate-y-0 opacity-100"
+                    : "translate-y-8 opacity-0"
+                }`}
+              >
+                <p className="text-xs uppercase tracking-[0.16em] text-white/30">
+                  Quantum Lab
+                </p>
+
+                <div className="mt-7 grid grid-cols-2">
+                  <div className="border-r border-white/10 pr-6">
+                    <p className="text-4xl font-medium tracking-[-0.05em]">
+                      {analytics.labRuns}
+                    </p>
+
+                    <p className="mt-2 text-xs uppercase tracking-[0.14em] text-white/30">
+                      Circuit runs
+                    </p>
+                  </div>
+
+                  <div className="pl-6">
+                    <p className="text-4xl font-medium tracking-[-0.05em]">
+                      {analytics.labMeasurements}
+                    </p>
+
+                    <p className="mt-2 text-xs uppercase tracking-[0.14em] text-white/30">
+                      Measurements
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className={`border-t border-white/10 pt-8 transition-all duration-900 delay-600 md:border-l md:border-t-0 md:pl-10 md:pt-0 ${
+                  visible
+                    ? "translate-y-0 opacity-100"
+                    : "translate-y-8 opacity-0"
+                }`}
+              >
+                <p className="text-xs uppercase tracking-[0.16em] text-white/30">
+                  Learning activity
+                </p>
+
+                <p className="mt-7 text-4xl font-medium tracking-[-0.05em]">
+                  {analytics.totalActivity}
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-white/40">
+                  Total recorded learning and experimentation
+                  activities.
+                </p>
+              </div>
             </div>
           </div>
-
         </div>
       </div>
     </section>
   );
 }
 
-interface AnalyticsCardProps {
-  icon: React.ReactNode;
-  title: string;
-  value: string;
-  description: string;
-}
+// ============================================================
+// PROGRESS BAR
+// ============================================================
 
-function AnalyticsCard({
-  icon,
-  title,
+function ProgressBar({
+  label,
   value,
-  description,
-}: AnalyticsCardProps) {
+  visible,
+  delay,
+}: {
+  label: string;
+  value: number;
+  visible: boolean;
+  delay: number;
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-blue-600">
-          {icon}
-        </div>
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm text-white/60">
+          {label}
+        </span>
 
-        <span className="text-2xl font-bold text-slate-950">
-          {value}
+        <span className="text-xs text-white/35">
+          {value}%
         </span>
       </div>
 
-      <p className="mt-4 text-sm font-bold text-slate-900">
-        {title}
-      </p>
-
-      <p className="mt-1 text-xs text-slate-500">
-        {description}
-      </p>
+      <div className="h-px bg-white/10">
+        <div
+          className={`h-full bg-blue-500 transition-all duration-1000 ease-out ${
+            visible
+              ? "w-full"
+              : "w-0"
+          }`}
+          style={{
+            width: visible
+              ? `${value}%`
+              : "0%",
+            transitionDelay: `${delay}ms`,
+          }}
+        />
+      </div>
     </div>
   );
 }
 
-function MetricBlock({
+// ============================================================
+// MASTERY RING
+// ============================================================
+
+function MasteryRing({
+  value,
+  visible,
+}: {
+  value: number;
+  visible: boolean;
+}) {
+  const radius = 72;
+  const circumference =
+    2 * Math.PI * radius;
+
+  const offset =
+    circumference -
+    (value / 100) *
+      circumference;
+
+  return (
+    <div className="relative h-44 w-44">
+      <svg
+        className="h-full w-full -rotate-90"
+        viewBox="0 0 180 180"
+      >
+        <circle
+          cx="90"
+          cy="90"
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth="2"
+        />
+
+        <circle
+          cx="90"
+          cy="90"
+          r={radius}
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="2"
+          strokeLinecap="square"
+          strokeDasharray={circumference}
+          strokeDashoffset={
+            visible
+              ? offset
+              : circumference
+          }
+          className="transition-all duration-[1400ms] ease-out"
+        />
+      </svg>
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-4xl font-medium tracking-[-0.05em]">
+          {value}%
+        </span>
+
+        <span className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/30">
+          mastery
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// DARK METRIC
+// ============================================================
+
+function DarkMetric({
   label,
   value,
 }: {
@@ -250,32 +511,12 @@ function MetricBlock({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium text-slate-500">
+    <div className="border-b border-white/10 py-7 sm:border-b-0 sm:border-r sm:px-7 sm:first:pl-0 sm:last:border-r-0">
+      <p className="text-xs uppercase tracking-[0.14em] text-white/30">
         {label}
       </p>
 
-      <p className="mt-2 text-2xl font-bold text-slate-950">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function SmallMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <p className="text-[11px] font-medium text-slate-500">
-        {label}
-      </p>
-
-      <p className="mt-1 text-lg font-bold text-slate-950">
+      <p className="mt-4 text-3xl font-medium tracking-[-0.05em]">
         {value}
       </p>
     </div>
