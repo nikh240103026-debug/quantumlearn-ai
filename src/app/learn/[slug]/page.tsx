@@ -1,5 +1,7 @@
 import { LessonCompleteButton } from "@/components/learning/LessonCompleteButton";
+import { LessonExperience } from "@/components/learning/LessonExperience";
 import Link from "next/link";
+import { MessageCircle } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import ReactMarkdown from "react-markdown";
@@ -8,11 +10,9 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
-  Clock,
   CheckCircle2,
+  Clock,
   Info,
-  Lightbulb,
-  Sparkles,
 } from "lucide-react";
 
 interface LessonPageProps {
@@ -36,9 +36,9 @@ export default async function LessonPage({
     notFound();
   }
 
-  // ==========================================================
+  // --------------------------------------------------
   // CURRENT LESSON
-  // ==========================================================
+  // --------------------------------------------------
 
   const { data: lesson } = await supabase
     .from("lessons")
@@ -53,9 +53,9 @@ export default async function LessonPage({
     notFound();
   }
 
-  // ==========================================================
+  // --------------------------------------------------
   // USER PROGRESS
-  // ==========================================================
+  // --------------------------------------------------
 
   const { data: progress } = await supabase
     .from("user_progress")
@@ -64,9 +64,9 @@ export default async function LessonPage({
     .eq("lesson_id", lesson.id)
     .maybeSingle();
 
-  // ==========================================================
+  // --------------------------------------------------
   // PREVIOUS LESSON
-  // ==========================================================
+  // --------------------------------------------------
 
   const { data: previousLesson } = await supabase
     .from("lessons")
@@ -78,9 +78,9 @@ export default async function LessonPage({
     .limit(1)
     .maybeSingle();
 
-  // ==========================================================
+  // --------------------------------------------------
   // NEXT LESSON
-  // ==========================================================
+  // --------------------------------------------------
 
   const { data: nextLesson } = await supabase
     .from("lessons")
@@ -93,522 +93,418 @@ export default async function LessonPage({
     .maybeSingle();
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-[#f5f5f3] text-[#111318]">
+      {/* ==================================================
+          LESSON HEADER
+      ================================================== */}
 
-      {/* =====================================================
-          LESSON HERO
-      ===================================================== */}
+      <section className="bg-[#f5f5f3]">
+        <div className="mx-auto max-w-[1600px] px-6 py-10 sm:px-10 lg:px-14 lg:py-14">
+          {/* Back */}
 
-      <section className="relative overflow-hidden border-b border-slate-200 bg-white">
-
-        {/* Decorative background */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-blue-100/60 blur-3xl" />
-          <div className="absolute -left-32 bottom-0 h-72 w-72 rounded-full bg-cyan-100/40 blur-3xl" />
-        </div>
-
-        <div className="relative mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-
-          {/* Back to dashboard */}
           <Link
             href="/dashboard"
-            className="group inline-flex items-center gap-2 text-sm font-semibold text-slate-500 transition-colors hover:text-blue-600"
+            className="group relative inline-flex items-center gap-2 py-2 text-sm font-medium text-[#111318]/55 transition-colors duration-300 hover:text-blue-600"
           >
             <ArrowLeft
               size={16}
-              className="transition-transform group-hover:-translate-x-0.5"
+              className="transition-transform duration-300 group-hover:-translate-x-1"
             />
-            Back to Dashboard
+
+            <span>Back to Dashboard</span>
+
+            <span className="absolute bottom-0 left-0 h-px w-0 bg-blue-600 transition-all duration-500 group-hover:w-full" />
           </Link>
 
-          <div className="mt-8 max-w-4xl">
+          {/* Lesson Header */}
 
-            {/* Lesson badge */}
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-blue-700">
-              <BookOpen size={15} />
+          <div className="mt-10 max-w-5xl">
+            {/* Lesson Number */}
+
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
               Lesson {lesson.order_index}
             </div>
 
             {/* Title */}
-            <h1 className="mt-5 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
+
+            <h1 className="mt-5 max-w-5xl text-4xl font-extrabold tracking-[-0.03em] text-[#111318] sm:text-5xl lg:text-6xl">
               {lesson.title}
             </h1>
 
             {/* Description */}
+
             {lesson.description && (
-              <p className="mt-5 max-w-3xl text-base leading-8 text-slate-600 sm:text-lg">
+              <p className="mt-6 max-w-4xl text-base leading-8 text-[#111318]/60 sm:text-lg">
                 {lesson.description}
               </p>
             )}
 
-            {/* Meta */}
-            <div className="mt-6 flex flex-wrap items-center gap-3">
+            {/* Duration */}
 
-              <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-medium text-slate-600">
-                <Clock size={16} />
-                {lesson.duration_minutes} minutes
-              </div>
-
-              <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2 text-sm font-medium text-slate-600">
-                <Sparkles size={16} />
-                Learning Notes
-              </div>
-
+            <div className="mt-7 flex items-center gap-2 text-sm font-medium text-[#111318]/45">
+              <Clock size={16} />
+              <span>{lesson.duration_minutes} minutes</span>
             </div>
-
           </div>
         </div>
       </section>
 
-      {/* =====================================================
-          LESSON CONTENT
-      ===================================================== */}
+      {/* ==================================================
+          LESSON EXPERIENCE
+      ================================================== */}
 
-      <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <section className="relative bg-[#f5f5f3]">
+        <div className="mx-auto max-w-[1600px] px-6 pb-14 sm:px-10 lg:px-14">
+          <LessonExperience
+            lessonId={lesson.id}
+            lessonTitle={lesson.title}
+          >
+            <div className="py-2">
+              <div className="lesson-content max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    /* ==========================================
+                       H1 — CHAPTER
+                    ========================================== */
 
-        <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                    h1: ({ children }) => (
+                      <div className="mb-10 mt-4">
+                        <div className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
+                          Chapter
+                        </div>
 
-          {/* Content header */}
-          <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white px-6 py-6 sm:px-10">
-
-            <div className="flex items-start gap-4">
-
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                <BookOpen size={21} />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
-                  Lesson Notes
-                </p>
-
-                <h2 className="mt-1 text-lg font-bold text-slate-950">
-                  Build your understanding step by step
-                </h2>
-
-                <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Read each section carefully and focus on the key concepts.
-                </p>
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* Markdown content */}
-          <div className="px-6 py-9 sm:px-10 sm:py-12 lg:px-14 lg:py-14">
-
-            <div className="lesson-content">
-
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-
-                  // ==================================================
-                  // H1 — CHAPTER
-                  // ==================================================
-
-                  h1: ({ children }) => (
-                    <section className="mb-12 mt-2 border-b border-slate-200 pb-7">
-
-                      <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
-                        <span className="h-2 w-2 rounded-full bg-blue-600" />
-                        Chapter
+                        <h1 className="text-3xl font-extrabold tracking-[-0.02em] text-[#111318] sm:text-4xl">
+                          {children}
+                        </h1>
                       </div>
+                    ),
 
-                      <h1 className="text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+                    /* ==========================================
+                       H2 — MAIN TOPIC
+                    ========================================== */
+
+                    h2: ({ children }) => (
+                      <div className="mb-6 mt-14">
+                        <h2 className="flex items-start gap-3 text-2xl font-bold tracking-[-0.02em] text-[#111318] sm:text-3xl">
+                          <span className="mt-3 h-2 w-2 shrink-0 bg-blue-600" />
+
+                          <span>{children}</span>
+                        </h2>
+                      </div>
+                    ),
+
+                    /* ==========================================
+                       H3 — SUBTOPIC
+                    ========================================== */
+
+                    h3: ({ children }) => (
+                      <h3 className="mb-4 mt-10 text-xl font-bold text-[#111318] sm:text-2xl">
                         {children}
-                      </h1>
+                      </h3>
+                    ),
 
-                    </section>
-                  ),
+                    /* ==========================================
+                       H4
+                    ========================================== */
 
-                  // ==================================================
-                  // H2 — MAIN TOPIC
-                  // ==================================================
+                    h4: ({ children }) => (
+                      <h4 className="mb-3 mt-8 text-lg font-bold text-[#111318]">
+                        {children}
+                      </h4>
+                    ),
 
-                  h2: ({ children }) => (
-                    <section className="mb-7 mt-14">
+                    /* ==========================================
+                       PARAGRAPH
+                    ========================================== */
 
-                      <h2 className="flex items-start gap-3 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
+                    p: ({ children }) => (
+                      <p className="mb-5 max-w-5xl text-[16px] leading-8 text-[#111318]/70 sm:text-[17px]">
+                        {children}
+                      </p>
+                    ),
 
-                        <span className="mt-2.5 h-3 w-3 shrink-0 rounded-full bg-blue-600 ring-4 ring-blue-50" />
+                    /* ==========================================
+                       STRONG
+                    ========================================== */
+
+                    strong: ({ children }) => (
+                      <strong className="font-bold text-[#111318]">
+                        {children}
+                      </strong>
+                    ),
+
+                    /* ==========================================
+                       EMPHASIS
+                    ========================================== */
+
+                    em: ({ children }) => (
+                      <em className="italic text-[#111318]/80">
+                        {children}
+                      </em>
+                    ),
+
+                    /* ==========================================
+                       UNORDERED LIST
+                    ========================================== */
+
+                    ul: ({ children }) => (
+                      <ul className="mb-7 mt-4 max-w-5xl space-y-3 pl-1">
+                        {children}
+                      </ul>
+                    ),
+
+                    /* ==========================================
+                       ORDERED LIST
+                    ========================================== */
+
+                    ol: ({ children }) => (
+                      <ol className="mb-7 mt-4 max-w-5xl list-decimal space-y-3 pl-7 marker:font-bold marker:text-blue-600">
+                        {children}
+                      </ol>
+                    ),
+
+                    /* ==========================================
+                       LIST ITEM
+                    ========================================== */
+
+                    li: ({ children }) => (
+                      <li className="flex items-start gap-3 text-[16px] leading-7 text-[#111318]/70 sm:text-[17px]">
+                        <span className="mt-3 h-1.5 w-1.5 shrink-0 bg-blue-500" />
 
                         <span>{children}</span>
+                      </li>
+                    ),
 
-                      </h2>
+                    /* ==========================================
+                       INLINE CODE
+                    ========================================== */
 
-                      <div className="mt-4 h-1 w-16 rounded-full bg-blue-100" />
-
-                    </section>
-                  ),
-
-                  // ==================================================
-                  // H3 — SUBTOPIC
-                  // ==================================================
-
-                  h3: ({ children }) => (
-                    <h3 className="mb-4 mt-10 text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-                      {children}
-                    </h3>
-                  ),
-
-                  // ==================================================
-                  // H4
-                  // ==================================================
-
-                  h4: ({ children }) => (
-                    <h4 className="mb-3 mt-8 text-lg font-bold text-slate-900">
-                      {children}
-                    </h4>
-                  ),
-
-                  // ==================================================
-                  // PARAGRAPH
-                  // ==================================================
-
-                  p: ({ children }) => (
-                    <p className="mb-6 max-w-3xl text-[16px] leading-8 text-slate-700 sm:text-[17px]">
-                      {children}
-                    </p>
-                  ),
-
-                  // ==================================================
-                  // STRONG
-                  // ==================================================
-
-                  strong: ({ children }) => (
-                    <strong className="font-extrabold text-slate-950">
-                      {children}
-                    </strong>
-                  ),
-
-                  // ==================================================
-                  // EMPHASIS
-                  // ==================================================
-
-                  em: ({ children }) => (
-                    <em className="font-medium text-slate-700">
-                      {children}
-                    </em>
-                  ),
-
-                  // ==================================================
-                  // UNORDERED LIST
-                  // ==================================================
-
-                  ul: ({ children }) => (
-                    <ul className="mb-8 mt-5 max-w-3xl space-y-3">
-                      {children}
-                    </ul>
-                  ),
-
-                  // ==================================================
-                  // ORDERED LIST
-                  // ==================================================
-
-                  ol: ({ children }) => (
-                    <ol className="mb-8 mt-5 max-w-3xl list-decimal space-y-3 pl-7 marker:font-bold marker:text-blue-600">
-                      {children}
-                    </ol>
-                  ),
-
-                  // ==================================================
-                  // LIST ITEM
-                  // ==================================================
-
-                  li: ({ children }) => (
-                    <li className="flex items-start gap-3 text-[16px] leading-7 text-slate-700 sm:text-[17px]">
-
-                      <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
-
-                      <span className="flex-1">
+                    code: ({ children }) => (
+                      <code className="bg-[#111318]/5 px-1.5 py-0.5 font-mono text-[0.9em] font-semibold text-blue-700">
                         {children}
-                      </span>
+                      </code>
+                    ),
 
-                    </li>
-                  ),
+                    /* ==========================================
+                       CODE BLOCK
+                    ========================================== */
 
-                  // ==================================================
-                  // INLINE CODE
-                  // ==================================================
-
-                  code: ({ children }) => (
-                    <code className="rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[0.9em] font-semibold text-blue-700">
-                      {children}
-                    </code>
-                  ),
-
-                  // ==================================================
-                  // CODE BLOCK
-                  // ==================================================
-
-                  pre: ({ children }) => (
-                    <div className="my-8 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-md">
-
-                      <div className="flex items-center gap-2 border-b border-slate-800 bg-slate-900 px-5 py-3">
-
-                        <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
-                        <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
-                        <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
-
-                        <span className="ml-2 text-xs font-medium text-slate-500">
-                          Code
-                        </span>
-
-                      </div>
-
-                      <pre className="overflow-x-auto p-5 text-sm leading-7 text-slate-100">
+                    pre: ({ children }) => (
+                      <pre className="my-8 max-w-6xl overflow-x-auto bg-[#090c11] p-5 text-sm leading-7 text-slate-100">
                         {children}
                       </pre>
+                    ),
 
-                    </div>
-                  ),
+                    /* ==========================================
+                       BLOCKQUOTE
+                    ========================================== */
 
-                  // ==================================================
-                  // BLOCKQUOTE — LEARNING NOTE
-                  // ==================================================
+                    blockquote: ({ children }) => (
+                      <div className="my-8 max-w-5xl bg-blue-600/[0.045] px-6 py-5">
+                        <div className="flex gap-3">
+                          <Info
+                            className="mt-1 shrink-0 text-blue-600"
+                            size={19}
+                          />
 
-                  blockquote: ({ children }) => (
-                    <aside className="my-8 rounded-2xl border border-blue-200 bg-blue-50/70 p-5 sm:p-6">
-
-                      <div className="flex items-start gap-4">
-
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                          <Info size={19} />
+                          <div className="text-[16px] leading-7 text-[#111318]/70">
+                            {children}
+                          </div>
                         </div>
-
-                        <div className="min-w-0 text-[16px] leading-7 text-slate-700">
-                          {children}
-                        </div>
-
                       </div>
+                    ),
 
-                    </aside>
-                  ),
+                    /* ==========================================
+                       HORIZONTAL RULE
+                    ========================================== */
 
-                  // ==================================================
-                  // HORIZONTAL RULE
-                  // ==================================================
+                    hr: () => (
+                      <div
+                        aria-hidden="true"
+                        className="my-10 h-px w-full bg-[#111318]/[0.07]"
+                      />
+                    ),
 
-                  hr: () => (
-                    <div className="my-12 border-t border-slate-200" />
-                  ),
+                    /* ==========================================
+                       LINKS
+                    ========================================== */
 
-                  // ==================================================
-                  // LINKS
-                  // ==================================================
-
-                  a: ({ children, href }) => (
-                    <a
-                      href={href}
-                      className="font-semibold text-blue-600 underline decoration-blue-200 underline-offset-4 transition-colors hover:text-blue-800"
-                    >
-                      {children}
-                    </a>
-                  ),
-
-                  // ==================================================
-                  // TABLE
-                  // ==================================================
-
-                  table: ({ children }) => (
-                    <div className="my-9 overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
-
-                      <table className="min-w-full divide-y divide-slate-200 text-sm">
+                    a: ({ children, href }) => (
+                      <a
+                        href={href}
+                        className="font-semibold text-blue-600 underline decoration-blue-600/30 underline-offset-4 transition-colors duration-300 hover:text-blue-700"
+                      >
                         {children}
-                      </table>
+                      </a>
+                    ),
 
-                    </div>
-                  ),
+                    /* ==========================================
+                       TABLE
+                    ========================================== */
 
-                  // ==================================================
-                  // TABLE HEAD
-                  // ==================================================
+                    table: ({ children }) => (
+                      <div className="my-8 max-w-6xl overflow-x-auto">
+                        <table className="min-w-full border-collapse text-sm">
+                          {children}
+                        </table>
+                      </div>
+                    ),
 
-                  thead: ({ children }) => (
-                    <thead className="bg-slate-50">
-                      {children}
-                    </thead>
-                  ),
+                    thead: ({ children }) => (
+                      <thead className="bg-[#111318]/[0.035]">
+                        {children}
+                      </thead>
+                    ),
 
-                  // ==================================================
-                  // TABLE HEADER
-                  // ==================================================
+                    th: ({ children }) => (
+                      <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-[#111318]/60">
+                        {children}
+                      </th>
+                    ),
 
-                  th: ({ children }) => (
-                    <th className="whitespace-nowrap px-5 py-4 text-left text-xs font-extrabold uppercase tracking-wider text-slate-600">
-                      {children}
-                    </th>
-                  ),
+                    td: ({ children }) => (
+                      <td className="px-5 py-4 text-sm leading-6 text-[#111318]/70">
+                        {children}
+                      </td>
+                    ),
 
-                  // ==================================================
-                  // TABLE CELL
-                  // ==================================================
+                    del: ({ children }) => (
+                      <del className="text-[#111318]/40">
+                        {children}
+                      </del>
+                    ),
+                  }}
+                >
+                  {lesson.content || "Lesson content will be added here."}
+                </ReactMarkdown>
+              </div>
+            </div>
+          </LessonExperience>
 
-                  td: ({ children }) => (
-                    <td className="border-t border-slate-200 px-5 py-4 text-sm leading-7 text-slate-700">
-                      {children}
-                    </td>
-                  ),
+          {/* ==================================================
+              LESSON AI TUTOR
+          ================================================== */}
 
-                  // ==================================================
-                  // DEL
-                  // ==================================================
+          <div className="mt-8 flex justify-start">
+            <Link
+              href={`/learn/tutor/${lesson.slug}`}
+              className="group relative inline-flex items-center gap-2 py-2 text-sm font-semibold text-[#111318]/60 transition-colors duration-300 hover:text-blue-600"
+            >
+              <MessageCircle
+                size={17}
+                className="transition-transform duration-300 group-hover:scale-110"
+              />
 
-                  del: ({ children }) => (
-                    <del className="text-slate-400">
-                      {children}
-                    </del>
-                  ),
+              <span>Ask AI Tutor</span>
 
-                }}
+              <span className="absolute bottom-0 left-0 h-px w-0 bg-blue-600 transition-all duration-500 group-hover:w-full" />
+            </Link>
+          </div>
+
+          {/* ==================================================
+              COMPLETION
+          ================================================== */}
+
+          <div className="mt-14 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <Link
+              href="/dashboard"
+              className="group relative inline-flex w-fit items-center gap-2 py-2 text-sm font-semibold text-[#111318]/55 transition-colors duration-300 hover:text-blue-600"
+            >
+              <ArrowLeft
+                size={16}
+                className="transition-transform duration-300 group-hover:-translate-x-1"
+              />
+
+              <span>Dashboard</span>
+
+              <span className="absolute bottom-0 left-0 h-px w-0 bg-blue-600 transition-all duration-500 group-hover:w-full" />
+            </Link>
+
+            <LessonCompleteButton
+              lessonId={lesson.id}
+              courseId={lesson.course_id}
+              completed={progress?.completed ?? false}
+            />
+          </div>
+
+          {/* ==================================================
+              LESSON NAVIGATION
+          ================================================== */}
+
+          <div className="mt-14 grid grid-cols-1 gap-8 sm:grid-cols-2">
+            {/* Previous */}
+
+            {previousLesson ? (
+              <Link
+                href={`/learn/${previousLesson.slug}`}
+                className="group relative block py-5 text-left transition-all duration-300 hover:text-blue-600"
               >
-                {lesson.content || "Lesson content will be added here."}
-              </ReactMarkdown>
+                <div className="flex items-center gap-2 text-sm font-semibold text-[#111318]/45 transition-colors duration-300 group-hover:text-blue-600">
+                  <ArrowLeft
+                    size={16}
+                    className="transition-transform duration-300 group-hover:-translate-x-1"
+                  />
 
-            </div>
+                  <span>Previous Lesson</span>
+                </div>
 
+                <p className="mt-3 text-lg font-bold text-[#111318] transition-colors duration-300 group-hover:text-blue-600">
+                  {previousLesson.title}
+                </p>
+
+                <p className="mt-1 text-xs text-[#111318]/40">
+                  Lesson {previousLesson.order_index}
+                </p>
+
+                <span className="absolute bottom-0 left-0 h-px w-0 bg-blue-600 transition-all duration-500 group-hover:w-full" />
+              </Link>
+            ) : (
+              <div />
+            )}
+
+            {/* Next */}
+
+            {nextLesson ? (
+              <Link
+                href={`/learn/${nextLesson.slug}`}
+                className="group relative block py-5 text-left transition-all duration-300 sm:text-right"
+              >
+                <div className="flex items-center justify-start gap-2 text-sm font-semibold text-[#111318]/45 transition-colors duration-300 group-hover:text-blue-600 sm:justify-end">
+                  <span>Next Lesson</span>
+
+                  <ArrowRight
+                    size={16}
+                    className="transition-transform duration-300 group-hover:translate-x-1"
+                  />
+                </div>
+
+                <p className="mt-3 text-lg font-bold text-[#111318] transition-colors duration-300 group-hover:text-blue-600">
+                  {nextLesson.title}
+                </p>
+
+                <p className="mt-1 text-xs text-[#111318]/40">
+                  Lesson {nextLesson.order_index}
+                </p>
+
+                <span className="absolute bottom-0 right-0 h-px w-0 bg-blue-600 transition-all duration-500 group-hover:w-full" />
+              </Link>
+            ) : (
+              <div className="py-5 text-right">
+                <div className="flex items-center justify-start gap-2 text-sm font-bold text-blue-600 sm:justify-end">
+                  <CheckCircle2 size={17} />
+
+                  <span>Course Complete</span>
+                </div>
+
+                <p className="mt-1 text-xs text-[#111318]/40">
+                  You have reached the final lesson.
+                </p>
+              </div>
+            )}
           </div>
-
-        </article>
-
-        {/* =====================================================
-            KEY LEARNING MESSAGE
-        ===================================================== */}
-
-        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-6">
-
-          <div className="flex items-start gap-4">
-
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
-              <Lightbulb size={20} />
-            </div>
-
-            <div>
-              <p className="text-sm font-bold text-amber-900">
-                Learning Tip
-              </p>
-
-              <p className="mt-1 text-sm leading-6 text-amber-800">
-                Don't rush through the lesson. Make sure you understand the
-                fundamental concepts before moving to the next topic.
-              </p>
-            </div>
-
-          </div>
-
         </div>
-
-        {/* =====================================================
-            COMPLETION
-        ===================================================== */}
-
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-
-          <div className="flex flex-wrap items-center gap-3">
-  <Link
-    href={`/learn/tutor/${lesson.slug}`}
-    className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-100"
-  >
-    <Sparkles size={17} />
-    Ask AI Tutor
-  </Link>
-
-  <LessonCompleteButton
-    lessonId={lesson.id}
-    courseId={lesson.course_id}
-    completed={progress?.completed ?? false}
-  />
-</div>
-
-        </div>
-
-        {/* =====================================================
-            LESSON NAVIGATION
-        ===================================================== */}
-
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-
-          {/* Previous Lesson */}
-
-          {previousLesson ? (
-            <Link
-              href={`/learn/${previousLesson.slug}`}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
-            >
-
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-
-                <ArrowLeft
-                  size={16}
-                  className="transition-transform group-hover:-translate-x-1"
-                />
-
-                Previous Lesson
-
-              </div>
-
-              <p className="mt-3 text-base font-bold text-slate-950">
-                {previousLesson.title}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Lesson {previousLesson.order_index}
-              </p>
-
-            </Link>
-          ) : (
-            <div />
-          )}
-
-          {/* Next Lesson */}
-
-          {nextLesson ? (
-            <Link
-              href={`/learn/${nextLesson.slug}`}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md sm:text-right"
-            >
-
-              <div className="flex items-center justify-end gap-2 text-sm font-semibold text-slate-500">
-
-                Next Lesson
-
-                <ArrowRight
-                  size={16}
-                  className="transition-transform group-hover:translate-x-1"
-                />
-
-              </div>
-
-              <p className="mt-3 text-base font-bold text-slate-950">
-                {nextLesson.title}
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Lesson {nextLesson.order_index}
-              </p>
-
-            </Link>
-          ) : (
-            <div className="rounded-2xl border border-green-200 bg-green-50 p-5 text-right">
-
-              <div className="flex items-center justify-end gap-2 text-sm font-bold text-green-700">
-                <CheckCircle2 size={17} />
-                Course Complete 🎉
-              </div>
-
-              <p className="mt-1 text-xs text-green-600">
-                You have reached the final lesson.
-              </p>
-
-            </div>
-          )}
-
-        </div>
-
       </section>
-
     </main>
   );
 }
