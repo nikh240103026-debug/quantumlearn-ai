@@ -3,6 +3,9 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import {
   BookOpen,
   Download,
@@ -260,7 +263,8 @@ export function LessonContentReader({
             <div className="lesson-content">
 
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
                 components={{
 
                   // ==================================================
@@ -705,7 +709,10 @@ export function LessonContentReader({
 
                 <div className="prose prose-slate max-w-none">
 
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                  >
                     {summary}
                   </ReactMarkdown>
 

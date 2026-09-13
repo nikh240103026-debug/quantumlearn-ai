@@ -5,6 +5,9 @@ import { useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import {
   ArrowLeft,
   ArrowRight,
@@ -253,8 +256,9 @@ export function LessonReader({
               ].join(" ")}
             >
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
+                  components={{
                   h1: ({ children }) => (
                     <section className="mb-12 mt-2 border-b border-black/10 pb-7">
                       <div className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-blue-600">
