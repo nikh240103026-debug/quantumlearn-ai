@@ -115,26 +115,98 @@ export function LessonExperience({
     }
   }
 
-  function downloadSummary(
-    format: "docx" | "pdf",
-  ) {
-    if (!summary) {
-      return;
+  async function downloadSummary(
+  format: "docx" | "pdf",
+) {
+  if (!summary) {
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "/api/lesson-summary/export",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: lessonTitle,
+          summary,
+          format,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      let message =
+        "Unable to export the lesson summary.";
+
+      try {
+        const data =
+          await response.json();
+
+        if (
+          typeof data?.error === "string"
+        ) {
+          message = data.error;
+        }
+      } catch {
+        // Keep the default error message.
+      }
+
+      throw new Error(message);
     }
 
-    const encodedSummary =
-      encodeURIComponent(summary);
+    const blob =
+      await response.blob();
 
-    const encodedTitle =
-      encodeURIComponent(lessonTitle);
+    const contentDisposition =
+      response.headers.get(
+        "Content-Disposition",
+      );
 
-    const url =
-      `/api/lesson-summary/export?format=${format}` +
-      `&title=${encodedTitle}` +
-      `&content=${encodedSummary}`;
+    let filename =
+      `${getSafeFileName(lessonTitle)}-summary.${format}`;
 
-    window.open(url, "_blank");
+    const filenameMatch =
+      contentDisposition?.match(
+        /filename="([^"]+)"/i,
+      );
+
+    if (filenameMatch?.[1]) {
+      filename = filenameMatch[1];
+    }
+
+    const downloadUrl =
+      window.URL.createObjectURL(blob);
+
+    const link =
+      document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = filename;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(
+      downloadUrl,
+    );
+  } catch (error) {
+    console.error(
+      "Lesson summary export error:",
+      error,
+    );
+
+    setError(
+      error instanceof Error
+        ? error.message
+        : "Unable to export the lesson summary.",
+    );
   }
+}
 
   const showSummary =
     summaryState === "success" && Boolean(summary);
