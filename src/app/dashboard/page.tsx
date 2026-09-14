@@ -548,9 +548,24 @@ export default async function DashboardPage() {
                 Back to home
               </Link>
             </div>
-          </DashboardReveal>
-        </div>
-      </section>
+            </DashboardReveal>
+          </div>
+        </section>
+
+        {/* =====================================================
+            PROGRESS ANALYTICS — SECOND SECTION
+        ===================================================== */}
+
+        <ProgressAnalytics
+          analytics={progressAnalytics}
+          practiceHistory={results
+            .slice(0, 8)
+            .reverse()
+            .map((result, index) => ({
+              label: `T${index + 1}`,
+              value: Math.round(result.percentage ?? 0),
+            }))}
+        />
 
       <div className="mx-auto max-w-[1600px]">
         {/* =====================================================
@@ -950,23 +965,6 @@ export default async function DashboardPage() {
             </div>
           </DashboardReveal>
         </section>
-
-        {/* =====================================================
-            ANALYTICS
-        ===================================================== */}
-
-        <ProgressAnalytics
-          analytics={progressAnalytics}
-          practiceHistory={results
-            .slice(0, 8)
-            .reverse()
-            .map((result, index) => ({
-              label: `T${index + 1}`,
-              value: Math.round(
-                result.percentage ?? 0,
-              ),
-            }))}
-        />
 
         {/* =====================================================
             PERSONALIZED AI

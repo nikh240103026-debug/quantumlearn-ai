@@ -108,7 +108,7 @@ export function ProgressAnalytics({
               }`}
             >
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/35">
-                05 — Analytics
+                02 — Analytics
               </p>
 
               <p className="mt-24 max-w-xs text-4xl font-medium leading-[1.02] tracking-[-0.04em]">
