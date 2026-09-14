@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -10,8 +11,46 @@ import {
   Play,
   Sparkles,
 } from "lucide-react";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export function Hero() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+
+    const checkAuth = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        setIsAuthenticated(!!user);
+      } catch (error) {
+        console.error("Failed to check authentication:", error);
+        setIsAuthenticated(false);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session?.user);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const startLearningHref = isAuthenticated ? "/dashboard" : "/signup";
+
   return (
     <section className="hero-section relative w-full overflow-hidden bg-black text-white">
       {/* Background image */}
@@ -78,8 +117,18 @@ export function Hero() {
                 </div>
 
                 <Link
-                  href="/signup"
-                  className="group flex w-full items-center justify-between bg-blue-600 px-5 py-4 text-sm font-medium transition-colors hover:bg-blue-500"
+                  href={startLearningHref}
+                  aria-disabled={authLoading}
+                  onClick={(event) => {
+                    if (authLoading) {
+                      event.preventDefault();
+                    }
+                  }}
+                  className={`group flex w-full items-center justify-between bg-blue-600 px-5 py-4 text-sm font-medium transition-colors ${
+                    authLoading
+                      ? "cursor-wait opacity-80"
+                      : "hover:bg-blue-500"
+                  }`}
                 >
                   <span>Start Learning</span>
 
