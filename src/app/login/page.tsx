@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -20,12 +20,26 @@ export default function LoginPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
 
-    setError("");
+    if (params.get("signup") === "success") {
+      setMessage(
+        "Account created successfully. We have sent a confirmation email to your email address. Please check your inbox and confirm your email before logging in.",
+      );
+
+      window.history.replaceState({}, "", "/login");
+    }
+  }, []);
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+
+  setError("");
+  setMessage("");
 
     const trimmedEmail = email.trim().toLowerCase();
 
@@ -289,11 +303,20 @@ export default function LoginPage() {
                 </button>
 
                 {/* ======================================================
-                    ERROR MESSAGE
+                    ERROR / SUCCESS MESSAGE
                 ====================================================== */}
                 {error && (
                   <div className="border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm leading-5 text-red-200 animate-[fadeIn_0.25s_ease-out]">
                     {error}
+                  </div>
+                )}
+
+                {message && (
+                  <div
+                    role="status"
+                    className="border border-emerald-400/25 bg-emerald-500/10 px-4 py-3 text-sm leading-5 text-emerald-200 animate-[fadeIn_0.25s_ease-out]"
+                  >
+                    {message}
                   </div>
                 )}
               </form>

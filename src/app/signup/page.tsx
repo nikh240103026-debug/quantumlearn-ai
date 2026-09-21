@@ -189,6 +189,75 @@ export default function SignupPage() {
 
     setLoading(true);
 
+    /*
+     * ================================================================
+     * CHECK WHETHER THE EMAIL ALREADY EXISTS
+     *
+     * Supabase's normal signUp() response intentionally does not
+     * reliably expose an existing account when email confirmation
+     * is enabled. Therefore we perform this check through our
+     * secure server-side API route before calling signUp().
+     * ================================================================
+     */
+    try {
+      const emailCheckResponse = await fetch(
+        "/api/auth/check-email",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: trimmedEmail,
+          }),
+          cache: "no-store",
+        },
+      );
+
+      const emailCheckResult = await emailCheckResponse.json();
+
+      if (!emailCheckResponse.ok) {
+        setLoading(false);
+
+        setError(
+          emailCheckResult?.error ||
+            "We could not verify this email address. Please try again.",
+        );
+
+        return;
+      }
+
+      /*
+       * ==============================================================
+       * EXISTING ACCOUNT
+       * ==============================================================
+       */
+      if (emailCheckResult?.exists === true) {
+        setLoading(false);
+
+        setError(
+          "An account already exists with this email address. Please log in instead.",
+        );
+
+        return;
+      }
+    } catch (error) {
+      console.error("[SIGNUP] Email check failed:", error);
+
+      setLoading(false);
+
+      setError(
+        "We could not verify this email address. Please try again.",
+      );
+
+      return;
+    }
+
+    /*
+     * ================================================================
+     * CREATE NEW SUPABASE ACCOUNT
+     * ================================================================
+     */
     const { error: signupError } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
@@ -211,15 +280,34 @@ export default function SignupPage() {
 
     if (signupError) {
       setLoading(false);
-      setError(signupError.message);
+
+      const errorMessage = signupError.message.toLowerCase();
+
+      if (
+        errorMessage.includes("already registered") ||
+        errorMessage.includes("user already exists") ||
+        errorMessage.includes("already exists") ||
+        errorMessage.includes("email address is already registered")
+      ) {
+        setError(
+          "An account already exists with this email address. Please log in instead.",
+        );
+      } else {
+        setError(signupError.message);
+      }
+
       return;
     }
 
     /*
-     * Signup successful:
-     * immediately move the user to the login page.
+     * ================================================================
+     * SIGNUP SUCCESS
+     *
+     * Move the user to login with a temporary success flag.
+     * The login page can then tell the user to check their email.
+     * ================================================================
      */
-    window.location.replace("/login");
+    window.location.replace("/login?signup=success");
   }
 
   return (
@@ -399,10 +487,15 @@ export default function SignupPage() {
                         <select
                           id="gender"
                           value={gender}
-                          onChange={(event) => setGender(event.target.value)}
+                          onChange={(event) =>
+                            setGender(event.target.value)
+                          }
                           className={inputClass}
                         >
-                          <option value="" className="bg-[#11151f]">
+                          <option
+                            value=""
+                            className="bg-[#11151f]"
+                          >
                             Select gender
                           </option>
 
@@ -444,7 +537,9 @@ export default function SignupPage() {
                       <select
                         id="role"
                         value={role}
-                        onChange={(event) => setRole(event.target.value)}
+                        onChange={(event) =>
+                          setRole(event.target.value)
+                        }
                         className={inputClass}
                       >
                         {ROLE_OPTIONS.map((option) => (
@@ -470,7 +565,10 @@ export default function SignupPage() {
                       />
                     </Field>
 
-                    <Field label="Branch / field of study" htmlFor="branch">
+                    <Field
+                      label="Branch / field of study"
+                      htmlFor="branch"
+                    >
                       <IconInput
                         icon={<GraduationCap />}
                         id="branch"
@@ -490,7 +588,10 @@ export default function SignupPage() {
                   <SectionTitle>Contact</SectionTitle>
 
                   <div className="space-y-5">
-                    <Field label="Email address" htmlFor="email">
+                    <Field
+                      label="Email address"
+                      htmlFor="email"
+                    >
                       <IconInput
                         icon={<Mail />}
                         id="email"
@@ -602,8 +703,8 @@ export default function SignupPage() {
                     />
 
                     <p className="-mt-2 text-[11px] leading-5 text-white/35">
-                      At least 8 characters, including uppercase, lowercase,
-                      and a number.
+                      At least 8 characters, including uppercase,
+                      lowercase, and a number.
                     </p>
 
                     <PasswordField
@@ -656,7 +757,9 @@ export default function SignupPage() {
                     className="group relative w-full overflow-hidden border border-blue-400/50 bg-blue-600 px-5 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:border-blue-300 hover:bg-blue-500 hover:shadow-lg hover:shadow-blue-900/30 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="relative z-10">
-                      {loading ? "Creating account..." : "Create account"}
+                      {loading
+                        ? "Creating account..."
+                        : "Create account"}
                     </span>
 
                     <span className="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-500 group-hover:translate-x-0" />
@@ -707,7 +810,11 @@ export default function SignupPage() {
    REUSABLE UI COMPONENTS
 ========================================================================= */
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="mb-5 flex items-center gap-3">
       <div className="h-px flex-1 bg-white/10" />
@@ -732,7 +839,10 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className={labelClass}>
+      <label
+        htmlFor={htmlFor}
+        className={labelClass}
+      >
         {label}
       </label>
 
@@ -772,7 +882,9 @@ function IconInput({
         id={id}
         type={type}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
         placeholder={placeholder}
         autoComplete={autoComplete}
         min={min}
@@ -802,7 +914,10 @@ function PasswordField({
 }) {
   return (
     <div>
-      <label htmlFor={id} className={labelClass}>
+      <label
+        htmlFor={id}
+        className={labelClass}
+      >
         {label}
       </label>
 
@@ -813,7 +928,9 @@ function PasswordField({
           id={id}
           type={visible ? "text" : "password"}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) =>
+            onChange(event.target.value)
+          }
           placeholder={placeholder}
           autoComplete="new-password"
           className={`${inputClass} pl-10 pr-11`}
@@ -822,7 +939,11 @@ function PasswordField({
         <button
           type="button"
           onClick={onToggle}
-          aria-label={visible ? `Hide ${label}` : `Show ${label}`}
+          aria-label={
+            visible
+              ? `Hide ${label}`
+              : `Show ${label}`
+          }
           className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 transition hover:text-white/70"
         >
           {visible ? (
