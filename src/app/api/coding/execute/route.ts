@@ -1,89 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
-import { execFile } from "child_process";
-import { promisify } from "util";
-import { writeFile, rm, mkdir } from "fs/promises";
-import path from "path";
-import os from "os";
-import crypto from "crypto";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-const execFileAsync = promisify(execFile);
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const MAX_CODE_LENGTH = 50_000;
-const TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 
-const BLOCKED_PATTERNS = [
-  /\bos\.system\s*\(/i,
-  /\bos\.popen\s*\(/i,
-  /\bsubprocess\b/i,
-  /\bshutil\b/i,
-  /\bsocket\b/i,
-  /\brequests\b/i,
-  /\burllib\b/i,
-  /\bhttpx\b/i,
-  /\bctypes\b/i,
-  /\bwinreg\b/i,
-  /\bpathlib\b/i,
-  /\bopen\s*\(/i,
-  /\b__import__\s*\(/i,
-  /\beval\s*\(/i,
-  /\bexec\s*\(/i,
-  /\bcompile\s*\(/i,
-];
-
-function validateCode(code: string): string | null {
+function validateCode(
+  code: string,
+): string | null {
   if (!code.trim()) {
     return "No code was provided.";
   }
 
-  if (code.length > MAX_CODE_LENGTH) {
+  if (
+    code.length >
+    MAX_CODE_LENGTH
+  ) {
     return `Code is too large. Maximum allowed size is ${MAX_CODE_LENGTH} characters.`;
-  }
-
-  for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(code)) {
-      return "This code contains a restricted operation and cannot be executed.";
-    }
   }
 
   return null;
 }
 
-function findPythonExecutable(): string {
-  if (process.env.QUANTUM_PYTHON_PATH) {
-    return process.env.QUANTUM_PYTHON_PATH;
-  }
-
-  const projectRoot = process.cwd();
-
-  if (process.platform === "win32") {
-    return path.join(
-      projectRoot,
-      ".venv",
-      "Scripts",
-      "python.exe"
-    );
-  }
-
-  return path.join(
-    projectRoot,
-    ".venv",
-    "bin",
-    "python"
-  );
-}
-
-export async function POST(request: NextRequest) {
-  let tempDirectory: string | null = null;
-
+export async function POST(
+  request: NextRequest,
+) {
   try {
-    const body = await request.json();
+    const body =
+      await request.json();
 
     const code =
       typeof body?.code === "string"
         ? body.code
         : "";
 
-    const validationError = validateCode(code);
+    const validationError =
+      validateCode(code);
 
     if (validationError) {
       return NextResponse.json(
@@ -93,120 +49,199 @@ export async function POST(request: NextRequest) {
           error: validationError,
           executionTime: 0,
         },
-        { status: 400 }
+        {
+          status: 400,
+        },
       );
     }
 
-    tempDirectory = path.join(
-      os.tmpdir(),
-      `quantumlearn-${crypto.randomUUID()}`
-    );
+    const quantumApiUrl =
+      process.env.QUANTUM_API_URL;
 
-    // Create the temporary execution directory
-    await mkdir(tempDirectory, {
-      recursive: true,
-    });
+    if (!quantumApiUrl) {
+      console.error(
+        "QUANTUM_API_URL is not configured.",
+      );
 
-    const scriptPath = path.join(
-      tempDirectory,
-      "main.py"
-    );
+      return NextResponse.json(
+        {
+          success: false,
+          output: "",
+          error:
+            "Quantum execution service is not configured.",
+          executionTime: 0,
+        },
+        {
+          status: 500,
+        },
+      );
+    }
 
-    // Write the user's Python program
-    await writeFile(
-      scriptPath,
-      code,
-      "utf8"
-    );
+    const quantumApiKey =
+      process.env.QUANTUM_API_KEY;
 
-    const pythonExecutable = findPythonExecutable();
+    const controller =
+      new AbortController();
 
-    const startedAt = Date.now();
+    const timeoutId =
+      setTimeout(
+        () => {
+          controller.abort();
+        },
+        REQUEST_TIMEOUT_MS,
+      );
 
     try {
-      const { stdout, stderr } =
-        await execFileAsync(
-          pythonExecutable,
-          ["-u", scriptPath],
-          {
-            cwd: tempDirectory,
-            timeout: TIMEOUT_MS,
-            maxBuffer: 1024 * 1024,
-            windowsHide: true,
-            env: {
-              ...process.env,
-              PATH: process.env.PATH ?? "",
-              PYTHONIOENCODING: "utf-8",
-              PYTHONUTF8: "1",
-            },
-          }
-        );
-
-      const executionTime =
-        Date.now() - startedAt;
-
-      return NextResponse.json({
-        success: true,
-        output:
-          stdout ||
-          "Program executed successfully with no output.",
-        error: stderr || "",
-        executionTime,
-      });
-    } catch (error: unknown) {
-      const executionTime =
-        Date.now() - startedAt;
-
-      const execError = error as {
-        code?: string | number;
-        killed?: boolean;
-        signal?: string;
-        stdout?: string;
-        stderr?: string;
-        message?: string;
+      const headers: Record<
+        string,
+        string
+      > = {
+        "Content-Type":
+          "application/json",
       };
 
-      if (execError.code === "ENOENT") {
+      if (quantumApiKey) {
+        headers[
+          "x-api-key"
+        ] = quantumApiKey;
+      }
+
+      const response =
+        await fetch(
+          `${quantumApiUrl.replace(
+            /\/+$/,
+            "",
+          )}/execute-code`,
+          {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              code,
+            }),
+            cache: "no-store",
+            signal:
+              controller.signal,
+          },
+        );
+
+      let data: unknown;
+
+      try {
+        data =
+          await response.json();
+      } catch {
         return NextResponse.json(
           {
             success: false,
             output: "",
             error:
-              "Python was not found on this system. Install Python 3.11+ and make sure the python command is available in your PATH.",
-            executionTime,
+              `Quantum execution service returned invalid JSON (HTTP ${response.status}).`,
+            executionTime: 0,
           },
-          { status: 500 }
+          {
+            status: 502,
+          },
         );
       }
 
       if (
-        execError.killed ||
-        execError.signal === "SIGTERM"
+        typeof data !==
+          "object" ||
+        data === null
       ) {
-        return NextResponse.json({
-          success: false,
-          output: execError.stdout ?? "",
-          error:
-            "Execution timed out. Your program must finish within 15 seconds.",
-          executionTime,
-        });
+        return NextResponse.json(
+          {
+            success: false,
+            output: "",
+            error:
+              "Quantum execution service returned an invalid response.",
+            executionTime: 0,
+          },
+          {
+            status: 502,
+          },
+        );
       }
 
-      return NextResponse.json({
-        success: false,
-        output: execError.stdout ?? "",
-        error:
-          execError.stderr ||
-          execError.message ||
-          "Python execution failed.",
-        executionTime,
-      });
+      const payload =
+        data as {
+          success?: boolean;
+          output?: string;
+          error?: string;
+          executionTime?: number;
+          detail?: string;
+        };
+
+      if (!response.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            output:
+              payload.output ?? "",
+            error:
+              payload.error ??
+              payload.detail ??
+              `Quantum execution service failed with HTTP ${response.status}.`,
+            executionTime:
+              payload.executionTime ??
+              0,
+          },
+          {
+            status:
+              response.status >= 500
+                ? 502
+                : response.status,
+          },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          success:
+            payload.success === true,
+          output:
+            payload.output ?? "",
+          error:
+            payload.error ?? "",
+          executionTime:
+            typeof payload.executionTime ===
+            "number"
+              ? payload.executionTime
+              : 0,
+        },
+        {
+          status: 200,
+        },
+      );
+    } finally {
+      clearTimeout(
+        timeoutId,
+      );
     }
   } catch (error) {
     console.error(
-      "Quantum code execution error:",
-      error
+      "Coding execution proxy error:",
+      error,
     );
+
+    if (
+      error instanceof Error &&
+      error.name ===
+        "AbortError"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          output: "",
+          error:
+            "Execution service timed out after 30 seconds.",
+          executionTime: 0,
+        },
+        {
+          status: 504,
+        },
+      );
+    }
 
     return NextResponse.json(
       {
@@ -215,24 +250,12 @@ export async function POST(request: NextRequest) {
         error:
           error instanceof Error
             ? error.message
-            : "Unable to process the execution request.",
+            : "Unable to connect to the quantum execution service.",
         executionTime: 0,
       },
-      { status: 500 }
+      {
+        status: 500,
+      },
     );
-  } finally {
-    if (tempDirectory) {
-      try {
-        await rm(tempDirectory, {
-          recursive: true,
-          force: true,
-        });
-      } catch (cleanupError) {
-        console.error(
-          "Failed to clean execution directory:",
-          cleanupError
-        );
-      }
-    }
   }
 }
