@@ -302,6 +302,19 @@ export default function PersistentAITutor({
     !compact && !pageMode,
   );
 
+  /*
+   * =========================================================
+   * NEW:
+   * Prompt editing / copying state
+   * =========================================================
+   */
+
+  const [editingMessageId, setEditingMessageId] =
+    useState<string | null>(null);
+
+  const [copiedMessageId, setCopiedMessageId] =
+    useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -579,6 +592,123 @@ export default function PersistentAITutor({
     textareaRef.current?.focus();
   }, [selectedConversationId]);
 
+  /*
+   * =========================================================
+   * COPY PROMPT
+   * =========================================================
+   */
+
+  const copyPrompt = useCallback(
+    async (message: Message) => {
+      if (!message.content.trim()) {
+        return;
+      }
+
+      try {
+        if (
+          !navigator.clipboard ||
+          typeof navigator.clipboard.writeText !==
+            "function"
+        ) {
+          throw new Error(
+            "Clipboard access is not available in this browser.",
+          );
+        }
+
+        await navigator.clipboard.writeText(
+          message.content,
+        );
+
+        if (!mountedRef.current) {
+          return;
+        }
+
+        setCopiedMessageId(
+          message.id ?? null,
+        );
+
+        window.setTimeout(() => {
+          if (mountedRef.current) {
+            setCopiedMessageId(
+              (current) =>
+                current ===
+                (message.id ?? null)
+                  ? null
+                  : current,
+            );
+          }
+        }, 1800);
+      } catch (err) {
+        console.error(
+          "Prompt copy error:",
+          err,
+        );
+
+        if (mountedRef.current) {
+          setError(
+            "Unable to copy the prompt. Please try selecting and copying it manually.",
+          );
+        }
+      }
+    },
+    [],
+  );
+
+  /*
+   * =========================================================
+   * EDIT PROMPT
+   * =========================================================
+   *
+   * Editing does NOT modify or delete the existing database
+   * message.
+   *
+   * It simply puts the prompt into the composer.
+   * When the user presses Send, the existing send flow is used
+   * and a new message is created.
+   */
+
+  const editPrompt = useCallback(
+    (message: Message) => {
+      if (sending) {
+        return;
+      }
+
+      setInput(message.content);
+
+      setEditingMessageId(
+        message.id ?? null,
+      );
+
+      setError(null);
+
+      window.setTimeout(() => {
+        const textarea =
+          textareaRef.current;
+
+        if (!textarea) {
+          return;
+        }
+
+        textarea.focus();
+
+        textarea.setSelectionRange(
+          textarea.value.length,
+          textarea.value.length,
+        );
+      }, 0);
+    },
+    [sending],
+  );
+
+  const cancelEdit = useCallback(() => {
+    setEditingMessageId(null);
+    setInput("");
+
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
+  }, []);
+
   const createConversation = useCallback(
     async () => {
       try {
@@ -842,6 +972,11 @@ export default function PersistentAITutor({
 
       setInput("");
 
+      /*
+       * Once the edited prompt is sent, leave edit mode.
+       */
+      setEditingMessageId(null);
+
       const activeConversation =
         conversations.find(
           (conversation) =>
@@ -965,6 +1100,17 @@ export default function PersistentAITutor({
 
       setInput(trimmed);
 
+      /*
+       * If the edited message failed to send,
+       * restore edit mode so the user does not
+       * lose the prompt.
+       */
+      if (editingMessageId) {
+        setEditingMessageId(
+          editingMessageId,
+        );
+      }
+
       setError(
         err instanceof Error
           ? err.message
@@ -1007,6 +1153,7 @@ export default function PersistentAITutor({
     }
 
     setInput("");
+    setEditingMessageId(null);
     setError(null);
 
     const conversation =
@@ -1410,13 +1557,22 @@ export default function PersistentAITutor({
                     return null;
                   }
 
+                  const messageKey =
+                    message.id ??
+                    `${message.role}-${index}`;
+
+                  const isCopied =
+                    copiedMessageId ===
+                    (message.id ?? null);
+
+                  const isEditing =
+                    editingMessageId ===
+                    (message.id ?? null);
+
                   return (
                     <div
-                      key={
-                        message.id ??
-                        `${message.role}-${index}`
-                      }
-                      className={`flex w-full gap-4 py-5 ${
+                      key={messageKey}
+                      className={`group flex w-full gap-4 py-5 ${
                         isUser
                           ? "justify-end"
                           : "justify-start"
@@ -1431,16 +1587,149 @@ export default function PersistentAITutor({
                       <div
                         className={
                           isUser
-                            ? "max-w-[82%]"
+                            ? "flex max-w-[82%] flex-col items-end"
                             : "min-w-0 max-w-[calc(100%-3rem)] flex-1"
                         }
                       >
                         {isUser ? (
-                          <div className="rounded-3xl bg-[#f1f1f1] px-4 py-3 text-[15px] leading-7 text-[#171717] dark:bg-[#2f2f2f] dark:text-[#eee]">
-                            <div className="whitespace-pre-wrap break-words">
-                              {message.content}
+                          <>
+                            {/* =================================
+                                USER PROMPT
+                               ================================= */}
+
+                            <div
+                              className={`rounded-3xl px-4 py-3 text-[15px] leading-7 ${
+                                isEditing
+                                  ? "bg-[#e7e7e7] ring-2 ring-[#cfcfcf] dark:bg-[#3a3a3a] dark:ring-[#555]"
+                                  : "bg-[#f1f1f1] text-[#171717] dark:bg-[#2f2f2f] dark:text-[#eee]"
+                              }`}
+                            >
+                              <div className="whitespace-pre-wrap break-words">
+                                {message.content}
+                              </div>
                             </div>
-                          </div>
+
+                            {/* =================================
+                                PROMPT ACTIONS
+                               ================================= */}
+
+                            {message.id && (
+                              <div className="mt-1.5 flex items-center gap-1 opacity-100 transition md:opacity-0 md:group-hover:opacity-100">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void copyPrompt(
+                                      message,
+                                    )
+                                  }
+                                  disabled={
+                                    sending
+                                  }
+                                  aria-label={
+                                    isCopied
+                                      ? "Prompt copied"
+                                      : "Copy prompt"
+                                  }
+                                  title={
+                                    isCopied
+                                      ? "Copied"
+                                      : "Copy prompt"
+                                  }
+                                  className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] text-[#777] transition hover:bg-[#f1f1f1] hover:text-[#333] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#999] dark:hover:bg-[#2f2f2f] dark:hover:text-[#eee]"
+                                >
+                                  {isCopied ? (
+                                    <>
+                                      <svg
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        className="h-3.5 w-3.5"
+                                        aria-hidden="true"
+                                      >
+                                        <path
+                                          d="M5 12.5l4 4L19 7"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                        />
+                                      </svg>
+
+                                      <span>
+                                        Copied
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.8"
+                                        className="h-3.5 w-3.5"
+                                        aria-hidden="true"
+                                      >
+                                        <rect
+                                          x="9"
+                                          y="9"
+                                          width="11"
+                                          height="11"
+                                          rx="2"
+                                        />
+
+                                        <path
+                                          d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                          strokeLinecap="round"
+                                        />
+                                      </svg>
+
+                                      <span>
+                                        Copy
+                                      </span>
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    editPrompt(
+                                      message,
+                                    )
+                                  }
+                                  disabled={
+                                    sending
+                                  }
+                                  aria-label="Edit prompt"
+                                  title="Edit prompt"
+                                  className="flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] text-[#777] transition hover:bg-[#f1f1f1] hover:text-[#333] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#999] dark:hover:bg-[#2f2f2f] dark:hover:text-[#eee]"
+                                >
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    className="h-3.5 w-3.5"
+                                    aria-hidden="true"
+                                  >
+                                    <path
+                                      d="M12 20h9"
+                                      strokeLinecap="round"
+                                    />
+
+                                    <path
+                                      d="M16.5 3.5a2.121 2.121 0 0 1 3 3L8 18l-4 1 1-4Z"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+
+                                  <span>
+                                    Edit
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <TutorMarkdown
                             content={
@@ -1484,6 +1773,49 @@ export default function PersistentAITutor({
             onSubmit={handleSubmit}
             className="mx-auto max-w-3xl"
           >
+            {/* ===============================================
+                EDITING INDICATOR
+               =============================================== */}
+
+            {editingMessageId && (
+              <div className="mb-2 flex items-center justify-between rounded-xl bg-[#f7f7f7] px-3 py-2 dark:bg-[#2a2a2a]">
+                <div className="flex min-w-0 items-center gap-2">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    className="h-4 w-4 shrink-0 text-[#666] dark:text-[#aaa]"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 20h9"
+                      strokeLinecap="round"
+                    />
+
+                    <path
+                      d="M16.5 3.5a2.121 2.121 0 0 1 3 3L8 18l-4 1 1-4Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+
+                  <span className="truncate text-xs font-medium text-[#555] dark:text-[#ccc]">
+                    Editing prompt
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  disabled={sending}
+                  className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-[#777] transition hover:bg-[#e5e5e5] hover:text-[#333] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#aaa] dark:hover:bg-[#3a3a3a] dark:hover:text-white"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
             <div className="relative flex items-end rounded-3xl bg-[#f1f1f1] px-3 py-2 shadow-sm dark:bg-[#2f2f2f]">
               <textarea
                 ref={textareaRef}
@@ -1495,7 +1827,11 @@ export default function PersistentAITutor({
                 disabled={sending}
                 rows={1}
                 maxLength={MAX_MESSAGE_LENGTH}
-                placeholder="Message QuantumLearn AI..."
+                placeholder={
+                  editingMessageId
+                    ? "Edit your prompt..."
+                    : "Message QuantumLearn AI..."
+                }
                 className="max-h-48 min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 text-[#171717] outline-none placeholder:text-[#888] disabled:cursor-not-allowed disabled:opacity-60 dark:text-white dark:placeholder:text-[#999]"
               />
 
@@ -1507,7 +1843,16 @@ export default function PersistentAITutor({
                   input.length >
                     MAX_MESSAGE_LENGTH
                 }
-                aria-label="Send message"
+                aria-label={
+                  editingMessageId
+                    ? "Send edited prompt"
+                    : "Send message"
+                }
+                title={
+                  editingMessageId
+                    ? "Send edited prompt"
+                    : "Send message"
+                }
                 className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#171717] text-white transition hover:bg-[#333] disabled:cursor-not-allowed disabled:bg-[#d1d1d1] disabled:text-[#888] dark:bg-white dark:text-black dark:hover:bg-[#e5e5e5] dark:disabled:bg-[#555] dark:disabled:text-[#999]"
               >
                 {sending ? (

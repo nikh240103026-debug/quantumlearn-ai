@@ -7,7 +7,19 @@ export const runtime = "nodejs";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL =
   process.env.GEMINI_TUTOR_MODEL ?? "gemini-3.5-flash-lite";
-const GEMINI_TIMEOUT_MS = 45_000;
+
+/*
+ * ============================================================
+ * GEMINI TIMEOUT / RETRY CONFIGURATION
+ * ============================================================
+ *
+ * The rest of the route is intentionally unchanged.
+ */
+
+const GEMINI_TIMEOUT_MS = 60_000;
+const GEMINI_MAX_RETRIES = 3;
+const GEMINI_INITIAL_RETRY_DELAY_MS = 1_500;
+const GEMINI_MAX_RETRY_DELAY_MS = 8_000;
 
 type ChatRequestBody = {
   conversationId?: string;
@@ -100,112 +112,428 @@ You are communicating inside the QuantumLearn AI platform.
 `.trim();
 }
 
+/*
+ * ============================================================
+ * GEMINI HELPERS
+ * ============================================================
+ */
+
+function getErrorStatus(error: unknown): number | null {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error
+  ) {
+    const status = Number(
+      (error as { status?: unknown }).status,
+    );
+
+    if (Number.isFinite(status)) {
+      return status;
+    }
+  }
+
+  return null;
+}
+
+function isRetryableGeminiStatus(status: number): boolean {
+  return (
+    status === 408 ||
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 503 ||
+    status === 504
+  );
+}
+
+function calculateRetryDelay(
+  attempt: number,
+): number {
+  const exponentialDelay = Math.min(
+    GEMINI_INITIAL_RETRY_DELAY_MS *
+      Math.pow(2, attempt),
+    GEMINI_MAX_RETRY_DELAY_MS,
+  );
+
+  /*
+   * Small jitter prevents several simultaneous requests
+   * from retrying at exactly the same time.
+   */
+  const jitter = Math.floor(
+    Math.random() * 500,
+  );
+
+  return exponentialDelay + jitter;
+}
+
+async function sleep(
+  milliseconds: number,
+): Promise<void> {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
 async function callGemini(
   contents: GeminiContent[],
   systemInstruction: string,
 ) {
   if (!GEMINI_API_KEY) {
-    throw new Error(
-      "GEMINI_API_KEY is not configured on the server.",
-    );
-  }
-
-  const endpoint =
-    `https://generativelanguage.googleapis.com/v1beta/models/` +
-    `${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-  const controller = new AbortController();
-
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, GEMINI_TIMEOUT_MS);
-
-  let response: Response;
-
-  try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [
-            {
-              text: systemInstruction,
-            },
-          ],
-        },
-        contents,
-        generationConfig: {
-          temperature: 0.35,
-          topP: 0.9,
-          maxOutputTokens: 1800,
-        },
-      }),
-      cache: "no-store",
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (
-      error instanceof DOMException &&
-      error.name === "AbortError"
-    ) {
-      const timeoutError = new Error(
-        "Gemini Tutor timed out while generating a response. Please try again.",
-      );
-
-      (
-        timeoutError as Error & {
-          status?: number;
-        }
-      ).status = 504;
-
-      throw timeoutError;
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  const data = (await response.json()) as GeminiResponse;
-
-  if (!response.ok) {
-    const status = response.status;
-
     const error = new Error(
-      data.error?.message ??
-        `Gemini request failed with status ${status}.`,
+      "GEMINI_API_KEY is not configured on the server.",
     );
 
     (
       error as Error & {
         status?: number;
       }
-    ).status = status;
+    ).status = 500;
 
     throw error;
   }
 
-  const text =
-    data.candidates?.[0]?.content?.parts
-      ?.map((part) => part.text)
-      .filter(Boolean)
-      .join("\n")
-      .trim() ?? "";
+  /*
+   * IMPORTANT:
+   *
+   * Keep this URL as a normal URL string.
+   * Do NOT use Markdown-link syntax inside it.
+   */
+  const endpoint =
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-  if (!text) {
-    throw new Error(
-      "Gemini returned an empty response.",
-    );
+  let lastError: unknown = null;
+
+  for (
+    let attempt = 0;
+    attempt <= GEMINI_MAX_RETRIES;
+    attempt++
+  ) {
+    const controller = new AbortController();
+
+    let timeoutTriggered = false;
+
+    const timeout = setTimeout(() => {
+      timeoutTriggered = true;
+      controller.abort();
+    }, GEMINI_TIMEOUT_MS);
+
+    try {
+      if (attempt > 0) {
+        console.log(
+          `Gemini Tutor retry attempt ${attempt}/${GEMINI_MAX_RETRIES}`,
+        );
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [
+              {
+                text: systemInstruction,
+              },
+            ],
+          },
+
+          contents,
+
+          generationConfig: {
+            temperature: 0.35,
+            topP: 0.9,
+            maxOutputTokens: 1800,
+          },
+        }),
+
+        cache: "no-store",
+
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      /*
+       * Read the response body safely.
+       */
+      const responseText = await response.text();
+
+      let data: GeminiResponse = {};
+
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(
+            responseText,
+          ) as GeminiResponse;
+        } catch {
+          /*
+           * Keep data empty if Gemini returned a
+           * non-JSON response.
+           */
+          data = {};
+        }
+      }
+
+      /*
+       * ======================================================
+       * GEMINI ERROR
+       * ======================================================
+       */
+
+      if (!response.ok) {
+        const status = response.status;
+
+        const message =
+          data.error?.message ??
+          `Gemini request failed with status ${status}.`;
+
+        const error = new Error(message);
+
+        (
+          error as Error & {
+            status?: number;
+          }
+        ).status = status;
+
+        lastError = error;
+
+        /*
+         * Retry only transient errors.
+         *
+         * Do NOT retry:
+         * 400
+         * 401
+         * 403
+         * 404
+         * etc.
+         */
+        if (
+          isRetryableGeminiStatus(status) &&
+          attempt < GEMINI_MAX_RETRIES
+        ) {
+          const retryAfterHeader =
+            response.headers.get(
+              "retry-after",
+            );
+
+          let delay =
+            calculateRetryDelay(attempt);
+
+          if (retryAfterHeader) {
+            const retryAfterSeconds =
+              Number(retryAfterHeader);
+
+            if (
+              Number.isFinite(
+                retryAfterSeconds,
+              ) &&
+              retryAfterSeconds >= 0
+            ) {
+              delay = Math.min(
+                retryAfterSeconds * 1000,
+                GEMINI_MAX_RETRY_DELAY_MS,
+              );
+            }
+          }
+
+          console.warn(
+            `Gemini Tutor returned ${status}. Retrying in ${delay}ms.`,
+          );
+
+          await sleep(delay);
+
+          continue;
+        }
+
+        throw error;
+      }
+
+      /*
+       * ======================================================
+       * EXTRACT GEMINI RESPONSE
+       * ======================================================
+       */
+
+      const text =
+        data.candidates?.[0]?.content?.parts
+          ?.map((part) => part.text)
+          .filter(Boolean)
+          .join("\n")
+          .trim() ?? "";
+
+      if (!text) {
+        const error = new Error(
+          "Gemini returned an empty response.",
+        );
+
+        /*
+         * Treat an empty response as transient only if
+         * we still have retries available.
+         */
+        lastError = error;
+
+        if (
+          attempt < GEMINI_MAX_RETRIES
+        ) {
+          const delay =
+            calculateRetryDelay(attempt);
+
+          console.warn(
+            `Gemini Tutor returned an empty response. Retrying in ${delay}ms.`,
+          );
+
+          await sleep(delay);
+
+          continue;
+        }
+
+        (
+          error as Error & {
+            status?: number;
+          }
+        ).status = 502;
+
+        throw error;
+      }
+
+      /*
+       * SUCCESS
+       */
+      return {
+        text,
+
+        tokensUsed:
+          data.usageMetadata
+            ?.totalTokenCount ?? null,
+      };
+    } catch (error) {
+      clearTimeout(timeout);
+
+      /*
+       * ======================================================
+       * TIMEOUT
+       * ======================================================
+       */
+
+      if (
+        timeoutTriggered ||
+        (error instanceof DOMException &&
+          error.name === "AbortError")
+      ) {
+        const timeoutError = new Error(
+          "Gemini Tutor timed out while generating a response. Please try again.",
+        );
+
+        (
+          timeoutError as Error & {
+            status?: number;
+          }
+        ).status = 504;
+
+        lastError = timeoutError;
+
+        /*
+         * A timeout is transient, so retry it.
+         */
+        if (
+          attempt < GEMINI_MAX_RETRIES
+        ) {
+          const delay =
+            calculateRetryDelay(attempt);
+
+          console.warn(
+            `Gemini Tutor timed out. Retrying in ${delay}ms.`,
+          );
+
+          await sleep(delay);
+
+          continue;
+        }
+
+        throw timeoutError;
+      }
+
+      /*
+       * ======================================================
+       * NETWORK / FETCH ERRORS
+       * ======================================================
+       */
+
+      const status =
+        getErrorStatus(error);
+
+      /*
+       * If the error already has a Gemini HTTP status,
+       * retry only when it is transient.
+       */
+      if (
+        status !== null &&
+        isRetryableGeminiStatus(status) &&
+        attempt < GEMINI_MAX_RETRIES
+      ) {
+        lastError = error;
+
+        const delay =
+          calculateRetryDelay(attempt);
+
+        console.warn(
+          `Gemini Tutor request failed with status ${status}. Retrying in ${delay}ms.`,
+        );
+
+        await sleep(delay);
+
+        continue;
+      }
+
+      /*
+       * Fetch/network errors generally do not have a
+       * numeric HTTP status. Retry those as transient
+       * connection failures.
+       */
+      if (
+        status === null &&
+        attempt < GEMINI_MAX_RETRIES
+      ) {
+        lastError = error;
+
+        const delay =
+          calculateRetryDelay(attempt);
+
+        console.warn(
+          `Gemini Tutor network error. Retrying in ${delay}ms.`,
+        );
+
+        await sleep(delay);
+
+        continue;
+      }
+
+      throw error;
+    }
   }
 
-  return {
-    text,
-    tokensUsed:
-      data.usageMetadata?.totalTokenCount ?? null,
-  };
+  /*
+   * This should only be reached if every retry was exhausted.
+   */
+  if (lastError instanceof Error) {
+    throw lastError;
+  }
+
+  const fallbackError = new Error(
+    "Gemini Tutor could not generate a response.",
+  );
+
+  (
+    fallbackError as Error & {
+      status?: number;
+    }
+  ).status = 503;
+
+  throw fallbackError;
 }
 
 function getGeminiHistory(
