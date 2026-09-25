@@ -790,194 +790,308 @@ export default function PersistentAITutor({
   );
 
   async function sendMessage() {
-    const trimmed = input.trim();
+  const trimmed = input.trim();
 
-    if (!trimmed || sending) {
-      return;
-    }
+  if (!trimmed || sending) {
+    return;
+  }
 
-    if (trimmed.length > MAX_MESSAGE_LENGTH) {
-      setError(
-        `Your message is too long. Please keep it under ${MAX_MESSAGE_LENGTH} characters.`,
-      );
-      return;
-    }
+  if (trimmed.length > MAX_MESSAGE_LENGTH) {
+    setError(
+      `Your message is too long. Please keep it under ${MAX_MESSAGE_LENGTH} characters.`,
+    );
+    return;
+  }
 
-    setError(null);
-    setSending(true);
+  setError(null);
+  setSending(true);
 
-    let conversationId =
-      selectedConversationId;
+  let conversationId = selectedConversationId;
 
-    const optimisticMessageId =
-      `temporary-user-${Date.now()}`;
+  const optimisticMessageId = `temporary-user-${Date.now()}`;
 
-    try {
-      if (!conversationId) {
-        const conversation =
-          await createConversation();
+  const optimisticMessage: Message = {
+    id: optimisticMessageId,
+    role: "user",
+    content: trimmed,
+    created_at: new Date().toISOString(),
+  };
 
-        if (!conversation) {
-          throw new Error(
-            "Unable to create a new AI Tutor conversation.",
-          );
-        }
+  try {
+    /*
+     * =========================================================
+     * CREATE CONVERSATION IF NONE EXISTS
+     * =========================================================
+     */
+    if (!conversationId) {
+      const conversation = await createConversation();
 
-        conversationId =
-          conversation.id;
+      if (!conversation) {
+        throw new Error(
+          "Unable to create a new AI Tutor conversation.",
+        );
       }
 
-      const optimisticMessage: Message = {
-        id: optimisticMessageId,
-        role: "user",
-        content: trimmed,
-        created_at:
-          new Date().toISOString(),
-      };
+      conversationId = conversation.id;
+    }
 
-      setMessages((previous) => [
-        ...previous,
-        optimisticMessage,
-      ]);
+    /*
+     * =========================================================
+     * SHOW USER MESSAGE IMMEDIATELY
+     *
+     * This is optimistic UI only. The temporary message will
+     * later be replaced by the actual database message returned
+     * by the API.
+     * =========================================================
+     */
+    setMessages((previous) => [
+      ...previous,
+      optimisticMessage,
+    ]);
 
-      setInput("");
+    setInput("");
 
-      const activeConversation =
-        conversations.find(
+    /*
+     * =========================================================
+     * CAPTURE ACTIVE CONVERSATION CONTEXT
+     * =========================================================
+     */
+    const activeConversation =
+      conversations.find(
+        (conversation) =>
+          conversation.id === conversationId,
+      );
+
+    /*
+     * =========================================================
+     * SEND TO AI TUTOR API
+     * =========================================================
+     */
+    const response = await fetch(
+      "/api/ai-tutor/chat",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversationId,
+          message: trimmed,
+          contextType:
+            activeConversation?.context_type ??
+            (initialTopic ? "topic" : "general"),
+          context: {
+            ...context,
+            conversationId,
+          },
+        }),
+      },
+    );
+
+    const { data } =
+      await readApiResponse(response);
+
+    if (!response.ok) {
+      throw new Error(
+        typeof data.error === "string"
+          ? data.error
+          : `Unable to get a response from AI Tutor (${response.status}).`,
+      );
+    }
+
+    /*
+     * =========================================================
+     * READ SAVED SERVER DATA
+     * =========================================================
+     */
+    const returnedConversation =
+      data.conversation as
+        | Conversation
+        | undefined;
+
+    const savedUserMessage =
+      data.userMessage as
+        | Message
+        | undefined;
+
+    const savedAssistantMessage =
+      data.assistantMessage as
+        | Message
+        | undefined;
+
+    if (
+      !savedUserMessage ||
+      typeof savedUserMessage.content !==
+        "string"
+    ) {
+      throw new Error(
+        "The saved user message was not returned by the server.",
+      );
+    }
+
+    if (
+      !savedAssistantMessage ||
+      typeof savedAssistantMessage.content !==
+        "string"
+    ) {
+      throw new Error(
+        "The AI response was not returned in the expected format.",
+      );
+    }
+
+    /*
+     * =========================================================
+     * UPDATE CONVERSATION LIST
+     *
+     * The server now returns the UPDATED conversation,
+     * including its generated title.
+     * =========================================================
+     */
+    if (returnedConversation?.id) {
+      const returnedConversationId =
+        returnedConversation.id;
+
+      setConversations((previous) => {
+        const exists = previous.some(
           (conversation) =>
             conversation.id ===
-            conversationId,
+            returnedConversationId,
         );
 
-      const response = await fetch(
-        "/api/ai-tutor/chat",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            conversationId,
-            message: trimmed,
-            contextType:
-              activeConversation
-                ?.context_type ??
-              (initialTopic
-                ? "topic"
-                : "general"),
-            context: {
-              ...context,
-              conversationId,
-            },
-          }),
-        },
-      );
+        if (exists) {
+          return previous
+            .map((conversation) =>
+              conversation.id ===
+              returnedConversationId
+                ? {
+                    ...conversation,
+                    ...returnedConversation,
+                  }
+                : conversation,
+            )
+            .sort(
+              (a, b) =>
+                new Date(
+                  b.updated_at,
+                ).getTime() -
+                new Date(
+                  a.updated_at,
+                ).getTime(),
+            );
+        }
 
-      const { data } =
-        await readApiResponse(response);
+        return [
+          returnedConversation,
+          ...previous,
+        ];
+      });
 
-      if (!response.ok) {
-        throw new Error(
-          typeof data.error === "string"
-            ? data.error
-            : `Unable to get a response from AI Tutor (${response.status}).`,
-        );
-      }
-
-      const returnedConversation =
-        data.conversation as
-          | Conversation
-          | undefined;
-
-      if (
-        returnedConversation?.id &&
-        returnedConversation.id !==
-          conversationId
-      ) {
-        conversationId =
-          returnedConversation.id;
-
-        ++messagesRequestRef.current;
-
-        setSelectedConversationId(
-          conversationId,
-        );
-      }
-
-      const assistantMessageData =
-        data.assistantMessage as
-          | Message
-          | undefined;
-
-      if (
-        !assistantMessageData ||
-        typeof assistantMessageData.content !==
-          "string"
-      ) {
-        throw new Error(
-          "The AI response was not returned in the expected format.",
-        );
-      }
-
+      /*
+       * Keep the active conversation selected.
+       */
       if (
         mountedRef.current &&
-        selectedConversationId ===
-          conversationId
+        selectedConversationId !==
+          returnedConversationId
       ) {
-        setMessages((previous) => [
-          ...previous.filter(
+        setSelectedConversationId(
+          returnedConversationId,
+        );
+      }
+
+      conversationId =
+        returnedConversationId;
+    }
+
+    /*
+     * =========================================================
+     * IMPORTANT MESSAGE FIX
+     *
+     * Do NOT reload the conversation here.
+     *
+     * We already have the exact database records returned
+     * by the server.
+     *
+     * Replace the temporary optimistic user message with
+     * the real saved user message, then append the assistant.
+     * =========================================================
+     */
+    if (mountedRef.current) {
+      setMessages((previous) => {
+        const withoutOptimisticMessage =
+          previous.filter(
             (message) =>
               message.id !==
               optimisticMessageId,
-          ),
+          );
+
+        return [
+          ...withoutOptimisticMessage,
           {
-            ...assistantMessageData,
+            ...savedUserMessage,
+            role: "user",
+          },
+          {
+            ...savedAssistantMessage,
             role: "assistant",
           },
-        ]);
-      }
+        ];
+      });
+    }
 
-      await loadConversations(true);
-
-      if (
-        conversationId &&
-        mountedRef.current &&
-        selectedConversationId ===
-          conversationId
-      ) {
-        await loadConversation(
-          conversationId,
-        );
-      }
-    } catch (err) {
-      console.error(
-        "AI Tutor send error:",
-        err,
-      );
-
-      setMessages((previous) =>
-        previous.filter(
-          (message) =>
-            message.id !==
-            optimisticMessageId,
+    /*
+     * =========================================================
+     * MOVE CONVERSATION TO TOP
+     * =========================================================
+     */
+    if (returnedConversation?.id) {
+      setConversations((previous) =>
+        [...previous].sort(
+          (a, b) =>
+            new Date(
+              b.updated_at,
+            ).getTime() -
+            new Date(
+              a.updated_at,
+            ).getTime(),
         ),
       );
-
-      setInput(trimmed);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to send message.",
-      );
-    } finally {
-      setSending(false);
-
-      window.setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 0);
     }
+  } catch (err) {
+    console.error(
+      "AI Tutor send error:",
+      err,
+    );
+
+    /*
+     * Remove only the temporary message if the request failed.
+     *
+     * The input is restored so the user does not lose their
+     * prompt.
+     */
+    setMessages((previous) =>
+      previous.filter(
+        (message) =>
+          message.id !==
+          optimisticMessageId,
+      ),
+    );
+
+    setInput(trimmed);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Unable to send message.",
+    );
+  } finally {
+    setSending(false);
+
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
   }
+}
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
