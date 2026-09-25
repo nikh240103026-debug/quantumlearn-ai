@@ -55,11 +55,6 @@ type GeminiResponse = {
   };
 };
 
-/*
- * =========================================================
- * BASIC MESSAGE CLEANING
- * =========================================================
- */
 function cleanMessage(value: unknown): string {
   if (typeof value !== "string") {
     return "";
@@ -68,11 +63,6 @@ function cleanMessage(value: unknown): string {
   return value.trim();
 }
 
-/*
- * =========================================================
- * CONTEXT NORMALIZATION
- * =========================================================
- */
 function normalizeContext(
   value: unknown,
 ): Record<string, unknown> {
@@ -87,57 +77,6 @@ function normalizeContext(
   return {};
 }
 
-/*
- * =========================================================
- * CONVERSATION TITLE GENERATION
- *
- * This does NOT call Gemini.
- *
- * The title is generated locally from the user's first
- * prompt so that title generation is reliable and does not
- * introduce another AI request or another failure point.
- * =========================================================
- */
-function generateConversationTitle(
-  message: string,
-): string {
-  const cleaned = message
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!cleaned) {
-    return "New conversation";
-  }
-
-  /*
-   * Remove common conversational prefixes so the sidebar
-   * contains a cleaner topic instead of the full sentence.
-   */
-  const normalized = cleaned
-    .replace(
-      /^(please\s+)?(can you|could you|would you|help me|tell me|explain|what is|what are|how do|how can|why is|why are)\s+/i,
-      "",
-    )
-    .trim();
-
-  const source =
-    normalized || cleaned;
-
-  /*
-   * Keep titles compact enough for the sidebar.
-   */
-  if (source.length <= 45) {
-    return source;
-  }
-
-  return `${source.slice(0, 42).trim()}...`;
-}
-
-/*
- * =========================================================
- * SYSTEM INSTRUCTION
- * =========================================================
- */
 function buildSystemInstruction(
   contextType: string | null,
   context: Record<string, unknown>,
@@ -174,7 +113,6 @@ You are communicating inside the QuantumLearn AI platform.
 }
 
 /*
-<<<<<<< HEAD
  * ============================================================
  * GEMINI HELPERS
  * ============================================================
@@ -237,90 +175,11 @@ async function sleep(
   });
 }
 
-=======
- * =========================================================
- * GEMINI REQUEST
- * =========================================================
- */
->>>>>>> origin/main
 async function callGemini(
   contents: GeminiContent[],
   systemInstruction: string,
 ) {
   if (!GEMINI_API_KEY) {
-<<<<<<< HEAD
-=======
-    throw new Error(
-      "GEMINI_API_KEY is not configured on the server.",
-    );
-  }
-
-  const endpoint =
-    `https://generativelanguage.googleapis.com/v1beta/models/` +
-    `${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-  const controller = new AbortController();
-
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, GEMINI_TIMEOUT_MS);
-
-  let response: Response;
-
-  try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [
-            {
-              text: systemInstruction,
-            },
-          ],
-        },
-        contents,
-        generationConfig: {
-          temperature: 0.35,
-          topP: 0.9,
-          maxOutputTokens: 1800,
-        },
-      }),
-      cache: "no-store",
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (
-      error instanceof DOMException &&
-      error.name === "AbortError"
-    ) {
-      const timeoutError = new Error(
-        "Gemini Tutor timed out while generating a response. Please try again.",
-      );
-
-      (
-        timeoutError as Error & {
-          status?: number;
-        }
-      ).status = 504;
-
-      throw timeoutError;
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  const data =
-    (await response.json()) as GeminiResponse;
-
-  if (!response.ok) {
-    const status = response.status;
-
->>>>>>> origin/main
     const error = new Error(
       "GEMINI_API_KEY is not configured on the server.",
     );
@@ -677,11 +536,6 @@ async function callGemini(
   throw fallbackError;
 }
 
-/*
- * =========================================================
- * GEMINI HISTORY
- * =========================================================
- */
 function getGeminiHistory(
   messages: Array<{
     role: string;
@@ -708,20 +562,10 @@ function getGeminiHistory(
     }));
 }
 
-/*
- * =========================================================
- * POST /api/ai-tutor/chat
- * =========================================================
- */
 export async function POST(
   request: NextRequest,
 ) {
   try {
-    /*
-     * =======================================================
-     * AUTHENTICATION
-     * =======================================================
-     */
     const supabase =
       await createSupabaseServerClient();
 
@@ -740,16 +584,10 @@ export async function POST(
       );
     }
 
-    /*
-     * =======================================================
-     * REQUEST BODY
-     * =======================================================
-     */
     let body: ChatRequestBody;
 
     try {
-      body =
-        (await request.json()) as ChatRequestBody;
+      body = (await request.json()) as ChatRequestBody;
     } catch {
       return NextResponse.json(
         {
@@ -781,11 +619,6 @@ export async function POST(
       );
     }
 
-    /*
-     * =======================================================
-     * CONTEXT
-     * =======================================================
-     */
     const requestedContextType =
       typeof body.contextType === "string"
         ? body.contextType.trim().slice(0, 100)
@@ -794,55 +627,36 @@ export async function POST(
     const requestedContext =
       normalizeContext(body.context);
 
-    /*
-     * =======================================================
-     * CONVERSATION ID
-     * =======================================================
-     */
     let conversationId =
       typeof body.conversationId === "string" &&
       body.conversationId.trim().length > 0
         ? body.conversationId.trim()
         : null;
 
-    /*
-     * =======================================================
-     * CONVERSATION
-     * =======================================================
-     */
     let conversation:
       | {
           id: string;
           title: string;
           context_type: string | null;
           context: Record<string, unknown>;
-          is_archived?: boolean;
-          created_at?: string;
-          updated_at?: string;
         }
       | null = null;
 
-    /*
-     * =======================================================
-     * EXISTING CONVERSATION
-     * =======================================================
-     */
     if (conversationId) {
-      const { data, error } =
-        await supabase
-          .from("ai_conversations")
-          .select(
-            `
-              id,
-              title,
-              context_type,
-              context
-            `,
-          )
-          .eq("id", conversationId)
-          .eq("user_id", user.id)
-          .eq("is_archived", false)
-          .single();
+      const { data, error } = await supabase
+        .from("ai_conversations")
+        .select(
+          `
+            id,
+            title,
+            context_type,
+            context
+          `,
+        )
+        .eq("id", conversationId)
+        .eq("user_id", user.id)
+        .eq("is_archived", false)
+        .single();
 
       if (error || !data) {
         return NextResponse.json(
@@ -857,41 +671,33 @@ export async function POST(
       conversation = {
         id: data.id,
         title: data.title,
-        context_type:
-          data.context_type,
+        context_type: data.context_type,
         context:
           normalizeContext(data.context),
       };
     } else {
-      /*
-       * =====================================================
-       * NEW CONVERSATION
-       *
-       * The first prompt becomes the initial title.
-       * =====================================================
-       */
       const initialTitle =
-        generateConversationTitle(message);
+        message.length > 60
+          ? `${message.slice(0, 57)}...`
+          : message;
 
-      const { data, error } =
-        await supabase
-          .from("ai_conversations")
-          .insert({
-            user_id: user.id,
-            title: initialTitle,
-            context_type:
-              requestedContextType,
-            context: requestedContext,
-          })
-          .select(
-            `
-              id,
-              title,
-              context_type,
-              context
-            `,
-          )
-          .single();
+      const { data, error } = await supabase
+        .from("ai_conversations")
+        .insert({
+          user_id: user.id,
+          title: initialTitle,
+          context_type: requestedContextType,
+          context: requestedContext,
+        })
+        .select(
+          `
+            id,
+            title,
+            context_type,
+            context
+          `,
+        )
+        .single();
 
       if (error || !data) {
         console.error(
@@ -918,18 +724,12 @@ export async function POST(
       conversation = {
         id: data.id,
         title: data.title,
-        context_type:
-          data.context_type,
+        context_type: data.context_type,
         context:
           normalizeContext(data.context),
       };
     }
 
-    /*
-     * =======================================================
-     * SAFETY CHECK
-     * =======================================================
-     */
     if (!conversationId || !conversation) {
       return NextResponse.json(
         {
@@ -940,11 +740,6 @@ export async function POST(
       );
     }
 
-    /*
-     * =======================================================
-     * MERGE CONTEXT
-     * =======================================================
-     */
     const mergedContext = {
       ...conversation.context,
       ...requestedContext,
@@ -955,19 +750,17 @@ export async function POST(
       requestedContextType !==
         conversation.context_type
     ) {
-      const {
-        error: contextUpdateError,
-      } = await supabase
-        .from("ai_conversations")
-        .update({
-          context_type:
-            requestedContextType,
-          context: mergedContext,
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq("id", conversationId)
-        .eq("user_id", user.id);
+      const { error: contextUpdateError } =
+        await supabase
+          .from("ai_conversations")
+          .update({
+            context_type: requestedContextType,
+            context: mergedContext,
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq("id", conversationId)
+          .eq("user_id", user.id);
 
       if (contextUpdateError) {
         console.warn(
@@ -978,16 +771,9 @@ export async function POST(
 
       conversation.context_type =
         requestedContextType;
-
-      conversation.context =
-        mergedContext;
+      conversation.context = mergedContext;
     }
 
-    /*
-     * =======================================================
-     * LOAD PREVIOUS MESSAGE HISTORY
-     * =======================================================
-     */
     const {
       data: previousMessages,
       error: historyError,
@@ -1021,20 +807,18 @@ export async function POST(
       );
     }
 
-    const history = [
-      ...(previousMessages ?? []),
-    ]
+    const history = [...(previousMessages ?? [])]
       .reverse()
       .map((item) => ({
         role: item.role,
         content: item.content,
       }));
 
-    /*
-     * =======================================================
-     * GEMINI CONTENT
-     * =======================================================
-     */
+    const userMessage = {
+      role: "user" as const,
+      content: message,
+    };
+
     const geminiContents = [
       ...getGeminiHistory(history),
       {
@@ -1053,13 +837,6 @@ export async function POST(
         conversation.context,
       );
 
-    /*
-     * =======================================================
-     * SAVE USER MESSAGE
-     *
-     * The message is saved BEFORE Gemini is called.
-     * =======================================================
-     */
     const {
       data: savedUserMessage,
       error: userMessageError,
@@ -1087,10 +864,7 @@ export async function POST(
       )
       .single();
 
-    if (
-      userMessageError ||
-      !savedUserMessage
-    ) {
+    if (userMessageError || !savedUserMessage) {
       console.error(
         "AI user message save error:",
         userMessageError,
@@ -1105,11 +879,6 @@ export async function POST(
       );
     }
 
-    /*
-     * =======================================================
-     * GENERATE AI RESPONSE
-     * =======================================================
-     */
     let geminiResult;
 
     try {
@@ -1123,11 +892,7 @@ export async function POST(
         error !== null &&
         "status" in error
           ? Number(
-              (
-                error as {
-                  status?: number;
-                }
-              ).status,
+              (error as { status?: number }).status,
             )
           : 500;
 
@@ -1156,10 +921,7 @@ export async function POST(
         );
       }
 
-      if (
-        status === 401 ||
-        status === 403
-      ) {
+      if (status === 401 || status === 403) {
         return NextResponse.json(
           {
             error:
@@ -1192,11 +954,6 @@ export async function POST(
       );
     }
 
-    /*
-     * =======================================================
-     * SAVE ASSISTANT MESSAGE
-     * =======================================================
-     */
     const {
       data: savedAssistantMessage,
       error: assistantMessageError,
@@ -1209,8 +966,7 @@ export async function POST(
         content: geminiResult.text,
         context: conversation.context,
         model: GEMINI_MODEL,
-        tokens_used:
-          geminiResult.tokensUsed,
+        tokens_used: geminiResult.tokensUsed,
       })
       .select(
         `
@@ -1245,127 +1001,23 @@ export async function POST(
       );
     }
 
-    /*
-     * =======================================================
-     * UPDATE CONVERSATION
-     *
-     * IMPORTANT BUG FIX:
-     *
-     * The previous implementation only updated updated_at.
-     * Therefore the conversation title could remain
-     * "New conversation".
-     *
-     * We preserve an existing custom title.
-     * We only generate a title if the conversation still
-     * has the default title.
-     * =======================================================
-     */
-    const updatedAt =
-      new Date().toISOString();
-
-    const conversationUpdate: {
-      updated_at: string;
-      title?: string;
-    } = {
-      updated_at: updatedAt,
-    };
-
-    if (
-      !conversation.title ||
-      conversation.title ===
-        "New conversation"
-    ) {
-      conversationUpdate.title =
-        generateConversationTitle(message);
-    }
-
-    const {
-      data: updatedConversation,
-      error: conversationUpdateError,
-    } =
+    const { error: conversationUpdateError } =
       await supabase
         .from("ai_conversations")
-        .update(
-          conversationUpdate,
-        )
+        .update({
+          updated_at:
+            new Date().toISOString(),
+        })
         .eq("id", conversationId)
-        .eq("user_id", user.id)
-        .select(
-          `
-            id,
-            title,
-            context_type,
-            context,
-            is_archived,
-            created_at,
-            updated_at
-          `,
-        )
-        .single();
+        .eq("user_id", user.id);
 
     if (conversationUpdateError) {
-      /*
-       * Keep the existing behavior:
-       * conversation-update failure should NOT make an
-       * otherwise successful AI response fail.
-       */
       console.warn(
-        "Unable to update AI conversation:",
+        "Unable to update AI conversation timestamp:",
         conversationUpdateError,
       );
     }
 
-    /*
-     * =======================================================
-     * USE THE FRESH DATABASE VERSION WHEN AVAILABLE
-     * =======================================================
-     */
-    if (updatedConversation) {
-      conversation = {
-        id: updatedConversation.id,
-        title: updatedConversation.title,
-        context_type:
-          updatedConversation.context_type,
-        context:
-          normalizeContext(
-            updatedConversation.context,
-          ),
-        is_archived:
-          updatedConversation.is_archived,
-        created_at:
-          updatedConversation.created_at,
-        updated_at:
-          updatedConversation.updated_at,
-      };
-    } else {
-      /*
-       * Fallback if the update succeeded but Supabase did
-       * not return a row for some reason.
-       */
-      conversation = {
-        ...conversation,
-        updated_at: updatedAt,
-      };
-
-      if (conversationUpdate.title) {
-        conversation.title =
-          conversationUpdate.title;
-      }
-    }
-
-    /*
-     * =======================================================
-     * FINAL RESPONSE
-     *
-     * The client receives:
-     * - the updated conversation/title
-     * - the actual saved user message
-     * - the actual saved assistant message
-     *
-     * This allows the frontend to replace its temporary
-     * optimistic message without reloading the conversation.
-     * =======================================================
-     */
     return NextResponse.json(
       {
         conversation,
