@@ -12,6 +12,9 @@ import {
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 type TutorContext = {
   topic?: string;
@@ -112,7 +115,8 @@ function TutorMarkdown({
   return (
     <div className="tutor-markdown max-w-none break-words text-[15px] leading-7 text-[#2f2f2f] dark:text-[#ececec]">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={{
           h1: ({ children }) => (
             <h1 className="mb-4 mt-1 text-2xl font-semibold tracking-tight text-[#171717] dark:text-white">
@@ -1316,8 +1320,6 @@ export default function PersistentAITutor({
 
         {/* ===================================================
             MESSAGE AREA
-            
-            THIS IS THE ONLY MAIN PAGE SCROLL AREA.
            =================================================== */}
 
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
