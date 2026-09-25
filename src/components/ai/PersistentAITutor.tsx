@@ -57,25 +57,12 @@ function formatConversationTitle(title: string): string {
   const cleaned = title.trim();
 
   if (!cleaned) {
-    return "New AI Tutor Conversation";
+    return "New conversation";
   }
 
   return cleaned.length > 45
     ? `${cleaned.slice(0, 42)}...`
     : cleaned;
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
 }
 
 async function readApiResponse(response: Response): Promise<{
@@ -117,196 +104,153 @@ async function readApiResponse(response: Response): Promise<{
   }
 }
 
-function getAssistantContent(
-  data: Record<string, unknown>,
-): string {
-  const assistantMessage = data.assistantMessage;
-
-  if (
-    assistantMessage &&
-    typeof assistantMessage === "object" &&
-    !Array.isArray(assistantMessage)
-  ) {
-    const content = (
-      assistantMessage as Record<string, unknown>
-    ).content;
-
-    if (typeof content === "string" && content.trim()) {
-      return content.trim();
-    }
-  }
-
-  const possibleKeys = [
-    "assistantContent",
-    "content",
-    "response",
-    "answer",
-    "message",
-  ];
-
-  for (const key of possibleKeys) {
-    const value = data[key];
-
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return "";
-}
-
-function getReturnedConversation(
-  data: Record<string, unknown>,
-): Conversation | null {
-  const value = data.conversation;
-
-  if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value)
-  ) {
-    return null;
-  }
-
-  const conversation =
-    value as Partial<Conversation>;
-
-  if (
-    typeof conversation.id !== "string" ||
-    !conversation.id
-  ) {
-    return null;
-  }
-
-  return conversation as Conversation;
-}
-
 function TutorMarkdown({
   content,
 }: {
   content: string;
 }) {
   return (
-    <div className="tutor-markdown break-words">
+    <div className="tutor-markdown max-w-none break-words text-[15px] leading-7 text-[#2f2f2f] dark:text-[#ececec]">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 className="mb-4 mt-1 text-xl font-bold text-slate-900 dark:text-white">
+            <h1 className="mb-4 mt-1 text-2xl font-semibold tracking-tight text-[#171717] dark:text-white">
               {children}
             </h1>
           ),
+
           h2: ({ children }) => (
-            <h2 className="mb-3 mt-5 text-lg font-bold text-slate-900 dark:text-white">
+            <h2 className="mb-3 mt-7 text-xl font-semibold tracking-tight text-[#171717] dark:text-white">
               {children}
             </h2>
           ),
+
           h3: ({ children }) => (
-            <h3 className="mb-2 mt-4 text-base font-bold text-slate-900 dark:text-white">
+            <h3 className="mb-2 mt-6 text-lg font-semibold text-[#171717] dark:text-white">
               {children}
             </h3>
           ),
+
           h4: ({ children }) => (
-            <h4 className="mb-2 mt-3 text-sm font-semibold text-slate-900 dark:text-white">
+            <h4 className="mb-2 mt-5 text-base font-semibold text-[#171717] dark:text-white">
               {children}
             </h4>
           ),
+
           p: ({ children }) => (
-            <p className="mb-3 last:mb-0 leading-7">
+            <p className="mb-4 last:mb-0 leading-7">
               {children}
             </p>
           ),
+
           strong: ({ children }) => (
-            <strong className="font-semibold text-slate-950 dark:text-white">
+            <strong className="font-semibold text-[#171717] dark:text-white">
               {children}
             </strong>
           ),
+
           em: ({ children }) => (
             <em className="italic">{children}</em>
           ),
+
           ul: ({ children }) => (
-            <ul className="mb-3 ml-5 list-disc space-y-1.5">
+            <ul className="mb-4 ml-6 list-disc space-y-1.5">
               {children}
             </ul>
           ),
+
           ol: ({ children }) => (
-            <ol className="mb-3 ml-5 list-decimal space-y-1.5">
+            <ol className="mb-4 ml-6 list-decimal space-y-1.5">
               {children}
             </ol>
           ),
+
           li: ({ children }) => (
             <li className="pl-1 leading-7">{children}</li>
           ),
+
           blockquote: ({ children }) => (
-            <blockquote className="my-4 border-l-4 border-slate-300 pl-4 italic text-slate-600 dark:border-slate-600 dark:text-slate-300">
+            <blockquote className="my-5 border-l-4 border-[#d1d1d1] pl-4 italic text-[#666] dark:border-[#555] dark:text-[#aaa]">
               {children}
             </blockquote>
           ),
+
           hr: () => (
-            <hr className="my-5 border-slate-200 dark:border-slate-700" />
+            <hr className="my-6 border-[#e5e5e5] dark:border-[#444]" />
           ),
+
           a: ({ href, children }) => (
             <a
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              className="font-medium text-[#2563eb] underline underline-offset-2 hover:text-[#1d4ed8] dark:text-[#60a5fa] dark:hover:text-[#93c5fd]"
             >
               {children}
             </a>
           ),
+
           code: ({ className, children }) => {
             const isBlock = Boolean(className);
 
             if (isBlock) {
               return (
-                <code className="block whitespace-pre text-sm leading-6">
+                <code className="block whitespace-pre font-mono text-[13px] leading-6">
                   {children}
                 </code>
               );
             }
 
             return (
-              <code className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.9em] text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+              <code className="rounded-md bg-[#f1f1f1] px-1.5 py-0.5 font-mono text-[0.9em] text-[#333] dark:bg-[#2f2f2f] dark:text-[#ddd]">
                 {children}
               </code>
             );
           },
+
           pre: ({ children }) => (
-            <pre className="my-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-950 p-4 text-sm leading-6 text-slate-100 dark:border-slate-700">
+            <pre className="my-5 overflow-x-auto rounded-xl bg-[#171717] p-4 text-sm leading-6 text-[#f5f5f5] dark:bg-black">
               {children}
             </pre>
           ),
+
           table: ({ children }) => (
-            <div className="my-4 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="my-5 overflow-x-auto rounded-xl border border-[#e5e5e5] dark:border-[#444]">
               <table className="w-full min-w-[500px] border-collapse text-sm">
                 {children}
               </table>
             </div>
           ),
+
           thead: ({ children }) => (
-            <thead className="bg-slate-100 dark:bg-slate-800">
+            <thead className="bg-[#f7f7f7] dark:bg-[#2a2a2a]">
               {children}
             </thead>
           ),
+
           tbody: ({ children }) => <tbody>{children}</tbody>,
+
           tr: ({ children }) => (
-            <tr className="border-b border-slate-200 last:border-b-0 dark:border-slate-700">
+            <tr className="border-b border-[#e5e5e5] last:border-b-0 dark:border-[#444]">
               {children}
             </tr>
           ),
+
           th: ({ children }) => (
-            <th className="px-3 py-2 text-left font-semibold text-slate-900 dark:text-white">
+            <th className="px-3 py-2 text-left font-semibold text-[#171717] dark:text-white">
               {children}
             </th>
           ),
+
           td: ({ children }) => (
-            <td className="px-3 py-2 text-left text-slate-700 dark:text-slate-300">
+            <td className="px-3 py-2 text-left text-[#555] dark:text-[#ccc]">
               {children}
             </td>
           ),
+
           del: ({ children }) => (
-            <del className="text-slate-500">{children}</del>
+            <del className="text-[#777]">{children}</del>
           ),
         }}
       >
@@ -323,9 +267,9 @@ export default function PersistentAITutor({
   pageMode = false,
   className = "",
 }: PersistentAITutorProps) {
-  const [conversations, setConversations] = useState<Conversation[]>(
-    [],
-  );
+  const [conversations, setConversations] = useState<
+    Conversation[]
+  >([]);
 
   const [selectedConversationId, setSelectedConversationId] =
     useState<string | null>(null);
@@ -337,7 +281,8 @@ export default function PersistentAITutor({
   const [loadingConversations, setLoadingConversations] =
     useState(true);
 
-  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingMessages, setLoadingMessages] =
+    useState(false);
 
   const [sending, setSending] = useState(false);
 
@@ -363,19 +308,6 @@ export default function PersistentAITutor({
 
   const mountedRef = useRef(true);
 
-  /*
-   * IMPORTANT:
-   *
-   * React state updates are asynchronous.
-   * Reading selectedConversationId immediately after calling
-   * setSelectedConversationId() can therefore return the old ID.
-   *
-   * This ref always contains the latest selected conversation.
-   */
-  const selectedConversationIdRef = useRef<string | null>(
-    null,
-  );
-
   const context = useMemo<TutorContext>(
     () => ({
       ...initialContext,
@@ -394,6 +326,33 @@ export default function PersistentAITutor({
         conversation.id === selectedConversationId,
     ) ?? null;
 
+  /*
+   * IMPORTANT:
+   *
+   * Lock the document itself while the tutor page is mounted.
+   *
+   * This prevents the outer Next.js page from scrolling.
+   * Only the sidebar and message area are allowed to scroll.
+   */
+  useEffect(() => {
+    const previousOverflow =
+      document.body.style.overflow;
+
+    const previousHeight =
+      document.body.style.height;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.height = "100%";
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+
+      document.body.style.height =
+        previousHeight;
+    };
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
 
@@ -402,19 +361,6 @@ export default function PersistentAITutor({
     };
   }, []);
 
-  /*
-   * Keep the ref synchronized with React state.
-   */
-  useEffect(() => {
-    selectedConversationIdRef.current =
-      selectedConversationId;
-  }, [selectedConversationId]);
-
-  /*
-   * Conversation list loading.
-   *
-   * Only the latest request is allowed to update state.
-   */
   const loadConversations = useCallback(
     async (preserveSelection = true) => {
       const requestId =
@@ -433,7 +379,7 @@ export default function PersistentAITutor({
           },
         );
 
-        const { data, text } =
+        const { data } =
           await readApiResponse(response);
 
         if (
@@ -461,15 +407,11 @@ export default function PersistentAITutor({
         setConversations(loaded);
 
         if (!preserveSelection) {
-          const nextId =
+          setSelectedConversationId(
             loaded.length > 0
               ? loaded[0].id
-              : null;
-
-          selectedConversationIdRef.current =
-            nextId;
-
-          setSelectedConversationId(nextId);
+              : null,
+          );
 
           return;
         }
@@ -484,21 +426,12 @@ export default function PersistentAITutor({
                   currentSelectedId,
               )
             ) {
-              selectedConversationIdRef.current =
-                currentSelectedId;
-
               return currentSelectedId;
             }
 
-            const nextId =
-              loaded.length > 0
-                ? loaded[0].id
-                : null;
-
-            selectedConversationIdRef.current =
-              nextId;
-
-            return nextId;
+            return loaded.length > 0
+              ? loaded[0].id
+              : null;
           },
         );
       } catch (err) {
@@ -533,12 +466,6 @@ export default function PersistentAITutor({
     [],
   );
 
-  /*
-   * Message loading.
-   *
-   * Every conversation request receives a unique version.
-   * Older requests can never overwrite a newer conversation.
-   */
   const loadConversation = useCallback(
     async (conversationId: string) => {
       const requestId =
@@ -562,18 +489,8 @@ export default function PersistentAITutor({
 
         if (
           !mountedRef.current ||
-          requestId !== messagesRequestRef.current
-        ) {
-          return;
-        }
-
-        /*
-         * Also verify that the requested conversation is
-         * still the active conversation.
-         */
-        if (
-          selectedConversationIdRef.current !==
-          conversationId
+          requestId !==
+            messagesRequestRef.current
         ) {
           return;
         }
@@ -596,7 +513,8 @@ export default function PersistentAITutor({
       } catch (err) {
         if (
           !mountedRef.current ||
-          requestId !== messagesRequestRef.current
+          requestId !==
+            messagesRequestRef.current
         ) {
           return;
         }
@@ -616,7 +534,8 @@ export default function PersistentAITutor({
       } finally {
         if (
           mountedRef.current &&
-          requestId === messagesRequestRef.current
+          requestId ===
+            messagesRequestRef.current
         ) {
           setLoadingMessages(false);
         }
@@ -625,31 +544,23 @@ export default function PersistentAITutor({
     [],
   );
 
-  /*
-   * Selecting a conversation immediately invalidates every
-   * previous message request.
-   */
   useEffect(() => {
-    const conversationId =
-      selectedConversationId;
-
     ++messagesRequestRef.current;
 
-    if (!conversationId) {
+    if (!selectedConversationId) {
       setMessages([]);
       setLoadingMessages(false);
       return;
     }
 
-    void loadConversation(conversationId);
+    void loadConversation(
+      selectedConversationId,
+    );
   }, [
     selectedConversationId,
     loadConversation,
   ]);
 
-  /*
-   * Initial conversation loading.
-   */
   useEffect(() => {
     void loadConversations(false);
   }, [loadConversations]);
@@ -682,7 +593,7 @@ export default function PersistentAITutor({
                 ? `Learning: ${formatConversationTitle(
                     initialTopic,
                   )}`
-                : "New AI Tutor Conversation",
+                : "New conversation",
               contextType: initialTopic
                 ? "topic"
                 : "general",
@@ -703,9 +614,11 @@ export default function PersistentAITutor({
         }
 
         const conversation =
-          getReturnedConversation(data);
+          data.conversation as
+            | Conversation
+            | undefined;
 
-        if (!conversation) {
+        if (!conversation?.id) {
           throw new Error(
             "The server did not return a valid conversation.",
           );
@@ -715,9 +628,6 @@ export default function PersistentAITutor({
           return null;
         }
 
-        /*
-         * Invalidate stale conversation-list requests.
-         */
         ++conversationsRequestRef.current;
 
         setConversations((previous) => [
@@ -728,19 +638,7 @@ export default function PersistentAITutor({
           ),
         ]);
 
-        /*
-         * Invalidate every message request belonging to
-         * the previous conversation.
-         */
         ++messagesRequestRef.current;
-
-        /*
-         * IMPORTANT:
-         * Update the ref immediately, not only React state.
-         * This prevents sendMessage() from reading the old ID.
-         */
-        selectedConversationIdRef.current =
-          conversation.id;
 
         setSelectedConversationId(
           conversation.id,
@@ -832,14 +730,11 @@ export default function PersistentAITutor({
           return;
         }
 
-        /*
-         * Invalidate all old requests.
-         */
         ++conversationsRequestRef.current;
         ++messagesRequestRef.current;
 
         const wasSelected =
-          selectedConversationIdRef.current ===
+          selectedConversationId ===
           conversationId;
 
         const remaining =
@@ -852,17 +747,12 @@ export default function PersistentAITutor({
         setConversations(remaining);
 
         if (wasSelected) {
-          const nextId =
-            remaining.length > 0
-              ? remaining[0].id
-              : null;
-
-          selectedConversationIdRef.current =
-            nextId;
-
-          setSelectedConversationId(nextId);
-
-          if (!nextId) {
+          if (remaining.length > 0) {
+            setSelectedConversationId(
+              remaining[0].id,
+            );
+          } else {
+            setSelectedConversationId(null);
             setMessages([]);
             setLoadingMessages(false);
           }
@@ -891,6 +781,7 @@ export default function PersistentAITutor({
     [
       conversations,
       deletingConversationId,
+      selectedConversationId,
     ],
   );
 
@@ -912,17 +803,12 @@ export default function PersistentAITutor({
     setSending(true);
 
     let conversationId =
-      selectedConversationIdRef.current;
+      selectedConversationId;
 
     const optimisticMessageId =
-      `temporary-user-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`;
+      `temporary-user-${Date.now()}`;
 
     try {
-      /*
-       * Create the conversation if none exists.
-       */
       if (!conversationId) {
         const conversation =
           await createConversation();
@@ -935,20 +821,7 @@ export default function PersistentAITutor({
 
         conversationId =
           conversation.id;
-
-        /*
-         * createConversation already updates the ref,
-         * but set it explicitly here as a final guarantee.
-         */
-        selectedConversationIdRef.current =
-          conversationId;
       }
-
-      /*
-       * Capture the exact conversation used for this request.
-       */
-      const requestConversationId =
-        conversationId;
 
       const optimisticMessage: Message = {
         id: optimisticMessageId,
@@ -969,7 +842,7 @@ export default function PersistentAITutor({
         conversations.find(
           (conversation) =>
             conversation.id ===
-            requestConversationId,
+            conversationId,
         );
 
       const response = await fetch(
@@ -980,110 +853,72 @@ export default function PersistentAITutor({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            conversationId:
-              requestConversationId,
+            conversationId,
             message: trimmed,
             contextType:
-              activeConversation?.context_type ??
+              activeConversation
+                ?.context_type ??
               (initialTopic
                 ? "topic"
                 : "general"),
             context: {
               ...context,
-              conversationId:
-                requestConversationId,
+              conversationId,
             },
           }),
         },
       );
 
-      const { data, text } =
+      const { data } =
         await readApiResponse(response);
 
       if (!response.ok) {
         throw new Error(
           typeof data.error === "string"
             ? data.error
-            : text.trim()
-              ? text.slice(0, 300)
-              : `Unable to get a response from AI Tutor (${response.status}).`,
+            : `Unable to get a response from AI Tutor (${response.status}).`,
         );
       }
 
-      /*
-       * Some API implementations may return the conversation
-       * object in the response. Respect it if present.
-       */
       const returnedConversation =
-        getReturnedConversation(data);
+        data.conversation as
+          | Conversation
+          | undefined;
 
       if (
         returnedConversation?.id &&
         returnedConversation.id !==
-          requestConversationId
+          conversationId
       ) {
         conversationId =
           returnedConversation.id;
 
         ++messagesRequestRef.current;
 
-        selectedConversationIdRef.current =
-          conversationId;
-
         setSelectedConversationId(
           conversationId,
         );
       }
 
-      /*
-       * Normalize assistant response from the API.
-       */
-      const assistantContent =
-        getAssistantContent(data);
+      const assistantMessageData =
+        data.assistantMessage as
+          | Message
+          | undefined;
 
-      if (!assistantContent) {
-        console.error(
-          "AI Tutor returned no assistant content.",
-          {
-            status: response.status,
-            responseText: text,
-            responseData: data,
-          },
-        );
-
+      if (
+        !assistantMessageData ||
+        typeof assistantMessageData.content !==
+          "string"
+      ) {
         throw new Error(
-          "The AI Tutor returned an empty response. Please try again.",
+          "The AI response was not returned in the expected format.",
         );
       }
 
-      const assistantMessageData =
-        data.assistantMessage &&
-        typeof data.assistantMessage ===
-          "object" &&
-        !Array.isArray(
-          data.assistantMessage,
-        )
-          ? (data.assistantMessage as Message)
-          : {
-              role: "assistant" as const,
-              content: assistantContent,
-              created_at:
-                new Date().toISOString(),
-            };
-
-      /*
-       * Check the CURRENT active conversation through the ref.
-       *
-       * Do not use selectedConversationId here because that
-       * state value may be one render behind.
-       */
-      const stillViewingRequestConversation =
-        mountedRef.current &&
-        selectedConversationIdRef.current ===
-          requestConversationId;
-
       if (
-        stillViewingRequestConversation
+        mountedRef.current &&
+        selectedConversationId ===
+          conversationId
       ) {
         setMessages((previous) => [
           ...previous.filter(
@@ -1094,30 +929,20 @@ export default function PersistentAITutor({
           {
             ...assistantMessageData,
             role: "assistant",
-            content: assistantContent,
           },
         ]);
       }
 
-      /*
-       * Refresh the conversation list.
-       */
       await loadConversations(true);
 
-      /*
-       * Only reload messages if the user is still looking
-       * at the conversation that produced the response.
-       *
-       * Use the ref, never the stale state closure.
-       */
       if (
-        requestConversationId &&
+        conversationId &&
         mountedRef.current &&
-        selectedConversationIdRef.current ===
-          requestConversationId
+        selectedConversationId ===
+          conversationId
       ) {
         await loadConversation(
-          requestConversationId,
+          conversationId,
         );
       }
     } catch (err) {
@@ -1126,31 +951,27 @@ export default function PersistentAITutor({
         err,
       );
 
-      if (mountedRef.current) {
-        setMessages((previous) =>
-          previous.filter(
-            (message) =>
-              message.id !==
-              optimisticMessageId,
-          ),
-        );
+      setMessages((previous) =>
+        previous.filter(
+          (message) =>
+            message.id !==
+            optimisticMessageId,
+        ),
+      );
 
-        setInput(trimmed);
+      setInput(trimmed);
 
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Unable to send message.",
-        );
-      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to send message.",
+      );
     } finally {
-      if (mountedRef.current) {
-        setSending(false);
+      setSending(false);
 
-        window.setTimeout(() => {
-          textareaRef.current?.focus();
-        }, 0);
-      }
+      window.setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
     }
   }
 
@@ -1191,12 +1012,6 @@ export default function PersistentAITutor({
       return;
     }
 
-    /*
-     * createConversation already changed both state and ref.
-     */
-    selectedConversationIdRef.current =
-      conversation.id;
-
     setSelectedConversationId(
       conversation.id,
     );
@@ -1209,20 +1024,36 @@ export default function PersistentAITutor({
   }
 
   return (
+    /*
+     * =========================================================
+     * FULL VIEWPORT CHAT APPLICATION
+     *
+     * Navbar height = 64px
+     *
+     * The tutor is fixed directly underneath the navbar.
+     * This completely removes the page-level scroll.
+     * =========================================================
+     */
     <div
-      className={`flex h-full min-h-[600px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 ${className}`}
+      className={`fixed inset-x-0 bottom-0 top-16 z-40 flex min-h-0 overflow-hidden bg-white text-[#171717] dark:bg-[#212121] dark:text-white ${className}`}
     >
-      {showHistory && (
-        <aside className="hidden w-72 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex dark:border-slate-800 dark:bg-slate-900/60">
-          <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
-            <div>
-              <h2 className="font-semibold text-slate-900 dark:text-white">
-                AI Tutor
-              </h2>
+      {/* =====================================================
+          SIDEBAR
+         ===================================================== */}
 
-              <p className="text-xs text-slate-500">
-                Your conversations
-              </p>
+      {showHistory && (
+        <aside className="hidden h-full w-[260px] shrink-0 flex-col overflow-hidden bg-[#f7f7f8] dark:bg-[#171717] md:flex">
+          {/* Sidebar header */}
+
+          <div className="flex h-14 shrink-0 items-center justify-between px-3">
+            <div className="flex min-w-0 items-center gap-2 px-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#171717] text-sm font-semibold text-white dark:bg-white dark:text-black">
+                Q
+              </div>
+
+              <span className="truncate text-sm font-semibold text-[#171717] dark:text-white">
+                QuantumLearn
+              </span>
             </div>
 
             <button
@@ -1234,33 +1065,67 @@ export default function PersistentAITutor({
                 creatingConversation ||
                 sending
               }
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              aria-label="New conversation"
+              title="New conversation"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xl text-[#666] transition hover:bg-[#e5e5e5] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#aaa] dark:hover:bg-[#2f2f2f]"
             >
-              {creatingConversation
-                ? "..."
-                : "+ New"}
+              +
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2">
+          {/* New chat */}
+
+          <div className="shrink-0 px-3 pb-2">
+            <button
+              type="button"
+              onClick={() =>
+                void startNewConversation()
+              }
+              disabled={
+                creatingConversation ||
+                sending
+              }
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-[#333] transition hover:bg-[#e5e5e5] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#eee] dark:hover:bg-[#2f2f2f]"
+            >
+              <span className="text-base">
+                +
+              </span>
+
+              <span>
+                New chat
+              </span>
+            </button>
+          </div>
+
+          {/* Conversations heading */}
+
+          <div className="shrink-0 px-3 pb-2 pt-3">
+            <p className="px-2 text-[11px] font-medium uppercase tracking-wide text-[#777] dark:text-[#999]">
+              Conversations
+            </p>
+          </div>
+
+          {/* ONLY SIDEBAR SCROLLS */}
+
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-3">
             {loadingConversations ? (
-              <div className="space-y-2 p-2">
-                {[1, 2, 3].map((item) => (
+              <div className="space-y-1">
+                {[1, 2, 3, 4].map((item) => (
                   <div
                     key={item}
-                    className="h-14 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"
+                    className="h-10 animate-pulse rounded-lg bg-[#e5e5e5] dark:bg-[#242424]"
                   />
                 ))}
               </div>
             ) : conversations.length ===
               0 ? (
-              <div className="p-4 text-center text-sm text-slate-500">
+              <div className="px-3 py-8 text-center text-xs leading-5 text-[#777] dark:text-[#999]">
                 No conversations yet.
                 <br />
-                Start your first one.
+                Start a new chat.
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {conversations.map(
                   (conversation) => {
                     const active =
@@ -1274,60 +1139,26 @@ export default function PersistentAITutor({
                     return (
                       <div
                         key={conversation.id}
-                        className={`group relative w-full rounded-xl transition ${
+                        className={`group relative flex items-center rounded-lg transition ${
                           active
-                            ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                            : "text-slate-700 hover:bg-slate-200 dark:text-slate-200 dark:hover:bg-slate-800"
+                            ? "bg-[#e5e5e5] dark:bg-[#2f2f2f]"
+                            : "hover:bg-[#e5e5e5] dark:hover:bg-[#242424]"
                         }`}
                       >
                         <button
                           type="button"
-                          onClick={() => {
-                            selectedConversationIdRef.current =
-                              conversation.id;
-
-                            ++messagesRequestRef.current;
-
+                          onClick={() =>
                             setSelectedConversationId(
                               conversation.id,
-                            );
-
-                            setError(null);
-                          }}
+                            )
+                          }
                           disabled={deleting}
-                          className="w-full p-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                          className="min-w-0 flex-1 px-3 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          <div className="flex items-start justify-between gap-2 pr-6">
-                            <span className="line-clamp-2 text-sm font-medium">
-                              {formatConversationTitle(
-                                conversation.title,
-                              )}
-                            </span>
-
-                            <span
-                              className={`shrink-0 text-[10px] ${
-                                active
-                                  ? "text-slate-300 dark:text-slate-600"
-                                  : "text-slate-400"
-                              }`}
-                            >
-                              {formatDate(
-                                conversation.updated_at,
-                              )}
-                            </span>
-                          </div>
-
-                          <div className="mt-2">
-                            <span
-                              className={`text-[10px] ${
-                                active
-                                  ? "text-slate-300 dark:text-slate-600"
-                                  : "text-slate-400"
-                              }`}
-                            >
-                              {conversation.context_type ??
-                                "general"}
-                            </span>
+                          <div className="truncate pr-6 text-[13px] text-[#333] dark:text-[#eee]">
+                            {formatConversationTitle(
+                              conversation.title,
+                            )}
                           </div>
                         </button>
 
@@ -1343,11 +1174,7 @@ export default function PersistentAITutor({
                               conversation.id,
                             )
                           }
-                          className={`absolute right-2 top-3 hidden rounded-md px-1.5 py-1 text-xs transition group-hover:block disabled:cursor-not-allowed disabled:opacity-50 ${
-                            active
-                              ? "text-slate-300 hover:bg-white/10 hover:text-white dark:text-slate-600 dark:hover:bg-black/10 dark:hover:text-slate-900"
-                              : "text-slate-400 hover:bg-slate-300 hover:text-red-600 dark:hover:bg-slate-700 dark:hover:text-red-400"
-                          }`}
+                          className="absolute right-2 hidden rounded-md px-1.5 py-1 text-xs text-[#888] transition hover:bg-[#d5d5d5] hover:text-red-600 group-hover:block dark:hover:bg-[#3a3a3a] dark:hover:text-red-400"
                         >
                           {deleting ? "..." : "×"}
                         </button>
@@ -1358,83 +1185,95 @@ export default function PersistentAITutor({
               </div>
             )}
           </div>
+
+          {/* Sidebar footer */}
+
+          <div className="shrink-0 px-3 pb-3">
+            <div className="mx-1 border-t border-[#e5e5e5] dark:border-[#2f2f2f]" />
+
+            <div className="mt-3 px-2 text-[11px] text-[#999]">
+              QuantumLearn AI Tutor
+            </div>
+          </div>
         </aside>
       )}
 
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold text-slate-900 dark:text-white">
-              {selectedConversation
-                ? formatConversationTitle(
-                    selectedConversation.title,
-                  )
-                : "QuantumLearn AI Tutor"}
-            </h1>
+      {/* =====================================================
+          MAIN CHAT
+         ===================================================== */}
 
-            {initialTopic && (
-              <p className="truncate text-xs text-slate-500">
-                Topic: {initialTopic}
-              </p>
+      <section className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-[#212121]">
+        {/* ===================================================
+            HEADER
+           =================================================== */}
+
+        <header className="flex h-14 shrink-0 items-center justify-between px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            {!showHistory && (
+              <button
+                type="button"
+                onClick={() =>
+                  setShowHistory(true)
+                }
+                className="rounded-lg px-2 py-1.5 text-[#666] hover:bg-[#f1f1f1] md:hidden dark:text-[#ccc] dark:hover:bg-[#2f2f2f]"
+                aria-label="Open conversation history"
+              >
+                ☰
+              </button>
             )}
+
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-semibold text-[#333] dark:text-[#eee]">
+                {selectedConversation
+                  ? formatConversationTitle(
+                      selectedConversation.title,
+                    )
+                  : "QuantumLearn AI Tutor"}
+              </h1>
+
+              {initialTopic && (
+                <p className="truncate text-[11px] text-[#888] dark:text-[#999]">
+                  {initialTopic}
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() =>
-                setShowHistory(
-                  (previous) => !previous,
-                )
-              }
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 md:hidden dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              History
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                void startNewConversation()
-              }
-              disabled={
-                creatingConversation ||
-                sending
-              }
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              {creatingConversation
-                ? "..."
-                : "New"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              void startNewConversation()
+            }
+            disabled={
+              creatingConversation ||
+              sending
+            }
+            className="rounded-lg px-3 py-1.5 text-xs font-medium text-[#666] transition hover:bg-[#f1f1f1] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#ccc] dark:hover:bg-[#2f2f2f]"
+          >
+            {creatingConversation
+              ? "..."
+              : "New chat"}
+          </button>
         </header>
+
+        {/* ===================================================
+            MOBILE HISTORY
+           =================================================== */}
 
         {showHistory &&
           conversations.length > 0 && (
-            <div className="border-b border-slate-200 p-2 md:hidden dark:border-slate-800">
+            <div className="shrink-0 px-3 pb-2 md:hidden">
               <select
                 value={
-                  selectedConversationId ??
-                  ""
+                  selectedConversationId ?? ""
                 }
-                onChange={(event) => {
-                  const nextId =
-                    event.target.value ||
-                    null;
-
-                  selectedConversationIdRef.current =
-                    nextId;
-
-                  ++messagesRequestRef.current;
-
+                onChange={(event) =>
                   setSelectedConversationId(
-                    nextId,
-                  );
-
-                  setError(null);
-                }}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    event.target.value ||
+                      null,
+                  )
+                }
+                className="w-full rounded-lg border-0 bg-[#f1f1f1] px-3 py-2 text-sm text-[#333] outline-none dark:bg-[#2f2f2f] dark:text-white"
               >
                 <option value="">
                   New conversation
@@ -1456,8 +1295,12 @@ export default function PersistentAITutor({
             </div>
           )}
 
+        {/* ===================================================
+            ERROR
+           =================================================== */}
+
         {error && (
-          <div className="mx-4 mt-3 flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+          <div className="mx-auto mt-2 flex w-[calc(100%-2rem)] max-w-4xl shrink-0 items-start justify-between gap-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">
             <span>{error}</span>
 
             <button
@@ -1471,31 +1314,63 @@ export default function PersistentAITutor({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-4 py-5">
+        {/* ===================================================
+            MESSAGE AREA
+            
+            THIS IS THE ONLY MAIN PAGE SCROLL AREA.
+           =================================================== */}
+
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
           {loadingMessages ? (
-            <div className="space-y-4">
-              <div className="h-20 max-w-[75%] animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
-              <div className="ml-auto h-16 max-w-[70%] animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
-              <div className="h-24 max-w-[75%] animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
+            <div className="mx-auto max-w-3xl px-4 py-8">
+              <div className="space-y-8">
+                <div className="flex gap-4">
+                  <div className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-[#e5e5e5] dark:bg-[#333]" />
+
+                  <div className="w-full max-w-xl space-y-2">
+                    <div className="h-4 animate-pulse rounded bg-[#e5e5e5] dark:bg-[#333]" />
+
+                    <div className="h-4 w-4/5 animate-pulse rounded bg-[#e5e5e5] dark:bg-[#333]" />
+
+                    <div className="h-4 w-3/5 animate-pulse rounded bg-[#e5e5e5] dark:bg-[#333]" />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <div className="h-12 w-2/3 animate-pulse rounded-2xl bg-[#f1f1f1] dark:bg-[#2f2f2f]" />
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-[#e5e5e5] dark:bg-[#333]" />
+
+                  <div className="w-full max-w-2xl space-y-2">
+                    <div className="h-4 animate-pulse rounded bg-[#e5e5e5] dark:bg-[#333]" />
+
+                    <div className="h-4 animate-pulse rounded bg-[#e5e5e5] dark:bg-[#333]" />
+
+                    <div className="h-4 w-2/3 animate-pulse rounded bg-[#e5e5e5] dark:bg-[#333]" />
+                  </div>
+                </div>
+              </div>
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex min-h-full items-center justify-center">
-              <div className="max-w-lg text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-2xl text-white dark:bg-white dark:text-slate-900">
+            <div className="flex min-h-full items-center justify-center px-5 py-12">
+              <div className="w-full max-w-2xl text-center">
+                <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#171717] text-xl text-white dark:bg-white dark:text-[#171717]">
                   ✦
                 </div>
 
-                <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
-                  Learn with AI Tutor
+                <h2 className="text-2xl font-semibold tracking-tight text-[#171717] dark:text-white">
+                  How can I help you?
                 </h2>
 
-                <p className="mt-2 text-sm leading-6 text-slate-500">
+                <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#777] dark:text-[#aaa]">
                   {initialTopic
                     ? `Ask me anything about ${initialTopic}, or ask for an explanation, example, quiz, or study plan.`
                     : DEFAULT_WELCOME_MESSAGE}
                 </p>
 
-                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <div className="mt-7 flex flex-wrap justify-center gap-2">
                   {[
                     "Explain this concept simply",
                     "Give me an example",
@@ -1511,7 +1386,7 @@ export default function PersistentAITutor({
                             : suggestion,
                         )
                       }
-                      className="rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      className="rounded-full bg-[#f1f1f1] px-4 py-2 text-xs font-medium text-[#444] transition hover:bg-[#e5e5e5] dark:bg-[#2f2f2f] dark:text-[#ddd] dark:hover:bg-[#3a3a3a]"
                     >
                       {suggestion}
                     </button>
@@ -1520,11 +1395,18 @@ export default function PersistentAITutor({
               </div>
             </div>
           ) : (
-            <div className="mx-auto max-w-4xl space-y-5">
+            <div className="mx-auto max-w-3xl px-4 pb-8 pt-4 sm:px-6">
               {messages.map(
                 (message, index) => {
                   const isUser =
                     message.role === "user";
+
+                  if (
+                    message.role ===
+                    "system"
+                  ) {
+                    return null;
+                  }
 
                   return (
                     <div
@@ -1532,28 +1414,30 @@ export default function PersistentAITutor({
                         message.id ??
                         `${message.role}-${index}`
                       }
-                      className={`flex ${
+                      className={`flex w-full gap-4 py-5 ${
                         isUser
                           ? "justify-end"
                           : "justify-start"
                       }`}
                     >
-                      <div
-                        className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${
-                          isUser
-                            ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                            : "border border-slate-200 bg-white text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                        }`}
-                      >
-                        {!isUser && (
-                          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                            QuantumLearn AI
-                          </div>
-                        )}
+                      {!isUser && (
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#171717] text-xs font-semibold text-white dark:bg-white dark:text-[#171717]">
+                          Q
+                        </div>
+                      )}
 
+                      <div
+                        className={
+                          isUser
+                            ? "max-w-[82%]"
+                            : "min-w-0 max-w-[calc(100%-3rem)] flex-1"
+                        }
+                      >
                         {isUser ? (
-                          <div className="whitespace-pre-wrap break-words">
-                            {message.content}
+                          <div className="rounded-3xl bg-[#f1f1f1] px-4 py-3 text-[15px] leading-7 text-[#171717] dark:bg-[#2f2f2f] dark:text-[#eee]">
+                            <div className="whitespace-pre-wrap break-words">
+                              {message.content}
+                            </div>
                           </div>
                         ) : (
                           <TutorMarkdown
@@ -1569,13 +1453,17 @@ export default function PersistentAITutor({
               )}
 
               {sending && (
-                <div className="flex justify-start">
-                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
-                      <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
-                      <span className="h-2 w-2 animate-bounce rounded-full bg-slate-400" />
-                    </div>
+                <div className="flex gap-4 py-5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#171717] text-xs font-semibold text-white dark:bg-white dark:text-[#171717]">
+                    Q
+                  </div>
+
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#999] [animation-delay:-0.3s]" />
+
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#999] [animation-delay:-0.15s]" />
+
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#999]" />
                   </div>
                 </div>
               )}
@@ -1585,46 +1473,73 @@ export default function PersistentAITutor({
           )}
         </div>
 
-        <div className="border-t border-slate-200 p-3 dark:border-slate-800">
+        {/* ===================================================
+            COMPOSER
+           =================================================== */}
+
+        <div className="shrink-0 bg-white px-3 pb-4 pt-2 dark:bg-[#212121]">
           <form
             onSubmit={handleSubmit}
-            className="mx-auto flex max-w-4xl items-end gap-2"
+            className="mx-auto max-w-3xl"
           >
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(event) =>
-                setInput(event.target.value)
-              }
-              onKeyDown={handleKeyDown}
-              disabled={sending}
-              rows={2}
-              maxLength={MAX_MESSAGE_LENGTH}
-              placeholder="Ask your AI Tutor..."
-              className="min-h-[52px] flex-1 resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
-            />
+            <div className="relative flex items-end rounded-3xl bg-[#f1f1f1] px-3 py-2 shadow-sm dark:bg-[#2f2f2f]">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(event) =>
+                  setInput(event.target.value)
+                }
+                onKeyDown={handleKeyDown}
+                disabled={sending}
+                rows={1}
+                maxLength={MAX_MESSAGE_LENGTH}
+                placeholder="Message QuantumLearn AI..."
+                className="max-h-48 min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 text-[#171717] outline-none placeholder:text-[#888] disabled:cursor-not-allowed disabled:opacity-60 dark:text-white dark:placeholder:text-[#999]"
+              />
 
-            <button
-              type="submit"
-              disabled={
-                sending ||
-                !input.trim() ||
-                input.length >
-                  MAX_MESSAGE_LENGTH
-              }
-              className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
-            >
-              {sending ? "..." : "Send"}
-            </button>
+              <button
+                type="submit"
+                disabled={
+                  sending ||
+                  !input.trim() ||
+                  input.length >
+                    MAX_MESSAGE_LENGTH
+                }
+                aria-label="Send message"
+                className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#171717] text-white transition hover:bg-[#333] disabled:cursor-not-allowed disabled:bg-[#d1d1d1] disabled:text-[#888] dark:bg-white dark:text-black dark:hover:bg-[#e5e5e5] dark:disabled:bg-[#555] dark:disabled:text-[#999]"
+              >
+                {sending ? (
+                  <span className="text-sm">
+                    ...
+                  </span>
+                ) : (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 19V5"
+                      strokeLinecap="round"
+                    />
+
+                    <path
+                      d="M6 11l6-6 6 6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </button>
+            </div>
           </form>
 
-          <div className="mx-auto mt-2 flex max-w-4xl items-center justify-between px-1 text-[10px] text-slate-400">
+          <div className="mx-auto mt-2 flex max-w-3xl items-center justify-center px-2 text-[10px] text-[#999]">
             <span>
               Enter to send · Shift + Enter for new line
-            </span>
-
-            <span>
-              {input.length}/{MAX_MESSAGE_LENGTH}
             </span>
           </div>
         </div>
