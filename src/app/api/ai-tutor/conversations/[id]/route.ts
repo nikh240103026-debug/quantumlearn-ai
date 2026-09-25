@@ -40,9 +40,7 @@ export async function GET(
 
     if (!id) {
       return NextResponse.json(
-        {
-          error: "Conversation ID is required.",
-        },
+        { error: "Conversation ID is required." },
         { status: 400 },
       );
     }
@@ -56,9 +54,7 @@ export async function GET(
 
     if (authError || !user) {
       return NextResponse.json(
-        {
-          error: "Authentication required.",
-        },
+        { error: "Authentication required." },
         { status: 401 },
       );
     }
@@ -83,15 +79,8 @@ export async function GET(
         .single();
 
     if (conversationError || !conversation) {
-      console.error(
-        "AI conversation GET error:",
-        conversationError,
-      );
-
       return NextResponse.json(
-        {
-          error: "Conversation not found.",
-        },
+        { error: "Conversation not found." },
         { status: 404 },
       );
     }
@@ -168,9 +157,7 @@ export async function PATCH(
 
     if (!id) {
       return NextResponse.json(
-        {
-          error: "Conversation ID is required.",
-        },
+        { error: "Conversation ID is required." },
         { status: 400 },
       );
     }
@@ -184,9 +171,7 @@ export async function PATCH(
 
     if (authError || !user) {
       return NextResponse.json(
-        {
-          error: "Authentication required.",
-        },
+        { error: "Authentication required." },
         { status: 401 },
       );
     }
@@ -197,16 +182,16 @@ export async function PATCH(
       body = (await request.json()) as UpdateConversationBody;
     } catch {
       return NextResponse.json(
-        {
-          error: "Invalid JSON request body.",
-        },
+        { error: "Invalid JSON request body." },
         { status: 400 },
       );
     }
 
     const updates: Record<string, unknown> = {};
 
-    if (Object.prototype.hasOwnProperty.call(body, "title")) {
+    if (
+      Object.prototype.hasOwnProperty.call(body, "title")
+    ) {
       const title = sanitizeTitle(body.title);
 
       if (!title) {
@@ -305,10 +290,8 @@ export async function PATCH(
 /**
  * DELETE /api/ai-tutor/conversations/[id]
  *
- * Archives the conversation instead of permanently deleting it.
- *
- * This keeps the conversation data and messages in the database
- * while removing it from the active conversation history.
+ * Permanently deletes the authenticated user's conversation
+ * and all associated messages.
  */
 export async function DELETE(
   _request: NextRequest,
@@ -319,9 +302,7 @@ export async function DELETE(
 
     if (!id) {
       return NextResponse.json(
-        {
-          error: "Conversation ID is required.",
-        },
+        { error: "Conversation ID is required." },
         { status: 400 },
       );
     }
@@ -335,43 +316,64 @@ export async function DELETE(
 
     if (authError || !user) {
       return NextResponse.json(
-        {
-          error: "Authentication required.",
-        },
+        { error: "Authentication required." },
         { status: 401 },
       );
     }
 
-    const { data, error } = await supabase
-      .from("ai_conversations")
-      .update({
-        is_archived: true,
-      })
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .select(
-        `
-          id,
-          user_id,
-          title,
-          context_type,
-          context,
-          is_archived,
-          created_at,
-          updated_at
-        `,
-      )
-      .single();
+    const { data: conversation, error: conversationError } =
+      await supabase
+        .from("ai_conversations")
+        .select("id")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
 
-    if (error || !data) {
+    if (conversationError || !conversation) {
+      return NextResponse.json(
+        { error: "Conversation not found." },
+        { status: 404 },
+      );
+    }
+
+    const { error: messagesDeleteError } =
+      await supabase
+        .from("ai_messages")
+        .delete()
+        .eq("conversation_id", id)
+        .eq("user_id", user.id);
+
+    if (messagesDeleteError) {
       console.error(
-        "AI conversation DELETE/archive error:",
-        error,
+        "AI conversation messages DELETE error:",
+        messagesDeleteError,
       );
 
       return NextResponse.json(
         {
-          error: "Unable to archive AI Tutor conversation.",
+          error:
+            "Unable to delete conversation messages.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const { error: conversationDeleteError } =
+      await supabase
+        .from("ai_conversations")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+    if (conversationDeleteError) {
+      console.error(
+        "AI conversation DELETE error:",
+        conversationDeleteError,
+      );
+
+      return NextResponse.json(
+        {
+          error: "Unable to delete AI Tutor conversation.",
         },
         { status: 500 },
       );
@@ -380,7 +382,7 @@ export async function DELETE(
     return NextResponse.json(
       {
         success: true,
-        conversation: data,
+        conversationId: id,
       },
       { status: 200 },
     );
@@ -392,7 +394,7 @@ export async function DELETE(
 
     return NextResponse.json(
       {
-        error: "Unable to archive AI Tutor conversation.",
+        error: "Unable to delete AI Tutor conversation.",
       },
       { status: 500 },
     );

@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL =
   process.env.GEMINI_TUTOR_MODEL ?? "gemini-3.5-flash-lite";
+const GEMINI_TIMEOUT_MS = 45_000;
 
 type ChatRequestBody = {
   conversationId?: string;
@@ -113,28 +114,60 @@ async function callGemini(
     `https://generativelanguage.googleapis.com/v1beta/models/` +
     `${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [
-          {
-            text: systemInstruction,
-          },
-        ],
+  const controller = new AbortController();
+
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, GEMINI_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-      contents,
-      generationConfig: {
-        temperature: 0.35,
-        topP: 0.9,
-        maxOutputTokens: 1800,
-      },
-    }),
-    cache: "no-store",
-  });
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [
+            {
+              text: systemInstruction,
+            },
+          ],
+        },
+        contents,
+        generationConfig: {
+          temperature: 0.35,
+          topP: 0.9,
+          maxOutputTokens: 1800,
+        },
+      }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (
+      error instanceof DOMException &&
+      error.name === "AbortError"
+    ) {
+      const timeoutError = new Error(
+        "Gemini Tutor timed out while generating a response. Please try again.",
+      );
+
+      (
+        timeoutError as Error & {
+          status?: number;
+        }
+      ).status = 504;
+
+      throw timeoutError;
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   const data = (await response.json()) as GeminiResponse;
 
@@ -413,23 +446,23 @@ export async function POST(
       conversation.context = mergedContext;
     }
 
-    const { data: previousMessages, error: historyError } =
-      await supabase
-        .from("ai_messages")
-        .select(
-          `
-            id,
-            role,
-            content,
-            created_at
-          `,
-        )
-        .eq("conversation_id", conversationId)
-        .eq("user_id", user.id)
-        .order("created_at", {
-          ascending: true,
-        })
-        .limit(30);
+    const {
+      data: previousMessages,
+      error: historyError,
+    } = await supabase
+      .from("ai_messages")
+      .select(
+        `
+          role,
+          content
+        `,
+      )
+      .eq("conversation_id", conversationId)
+      .eq("user_id", user.id)
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(20);
 
     if (historyError) {
       console.error(
@@ -446,12 +479,17 @@ export async function POST(
       );
     }
 
-    const history = (previousMessages ?? []).map(
-      (item) => ({
+    const history = [...(previousMessages ?? [])]
+      .reverse()
+      .map((item) => ({
         role: item.role,
         content: item.content,
-      }),
-    );
+      }));
+
+    const userMessage = {
+      role: "user" as const,
+      content: message,
+    };
 
     const geminiContents = [
       ...getGeminiHistory(history),
@@ -470,6 +508,48 @@ export async function POST(
         conversation.context_type,
         conversation.context,
       );
+
+    const {
+      data: savedUserMessage,
+      error: userMessageError,
+    } = await supabase
+      .from("ai_messages")
+      .insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: "user",
+        content: message,
+        context: conversation.context,
+      })
+      .select(
+        `
+          id,
+          conversation_id,
+          user_id,
+          role,
+          content,
+          context,
+          model,
+          tokens_used,
+          created_at
+        `,
+      )
+      .single();
+
+    if (userMessageError || !savedUserMessage) {
+      console.error(
+        "AI user message save error:",
+        userMessageError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to save your message.",
+        },
+        { status: 500 },
+      );
+    }
 
     let geminiResult;
 
@@ -503,6 +583,16 @@ export async function POST(
         );
       }
 
+      if (status === 504) {
+        return NextResponse.json(
+          {
+            error:
+              "Gemini Tutor timed out while generating a response. Please try again.",
+          },
+          { status: 504 },
+        );
+      }
+
       if (status === 401 || status === 403) {
         return NextResponse.json(
           {
@@ -530,84 +620,54 @@ export async function POST(
       return NextResponse.json(
         {
           error:
-            "AI Tutor could not generate a response.",
-          details:
-            process.env.NODE_ENV === "development"
-              ? error instanceof Error
-                ? error.message
-                : String(error)
-              : undefined,
+            "AI Tutor could not generate a response. Please try again.",
         },
         { status: 500 },
       );
     }
 
-    const now = new Date().toISOString();
+    const {
+      data: savedAssistantMessage,
+      error: assistantMessageError,
+    } = await supabase
+      .from("ai_messages")
+      .insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: "assistant",
+        content: geminiResult.text,
+        context: conversation.context,
+        model: GEMINI_MODEL,
+        tokens_used: geminiResult.tokensUsed,
+      })
+      .select(
+        `
+          id,
+          conversation_id,
+          user_id,
+          role,
+          content,
+          context,
+          model,
+          tokens_used,
+          created_at
+        `,
+      )
+      .single();
 
-    const { error: userMessageError } =
-      await supabase
-        .from("ai_messages")
-        .insert({
-          conversation_id: conversationId,
-          user_id: user.id,
-          role: "user",
-          content: message,
-          context: {
-            context_type:
-              conversation.context_type,
-            ...conversation.context,
-          },
-          model: GEMINI_MODEL,
-          tokens_used: null,
-          created_at: now,
-        });
-
-    if (userMessageError) {
+    if (
+      assistantMessageError ||
+      !savedAssistantMessage
+    ) {
       console.error(
-        "AI user message insert error:",
-        userMessageError,
-      );
-
-      return NextResponse.json(
-        {
-          error:
-            "The AI response was generated, but your message could not be saved.",
-        },
-        { status: 500 },
-      );
-    }
-
-    const { error: assistantMessageError } =
-      await supabase
-        .from("ai_messages")
-        .insert({
-          conversation_id: conversationId,
-          user_id: user.id,
-          role: "assistant",
-          content: geminiResult.text,
-          context: {
-            context_type:
-              conversation.context_type,
-            ...conversation.context,
-          },
-          model: GEMINI_MODEL,
-          tokens_used:
-            geminiResult.tokensUsed,
-          created_at:
-            new Date().toISOString(),
-        });
-
-    if (assistantMessageError) {
-      console.error(
-        "AI assistant message insert error:",
+        "AI assistant message save error:",
         assistantMessageError,
       );
 
       return NextResponse.json(
         {
           error:
-            "The AI response was generated, but it could not be saved to the conversation.",
-          response: geminiResult.text,
+            "The AI response was generated but could not be saved.",
         },
         { status: 500 },
       );
@@ -617,7 +677,6 @@ export async function POST(
       await supabase
         .from("ai_conversations")
         .update({
-          context: conversation.context,
           updated_at:
             new Date().toISOString(),
         })
@@ -626,71 +685,30 @@ export async function POST(
 
     if (conversationUpdateError) {
       console.warn(
-        "AI conversation update error:",
+        "Unable to update AI conversation timestamp:",
         conversationUpdateError,
-      );
-    }
-
-    const { error: activityError } =
-      await supabase
-        .from("ai_activity")
-        .insert({
-          user_id: user.id,
-          activity_type: "tutor_message",
-          source_page: "ai-tutor",
-          topic:
-            typeof conversation.context
-              .topic === "string"
-              ? conversation.context.topic
-              : null,
-          description:
-            "Used the persistent AI Tutor.",
-          metadata: {
-            conversation_id:
-              conversationId,
-            context_type:
-              conversation.context_type,
-            model: GEMINI_MODEL,
-          },
-          created_at: new Date().toISOString(),
-        });
-
-    if (activityError) {
-      console.warn(
-        "AI activity logging error:",
-        activityError,
       );
     }
 
     return NextResponse.json(
       {
-        conversationId,
-        message: {
-          role: "assistant",
-          content: geminiResult.text,
-        },
-        model: GEMINI_MODEL,
-        tokensUsed:
-          geminiResult.tokensUsed,
+        conversation,
+        userMessage: savedUserMessage,
+        assistantMessage:
+          savedAssistantMessage,
       },
       { status: 200 },
     );
   } catch (error) {
     console.error(
-      "Unexpected AI Tutor chat error:",
+      "AI Tutor unexpected error:",
       error,
     );
 
     return NextResponse.json(
       {
         error:
-          "An unexpected error occurred while communicating with AI Tutor.",
-        details:
-          process.env.NODE_ENV === "development"
-            ? error instanceof Error
-              ? error.message
-              : String(error)
-            : undefined,
+          "Something went wrong while processing your AI Tutor request.",
       },
       { status: 500 },
     );

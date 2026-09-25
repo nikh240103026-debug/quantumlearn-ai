@@ -51,6 +51,8 @@ type PersistentAITutorProps = {
 const DEFAULT_WELCOME_MESSAGE =
   "Hello! I'm your QuantumLearn AI Tutor. Ask me anything about quantum computing, your current lessons, practice, or concepts you're struggling with.";
 
+const MAX_MESSAGE_LENGTH = 8000;
+
 function formatConversationTitle(title: string): string {
   const cleaned = title.trim();
 
@@ -76,12 +78,6 @@ function formatDate(value: string): string {
   });
 }
 
-/**
- * Safely read an API response.
- *
- * Some framework-generated errors can return HTML or an empty body.
- * This prevents JSON parsing errors from hiding the real problem.
- */
 async function readApiResponse(response: Response): Promise<{
   data: Record<string, unknown>;
   text: string;
@@ -121,6 +117,70 @@ async function readApiResponse(response: Response): Promise<{
   }
 }
 
+function getAssistantContent(
+  data: Record<string, unknown>,
+): string {
+  const assistantMessage = data.assistantMessage;
+
+  if (
+    assistantMessage &&
+    typeof assistantMessage === "object" &&
+    !Array.isArray(assistantMessage)
+  ) {
+    const content = (
+      assistantMessage as Record<string, unknown>
+    ).content;
+
+    if (typeof content === "string" && content.trim()) {
+      return content.trim();
+    }
+  }
+
+  const possibleKeys = [
+    "assistantContent",
+    "content",
+    "response",
+    "answer",
+    "message",
+  ];
+
+  for (const key of possibleKeys) {
+    const value = data[key];
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function getReturnedConversation(
+  data: Record<string, unknown>,
+): Conversation | null {
+  const value = data.conversation;
+
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value)
+  ) {
+    return null;
+  }
+
+  const conversation =
+    value as Partial<Conversation>;
+
+  if (
+    typeof conversation.id !== "string" ||
+    !conversation.id
+  ) {
+    return null;
+  }
+
+  return conversation as Conversation;
+}
+
 function TutorMarkdown({
   content,
 }: {
@@ -136,71 +196,55 @@ function TutorMarkdown({
               {children}
             </h1>
           ),
-
           h2: ({ children }) => (
             <h2 className="mb-3 mt-5 text-lg font-bold text-slate-900 dark:text-white">
               {children}
             </h2>
           ),
-
           h3: ({ children }) => (
             <h3 className="mb-2 mt-4 text-base font-bold text-slate-900 dark:text-white">
               {children}
             </h3>
           ),
-
           h4: ({ children }) => (
             <h4 className="mb-2 mt-3 text-sm font-semibold text-slate-900 dark:text-white">
               {children}
             </h4>
           ),
-
           p: ({ children }) => (
             <p className="mb-3 last:mb-0 leading-7">
               {children}
             </p>
           ),
-
           strong: ({ children }) => (
             <strong className="font-semibold text-slate-950 dark:text-white">
               {children}
             </strong>
           ),
-
           em: ({ children }) => (
-            <em className="italic">
-              {children}
-            </em>
+            <em className="italic">{children}</em>
           ),
-
           ul: ({ children }) => (
             <ul className="mb-3 ml-5 list-disc space-y-1.5">
               {children}
             </ul>
           ),
-
           ol: ({ children }) => (
             <ol className="mb-3 ml-5 list-decimal space-y-1.5">
               {children}
             </ol>
           ),
-
           li: ({ children }) => (
-            <li className="pl-1 leading-7">
-              {children}
-            </li>
+            <li className="pl-1 leading-7">{children}</li>
           ),
-
           blockquote: ({ children }) => (
             <blockquote className="my-4 border-l-4 border-slate-300 pl-4 italic text-slate-600 dark:border-slate-600 dark:text-slate-300">
               {children}
             </blockquote>
           ),
-
           hr: () => (
             <hr className="my-5 border-slate-200 dark:border-slate-700" />
           ),
-
           a: ({ href, children }) => (
             <a
               href={href}
@@ -211,13 +255,8 @@ function TutorMarkdown({
               {children}
             </a>
           ),
-
-          code: ({
-            className,
-            children,
-          }) => {
-            const isBlock =
-              Boolean(className);
+          code: ({ className, children }) => {
+            const isBlock = Boolean(className);
 
             if (isBlock) {
               return (
@@ -233,13 +272,11 @@ function TutorMarkdown({
               </code>
             );
           },
-
           pre: ({ children }) => (
             <pre className="my-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-950 p-4 text-sm leading-6 text-slate-100 dark:border-slate-700">
               {children}
             </pre>
           ),
-
           table: ({ children }) => (
             <div className="my-4 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
               <table className="w-full min-w-[500px] border-collapse text-sm">
@@ -247,39 +284,29 @@ function TutorMarkdown({
               </table>
             </div>
           ),
-
           thead: ({ children }) => (
             <thead className="bg-slate-100 dark:bg-slate-800">
               {children}
             </thead>
           ),
-
-          tbody: ({ children }) => (
-            <tbody>{children}</tbody>
-          ),
-
+          tbody: ({ children }) => <tbody>{children}</tbody>,
           tr: ({ children }) => (
             <tr className="border-b border-slate-200 last:border-b-0 dark:border-slate-700">
               {children}
             </tr>
           ),
-
           th: ({ children }) => (
             <th className="px-3 py-2 text-left font-semibold text-slate-900 dark:text-white">
               {children}
             </th>
           ),
-
           td: ({ children }) => (
             <td className="px-3 py-2 text-left text-slate-700 dark:text-slate-300">
               {children}
             </td>
           ),
-
           del: ({ children }) => (
-            <del className="text-slate-500">
-              {children}
-            </del>
+            <del className="text-slate-500">{children}</del>
           ),
         }}
       >
@@ -296,9 +323,9 @@ export default function PersistentAITutor({
   pageMode = false,
   className = "",
 }: PersistentAITutorProps) {
-  const [conversations, setConversations] = useState<
-    Conversation[]
-  >([]);
+  const [conversations, setConversations] = useState<Conversation[]>(
+    [],
+  );
 
   const [selectedConversationId, setSelectedConversationId] =
     useState<string | null>(null);
@@ -310,13 +337,15 @@ export default function PersistentAITutor({
   const [loadingConversations, setLoadingConversations] =
     useState(true);
 
-  const [loadingMessages, setLoadingMessages] =
-    useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   const [sending, setSending] = useState(false);
 
   const [creatingConversation, setCreatingConversation] =
     useState(false);
+
+  const [deletingConversationId, setDeletingConversationId] =
+    useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -327,6 +356,25 @@ export default function PersistentAITutor({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const conversationsRequestRef = useRef(0);
+
+  const messagesRequestRef = useRef(0);
+
+  const mountedRef = useRef(true);
+
+  /*
+   * IMPORTANT:
+   *
+   * React state updates are asynchronous.
+   * Reading selectedConversationId immediately after calling
+   * setSelectedConversationId() can therefore return the old ID.
+   *
+   * This ref always contains the latest selected conversation.
+   */
+  const selectedConversationIdRef = useRef<string | null>(
+    null,
+  );
 
   const context = useMemo<TutorContext>(
     () => ({
@@ -346,13 +394,36 @@ export default function PersistentAITutor({
         conversation.id === selectedConversationId,
     ) ?? null;
 
-  /**
-   * Load active conversations.
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  /*
+   * Keep the ref synchronized with React state.
+   */
+  useEffect(() => {
+    selectedConversationIdRef.current =
+      selectedConversationId;
+  }, [selectedConversationId]);
+
+  /*
+   * Conversation list loading.
+   *
+   * Only the latest request is allowed to update state.
    */
   const loadConversations = useCallback(
     async (preserveSelection = true) => {
+      const requestId =
+        ++conversationsRequestRef.current;
+
       try {
-        setLoadingConversations(true);
+        if (mountedRef.current) {
+          setLoadingConversations(true);
+        }
 
         const response = await fetch(
           "/api/ai-tutor/conversations",
@@ -365,13 +436,19 @@ export default function PersistentAITutor({
         const { data, text } =
           await readApiResponse(response);
 
+        if (
+          !mountedRef.current ||
+          requestId !==
+            conversationsRequestRef.current
+        ) {
+          return;
+        }
+
         if (!response.ok) {
           throw new Error(
             typeof data.error === "string"
               ? data.error
-              : text
-                ? `Unable to load conversations (${response.status}).`
-                : `Unable to load conversations (${response.status}).`,
+              : `Unable to load conversations (${response.status}).`,
           );
         }
 
@@ -384,42 +461,55 @@ export default function PersistentAITutor({
         setConversations(loaded);
 
         if (!preserveSelection) {
-          if (loaded.length > 0) {
-            setSelectedConversationId(
-              loaded[0].id,
-            );
-          } else {
-            setSelectedConversationId(null);
-          }
+          const nextId =
+            loaded.length > 0
+              ? loaded[0].id
+              : null;
+
+          selectedConversationIdRef.current =
+            nextId;
+
+          setSelectedConversationId(nextId);
 
           return;
         }
 
-        /**
-         * Keep the currently selected conversation if it
-         * still exists.
-         */
+        setSelectedConversationId(
+          (currentSelectedId) => {
+            if (
+              currentSelectedId &&
+              loaded.some(
+                (conversation) =>
+                  conversation.id ===
+                  currentSelectedId,
+              )
+            ) {
+              selectedConversationIdRef.current =
+                currentSelectedId;
+
+              return currentSelectedId;
+            }
+
+            const nextId =
+              loaded.length > 0
+                ? loaded[0].id
+                : null;
+
+            selectedConversationIdRef.current =
+              nextId;
+
+            return nextId;
+          },
+        );
+      } catch (err) {
         if (
-          selectedConversationId &&
-          loaded.some(
-            (conversation) =>
-              conversation.id ===
-              selectedConversationId,
-          )
+          !mountedRef.current ||
+          requestId !==
+            conversationsRequestRef.current
         ) {
           return;
         }
 
-        /**
-         * If the selected conversation no longer exists,
-         * select the newest conversation.
-         */
-        if (loaded.length > 0) {
-          setSelectedConversationId(
-            loaded[0].id,
-          );
-        }
-      } catch (err) {
         console.error(
           "Conversation loading error:",
           err,
@@ -431,20 +521,33 @@ export default function PersistentAITutor({
             : "Unable to load conversations.",
         );
       } finally {
-        setLoadingConversations(false);
+        if (
+          mountedRef.current &&
+          requestId ===
+            conversationsRequestRef.current
+        ) {
+          setLoadingConversations(false);
+        }
       }
     },
-    [selectedConversationId],
+    [],
   );
 
-  /**
-   * Load one conversation and all persisted messages.
+  /*
+   * Message loading.
+   *
+   * Every conversation request receives a unique version.
+   * Older requests can never overwrite a newer conversation.
    */
   const loadConversation = useCallback(
     async (conversationId: string) => {
+      const requestId =
+        ++messagesRequestRef.current;
+
       try {
-        setLoadingMessages(true);
-        setError(null);
+        if (mountedRef.current) {
+          setLoadingMessages(true);
+        }
 
         const response = await fetch(
           `/api/ai-tutor/conversations/${conversationId}`,
@@ -454,16 +557,32 @@ export default function PersistentAITutor({
           },
         );
 
-        const { data, text } =
+        const { data } =
           await readApiResponse(response);
+
+        if (
+          !mountedRef.current ||
+          requestId !== messagesRequestRef.current
+        ) {
+          return;
+        }
+
+        /*
+         * Also verify that the requested conversation is
+         * still the active conversation.
+         */
+        if (
+          selectedConversationIdRef.current !==
+          conversationId
+        ) {
+          return;
+        }
 
         if (!response.ok) {
           throw new Error(
             typeof data.error === "string"
               ? data.error
-              : text
-                ? `Unable to load conversation (${response.status}).`
-                : `Unable to load conversation (${response.status}).`,
+              : `Unable to load conversation (${response.status}).`,
           );
         }
 
@@ -475,6 +594,13 @@ export default function PersistentAITutor({
 
         setMessages(loadedMessages);
       } catch (err) {
+        if (
+          !mountedRef.current ||
+          requestId !== messagesRequestRef.current
+        ) {
+          return;
+        }
+
         console.error(
           "Conversation message loading error:",
           err,
@@ -488,17 +614,56 @@ export default function PersistentAITutor({
             : "Unable to load conversation.",
         );
       } finally {
-        setLoadingMessages(false);
+        if (
+          mountedRef.current &&
+          requestId === messagesRequestRef.current
+        ) {
+          setLoadingMessages(false);
+        }
       }
     },
     [],
   );
 
-  /**
-   * Create a conversation explicitly.
-   *
-   * This is used when the user starts a brand-new chat.
+  /*
+   * Selecting a conversation immediately invalidates every
+   * previous message request.
    */
+  useEffect(() => {
+    const conversationId =
+      selectedConversationId;
+
+    ++messagesRequestRef.current;
+
+    if (!conversationId) {
+      setMessages([]);
+      setLoadingMessages(false);
+      return;
+    }
+
+    void loadConversation(conversationId);
+  }, [
+    selectedConversationId,
+    loadConversation,
+  ]);
+
+  /*
+   * Initial conversation loading.
+   */
+  useEffect(() => {
+    void loadConversations(false);
+  }, [loadConversations]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages, sending]);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [selectedConversationId]);
+
   const createConversation = useCallback(
     async () => {
       try {
@@ -526,29 +691,34 @@ export default function PersistentAITutor({
           },
         );
 
-        const { data, text } =
+        const { data } =
           await readApiResponse(response);
 
         if (!response.ok) {
           throw new Error(
             typeof data.error === "string"
               ? data.error
-              : text
-                ? `Unable to create conversation (${response.status}).`
-                : `Unable to create conversation (${response.status}).`,
+              : `Unable to create conversation (${response.status}).`,
           );
         }
 
         const conversation =
-          data.conversation as
-            | Conversation
-            | undefined;
+          getReturnedConversation(data);
 
-        if (!conversation?.id) {
+        if (!conversation) {
           throw new Error(
             "The server did not return a valid conversation.",
           );
         }
+
+        if (!mountedRef.current) {
+          return null;
+        }
+
+        /*
+         * Invalidate stale conversation-list requests.
+         */
+        ++conversationsRequestRef.current;
 
         setConversations((previous) => [
           conversation,
@@ -558,14 +728,33 @@ export default function PersistentAITutor({
           ),
         ]);
 
+        /*
+         * Invalidate every message request belonging to
+         * the previous conversation.
+         */
+        ++messagesRequestRef.current;
+
+        /*
+         * IMPORTANT:
+         * Update the ref immediately, not only React state.
+         * This prevents sendMessage() from reading the old ID.
+         */
+        selectedConversationIdRef.current =
+          conversation.id;
+
         setSelectedConversationId(
           conversation.id,
         );
 
         setMessages([]);
+        setLoadingMessages(false);
 
         return conversation;
       } catch (err) {
+        if (!mountedRef.current) {
+          return null;
+        }
+
         console.error(
           "Conversation creation error:",
           err,
@@ -579,154 +768,132 @@ export default function PersistentAITutor({
 
         return null;
       } finally {
-        setCreatingConversation(false);
+        if (mountedRef.current) {
+          setCreatingConversation(false);
+        }
       }
     },
     [context, initialTopic],
   );
 
-  /**
-   * Archive conversation.
-   *
-   * IMPORTANT:
-   * We intentionally use PATCH instead of DELETE.
-   *
-   * Your [id]/route.ts already supports PATCH with
-   * isArchived, while the running Next.js route was
-   * returning 405 for DELETE.
-   */
-  const archiveConversation = useCallback(
+  const deleteConversation = useCallback(
     async (conversationId: string) => {
+      if (deletingConversationId) {
+        return;
+      }
+
+      const conversationToDelete =
+        conversations.find(
+          (conversation) =>
+            conversation.id ===
+            conversationId,
+        );
+
+      if (!conversationToDelete) {
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Delete "${formatConversationTitle(
+          conversationToDelete.title,
+        )}" permanently?\n\nThis will permanently delete the conversation and its messages.`,
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
       try {
+        setDeletingConversationId(
+          conversationId,
+        );
         setError(null);
 
         const response = await fetch(
           `/api/ai-tutor/conversations/${conversationId}`,
           {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              isArchived: true,
-            }),
+            method: "DELETE",
+            cache: "no-store",
           },
         );
 
-        const { data, text } =
+        const { data } =
           await readApiResponse(response);
 
         if (!response.ok) {
           throw new Error(
             typeof data.error === "string"
               ? data.error
-              : text
-                ? `Unable to archive conversation (${response.status}).`
-                : `Unable to archive conversation (${response.status}).`,
+              : `Unable to delete conversation (${response.status}).`,
           );
         }
 
-        /**
-         * Remove it immediately from the visible history.
+        if (!mountedRef.current) {
+          return;
+        }
+
+        /*
+         * Invalidate all old requests.
          */
-        setConversations((previous) =>
-          previous.filter(
+        ++conversationsRequestRef.current;
+        ++messagesRequestRef.current;
+
+        const wasSelected =
+          selectedConversationIdRef.current ===
+          conversationId;
+
+        const remaining =
+          conversations.filter(
             (conversation) =>
               conversation.id !==
               conversationId,
-          ),
-        );
+          );
 
-        /**
-         * If the archived conversation was active,
-         * switch to another existing conversation.
-         */
-        if (
-          selectedConversationId ===
-          conversationId
-        ) {
-          const remaining =
-            conversations.filter(
-              (conversation) =>
-                conversation.id !==
-                conversationId,
-            );
+        setConversations(remaining);
 
-          if (remaining.length > 0) {
-            setSelectedConversationId(
-              remaining[0].id,
-            );
-          } else {
-            setSelectedConversationId(null);
+        if (wasSelected) {
+          const nextId =
+            remaining.length > 0
+              ? remaining[0].id
+              : null;
+
+          selectedConversationIdRef.current =
+            nextId;
+
+          setSelectedConversationId(nextId);
+
+          if (!nextId) {
             setMessages([]);
+            setLoadingMessages(false);
           }
         }
       } catch (err) {
+        if (!mountedRef.current) {
+          return;
+        }
+
         console.error(
-          "Conversation archive error:",
+          "Conversation deletion error:",
           err,
         );
 
         setError(
           err instanceof Error
             ? err.message
-            : "Unable to archive conversation.",
+            : "Unable to delete conversation.",
         );
+      } finally {
+        if (mountedRef.current) {
+          setDeletingConversationId(null);
+        }
       }
     },
     [
       conversations,
-      selectedConversationId,
+      deletingConversationId,
     ],
   );
 
-  /**
-   * Initial conversation loading.
-   */
-  useEffect(() => {
-    void loadConversations(false);
-  }, [loadConversations]);
-
-  /**
-   * Load messages whenever selected conversation changes.
-   */
-  useEffect(() => {
-    if (!selectedConversationId) {
-      setMessages([]);
-      return;
-    }
-
-    void loadConversation(
-      selectedConversationId,
-    );
-  }, [
-    selectedConversationId,
-    loadConversation,
-  ]);
-
-  /**
-   * Auto-scroll to newest message.
-   */
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-    });
-  }, [messages, sending]);
-
-  /**
-   * Focus input when switching conversations.
-   */
-  useEffect(() => {
-    textareaRef.current?.focus();
-  }, [selectedConversationId]);
-
-  /**
-   * Send message.
-   *
-   * If there is no selected conversation, explicitly create
-   * one first. This guarantees that every new chat has a
-   * persistent conversation ID before the message is sent.
-   */
   async function sendMessage() {
     const trimmed = input.trim();
 
@@ -734,16 +901,27 @@ export default function PersistentAITutor({
       return;
     }
 
+    if (trimmed.length > MAX_MESSAGE_LENGTH) {
+      setError(
+        `Your message is too long. Please keep it under ${MAX_MESSAGE_LENGTH} characters.`,
+      );
+      return;
+    }
+
     setError(null);
     setSending(true);
 
     let conversationId =
-      selectedConversationId;
+      selectedConversationIdRef.current;
+
+    const optimisticMessageId =
+      `temporary-user-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
 
     try {
-      /**
-       * Create persistent conversation first when this
-       * is a brand-new chat.
+      /*
+       * Create the conversation if none exists.
        */
       if (!conversationId) {
         const conversation =
@@ -757,10 +935,23 @@ export default function PersistentAITutor({
 
         conversationId =
           conversation.id;
+
+        /*
+         * createConversation already updates the ref,
+         * but set it explicitly here as a final guarantee.
+         */
+        selectedConversationIdRef.current =
+          conversationId;
       }
 
+      /*
+       * Capture the exact conversation used for this request.
+       */
+      const requestConversationId =
+        conversationId;
+
       const optimisticMessage: Message = {
-        id: `temporary-user-${Date.now()}`,
+        id: optimisticMessageId,
         role: "user",
         content: trimmed,
         created_at:
@@ -774,26 +965,33 @@ export default function PersistentAITutor({
 
       setInput("");
 
+      const activeConversation =
+        conversations.find(
+          (conversation) =>
+            conversation.id ===
+            requestConversationId,
+        );
+
       const response = await fetch(
         "/api/ai-tutor/chat",
         {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            conversationId,
+            conversationId:
+              requestConversationId,
             message: trimmed,
             contextType:
-              selectedConversation
-                ?.context_type ??
+              activeConversation?.context_type ??
               (initialTopic
                 ? "topic"
                 : "general"),
             context: {
               ...context,
-              conversationId,
+              conversationId:
+                requestConversationId,
             },
           }),
         },
@@ -806,72 +1004,120 @@ export default function PersistentAITutor({
         throw new Error(
           typeof data.error === "string"
             ? data.error
-            : text
-              ? `Unable to get a response from AI Tutor (${response.status}).`
+            : text.trim()
+              ? text.slice(0, 300)
               : `Unable to get a response from AI Tutor (${response.status}).`,
         );
       }
 
-      const messageData =
-        data.message as
-          | {
-              content?: string;
-            }
-          | undefined;
-
-      const assistantContent =
-        typeof messageData?.content ===
-        "string"
-          ? messageData.content
-          : "I wasn't able to generate a response.";
-
-      const assistantMessage: Message = {
-        id: `temporary-assistant-${Date.now()}`,
-        role: "assistant",
-        content: assistantContent,
-        created_at:
-          new Date().toISOString(),
-      };
-
-      setMessages((previous) => [
-        ...previous,
-        assistantMessage,
-      ]);
-
-      /**
-       * The API should normally return the same conversation
-       * ID. If it creates one for any reason, synchronize it.
+      /*
+       * Some API implementations may return the conversation
+       * object in the response. Respect it if present.
        */
+      const returnedConversation =
+        getReturnedConversation(data);
+
       if (
-        typeof data.conversationId ===
-          "string" &&
-        data.conversationId !==
-          conversationId
+        returnedConversation?.id &&
+        returnedConversation.id !==
+          requestConversationId
       ) {
         conversationId =
-          data.conversationId;
+          returnedConversation.id;
+
+        ++messagesRequestRef.current;
+
+        selectedConversationIdRef.current =
+          conversationId;
 
         setSelectedConversationId(
           conversationId,
         );
       }
 
-      /**
-       * Refresh the sidebar so updated_at/title ordering
-       * reflects the persisted database state.
+      /*
+       * Normalize assistant response from the API.
+       */
+      const assistantContent =
+        getAssistantContent(data);
+
+      if (!assistantContent) {
+        console.error(
+          "AI Tutor returned no assistant content.",
+          {
+            status: response.status,
+            responseText: text,
+            responseData: data,
+          },
+        );
+
+        throw new Error(
+          "The AI Tutor returned an empty response. Please try again.",
+        );
+      }
+
+      const assistantMessageData =
+        data.assistantMessage &&
+        typeof data.assistantMessage ===
+          "object" &&
+        !Array.isArray(
+          data.assistantMessage,
+        )
+          ? (data.assistantMessage as Message)
+          : {
+              role: "assistant" as const,
+              content: assistantContent,
+              created_at:
+                new Date().toISOString(),
+            };
+
+      /*
+       * Check the CURRENT active conversation through the ref.
+       *
+       * Do not use selectedConversationId here because that
+       * state value may be one render behind.
+       */
+      const stillViewingRequestConversation =
+        mountedRef.current &&
+        selectedConversationIdRef.current ===
+          requestConversationId;
+
+      if (
+        stillViewingRequestConversation
+      ) {
+        setMessages((previous) => [
+          ...previous.filter(
+            (message) =>
+              message.id !==
+              optimisticMessageId,
+          ),
+          {
+            ...assistantMessageData,
+            role: "assistant",
+            content: assistantContent,
+          },
+        ]);
+      }
+
+      /*
+       * Refresh the conversation list.
        */
       await loadConversations(true);
 
-      /**
-       * IMPORTANT:
-       * Reload the persisted messages after the API call.
+      /*
+       * Only reload messages if the user is still looking
+       * at the conversation that produced the response.
        *
-       * This proves the messages are actually stored in
-       * Supabase instead of relying only on optimistic UI.
+       * Use the ref, never the stale state closure.
        */
-      if (conversationId) {
+      if (
+        requestConversationId &&
+        mountedRef.current &&
+        selectedConversationIdRef.current ===
+          requestConversationId
+      ) {
         await loadConversation(
-          conversationId,
+          requestConversationId,
         );
       }
     } catch (err) {
@@ -880,31 +1126,31 @@ export default function PersistentAITutor({
         err,
       );
 
-      setMessages((previous) =>
-        previous.filter(
-          (message) =>
-            !(
-              message.id?.startsWith(
-                "temporary-user-",
-              ) &&
-              message.content === trimmed
-            ),
-        ),
-      );
+      if (mountedRef.current) {
+        setMessages((previous) =>
+          previous.filter(
+            (message) =>
+              message.id !==
+              optimisticMessageId,
+          ),
+        );
 
-      setInput(trimmed);
+        setInput(trimmed);
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to send message.",
-      );
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to send message.",
+        );
+      }
     } finally {
-      setSending(false);
+      if (mountedRef.current) {
+        setSending(false);
 
-      window.setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 0);
+        window.setTimeout(() => {
+          textareaRef.current?.focus();
+        }, 0);
+      }
     }
   }
 
@@ -928,32 +1174,44 @@ export default function PersistentAITutor({
   }
 
   async function startNewConversation() {
-  if (creatingConversation) {
-    return;
+    if (
+      creatingConversation ||
+      sending
+    ) {
+      return;
+    }
+
+    setInput("");
+    setError(null);
+
+    const conversation =
+      await createConversation();
+
+    if (!conversation) {
+      return;
+    }
+
+    /*
+     * createConversation already changed both state and ref.
+     */
+    selectedConversationIdRef.current =
+      conversation.id;
+
+    setSelectedConversationId(
+      conversation.id,
+    );
+
+    setMessages([]);
+
+    window.setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
   }
-
-  setInput("");
-  setError(null);
-
-  const conversation = await createConversation();
-
-  if (!conversation) {
-    return;
-  }
-
-  setSelectedConversationId(conversation.id);
-  setMessages([]);
-
-  window.setTimeout(() => {
-    textareaRef.current?.focus();
-  }, 0);
-}
 
   return (
     <div
       className={`flex h-full min-h-[600px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950 ${className}`}
     >
-      {/* Conversation sidebar */}
       {showHistory && (
         <aside className="hidden w-72 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex dark:border-slate-800 dark:bg-slate-900/60">
           <div className="flex items-center justify-between border-b border-slate-200 p-4 dark:border-slate-800">
@@ -969,11 +1227,18 @@ export default function PersistentAITutor({
 
             <button
               type="button"
-              onClick={() => void startNewConversation()}
-              disabled={creatingConversation}
+              onClick={() =>
+                void startNewConversation()
+              }
+              disabled={
+                creatingConversation ||
+                sending
+              }
               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              {creatingConversation ? "..." : "+ New"}
+              {creatingConversation
+                ? "..."
+                : "+ New"}
             </button>
           </div>
 
@@ -987,7 +1252,8 @@ export default function PersistentAITutor({
                   />
                 ))}
               </div>
-            ) : conversations.length === 0 ? (
+            ) : conversations.length ===
+              0 ? (
               <div className="p-4 text-center text-sm text-slate-500">
                 No conversations yet.
                 <br />
@@ -1001,88 +1267,91 @@ export default function PersistentAITutor({
                       conversation.id ===
                       selectedConversationId;
 
+                    const deleting =
+                      deletingConversationId ===
+                      conversation.id;
+
                     return (
-                      <button
+                      <div
                         key={conversation.id}
-                        type="button"
-                        onClick={() =>
-                          setSelectedConversationId(
-                            conversation.id,
-                          )
-                        }
-                        className={`group w-full rounded-xl p-3 text-left transition ${
+                        className={`group relative w-full rounded-xl transition ${
                           active
                             ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
                             : "text-slate-700 hover:bg-slate-200 dark:text-slate-200 dark:hover:bg-slate-800"
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="line-clamp-2 text-sm font-medium">
-                            {formatConversationTitle(
-                              conversation.title,
-                            )}
-                          </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            selectedConversationIdRef.current =
+                              conversation.id;
 
-                          <span
-                            className={`shrink-0 text-[10px] ${
-                              active
-                                ? "text-slate-300 dark:text-slate-600"
-                                : "text-slate-400"
-                            }`}
-                          >
-                            {formatDate(
-                              conversation.updated_at,
-                            )}
-                          </span>
-                        </div>
+                            ++messagesRequestRef.current;
 
-                        <div className="mt-2 flex items-center justify-between">
-                          <span
-                            className={`text-[10px] ${
-                              active
-                                ? "text-slate-300 dark:text-slate-600"
-                                : "text-slate-400"
-                            }`}
-                          >
-                            {conversation.context_type ??
-                              "general"}
-                          </span>
+                            setSelectedConversationId(
+                              conversation.id,
+                            );
 
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(event) => {
-                              event.stopPropagation();
+                            setError(null);
+                          }}
+                          disabled={deleting}
+                          className="w-full p-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <div className="flex items-start justify-between gap-2 pr-6">
+                            <span className="line-clamp-2 text-sm font-medium">
+                              {formatConversationTitle(
+                                conversation.title,
+                              )}
+                            </span>
 
-                              void archiveConversation(
-                                conversation.id,
-                              );
-                            }}
-                            onKeyDown={(event) => {
-                              if (
-                                event.key ===
-                                  "Enter" ||
-                                event.key ===
-                                  " "
-                              ) {
-                                event.preventDefault();
-                                event.stopPropagation();
+                            <span
+                              className={`shrink-0 text-[10px] ${
+                                active
+                                  ? "text-slate-300 dark:text-slate-600"
+                                  : "text-slate-400"
+                              }`}
+                            >
+                              {formatDate(
+                                conversation.updated_at,
+                              )}
+                            </span>
+                          </div>
 
-                                void archiveConversation(
-                                  conversation.id,
-                                );
-                              }
-                            }}
-                            className={`hidden rounded px-1.5 py-0.5 text-[10px] group-hover:inline-block ${
-                              active
-                                ? "bg-white/10 text-white dark:bg-black/10 dark:text-slate-900"
-                                : "bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                            }`}
-                          >
-                            Archive
-                          </span>
-                        </div>
-                      </button>
+                          <div className="mt-2">
+                            <span
+                              className={`text-[10px] ${
+                                active
+                                  ? "text-slate-300 dark:text-slate-600"
+                                  : "text-slate-400"
+                              }`}
+                            >
+                              {conversation.context_type ??
+                                "general"}
+                            </span>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-label={`Delete ${formatConversationTitle(
+                            conversation.title,
+                          )}`}
+                          title="Delete conversation"
+                          disabled={deleting}
+                          onClick={() =>
+                            void deleteConversation(
+                              conversation.id,
+                            )
+                          }
+                          className={`absolute right-2 top-3 hidden rounded-md px-1.5 py-1 text-xs transition group-hover:block disabled:cursor-not-allowed disabled:opacity-50 ${
+                            active
+                              ? "text-slate-300 hover:bg-white/10 hover:text-white dark:text-slate-600 dark:hover:bg-black/10 dark:hover:text-slate-900"
+                              : "text-slate-400 hover:bg-slate-300 hover:text-red-600 dark:hover:bg-slate-700 dark:hover:text-red-400"
+                          }`}
+                        >
+                          {deleting ? "..." : "×"}
+                        </button>
+                      </div>
                     );
                   },
                 )}
@@ -1092,7 +1361,6 @@ export default function PersistentAITutor({
         </aside>
       )}
 
-      {/* Main Tutor */}
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
           <div className="min-w-0">
@@ -1126,16 +1394,22 @@ export default function PersistentAITutor({
 
             <button
               type="button"
-              onClick={() => void startNewConversation()}
-              disabled={creatingConversation}
+              onClick={() =>
+                void startNewConversation()
+              }
+              disabled={
+                creatingConversation ||
+                sending
+              }
               className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
-              {creatingConversation ? "..." : "New"}
+              {creatingConversation
+                ? "..."
+                : "New"}
             </button>
           </div>
         </header>
 
-        {/* Mobile history */}
         {showHistory &&
           conversations.length > 0 && (
             <div className="border-b border-slate-200 p-2 md:hidden dark:border-slate-800">
@@ -1144,12 +1418,22 @@ export default function PersistentAITutor({
                   selectedConversationId ??
                   ""
                 }
-                onChange={(event) =>
-                  setSelectedConversationId(
+                onChange={(event) => {
+                  const nextId =
                     event.target.value ||
-                      null,
-                  )
-                }
+                    null;
+
+                  selectedConversationIdRef.current =
+                    nextId;
+
+                  ++messagesRequestRef.current;
+
+                  setSelectedConversationId(
+                    nextId,
+                  );
+
+                  setError(null);
+                }}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
               >
                 <option value="">
@@ -1173,12 +1457,20 @@ export default function PersistentAITutor({
           )}
 
         {error && (
-          <div className="mx-4 mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-            {error}
+          <div className="mx-4 mt-3 flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <span>{error}</span>
+
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="shrink-0 font-semibold text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
+              aria-label="Dismiss error"
+            >
+              ×
+            </button>
           </div>
         )}
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-5">
           {loadingMessages ? (
             <div className="space-y-4">
@@ -1260,12 +1552,16 @@ export default function PersistentAITutor({
                         )}
 
                         {isUser ? (
-                            <div className="whitespace-pre-wrap break-words">
-                              {message.content}
-                            </div>
-                          ) : (
-                            <TutorMarkdown content={message.content} />
-                          )}
+                          <div className="whitespace-pre-wrap break-words">
+                            {message.content}
+                          </div>
+                        ) : (
+                          <TutorMarkdown
+                            content={
+                              message.content
+                            }
+                          />
+                        )}
                       </div>
                     </div>
                   );
@@ -1289,7 +1585,6 @@ export default function PersistentAITutor({
           )}
         </div>
 
-        {/* Input */}
         <div className="border-t border-slate-200 p-3 dark:border-slate-800">
           <form
             onSubmit={handleSubmit}
@@ -1304,7 +1599,7 @@ export default function PersistentAITutor({
               onKeyDown={handleKeyDown}
               disabled={sending}
               rows={2}
-              maxLength={8000}
+              maxLength={MAX_MESSAGE_LENGTH}
               placeholder="Ask your AI Tutor..."
               className="min-h-[52px] flex-1 resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-slate-500 dark:focus:ring-slate-800"
             />
@@ -1313,7 +1608,9 @@ export default function PersistentAITutor({
               type="submit"
               disabled={
                 sending ||
-                !input.trim()
+                !input.trim() ||
+                input.length >
+                  MAX_MESSAGE_LENGTH
               }
               className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200"
             >
@@ -1326,7 +1623,9 @@ export default function PersistentAITutor({
               Enter to send · Shift + Enter for new line
             </span>
 
-            <span>{input.length}/8000</span>
+            <span>
+              {input.length}/{MAX_MESSAGE_LENGTH}
+            </span>
           </div>
         </div>
       </section>
