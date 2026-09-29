@@ -7,6 +7,11 @@ import { CourseRoadmap } from "@/components/dashboard/CourseRoadmap";
 import PersonalizedLearningPath from "@/components/dashboard/PersonalizedLearningPath";
 import { ProgressAnalytics } from "@/components/dashboard/ProgressAnalytics";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
+import { ContinueLearningCard } from "@/components/dashboard/ContinueLearningCard";
+import { AchievementsCard } from "@/components/dashboard/AchievementsCard";
+import { SavedContentCard } from "@/components/dashboard/SavedContentCard";
+import { NotificationsCard } from "@/components/dashboard/NotificationsCard";
+import { QuantumLabProjectsCard } from "@/components/dashboard/QuantumProjectsCard";
 import { DashboardReveal, DashboardStagger } from "@/components/dashboard/DashboardReveal";
 
 import {
@@ -17,6 +22,7 @@ import {
 import { calculateProgressAnalytics } from "@/lib/progress/progress-engine";
 
 import type { RecentActivity as RecentActivityItem } from "@/types/dashboard";
+import { getPersonalDashboardData } from "@/lib/dashboard/personal-dashboard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -491,6 +497,15 @@ export default async function DashboardPage() {
     recentActivity.slice(0, 8);
 
   // ==========================================================
+  // PERSONAL DASHBOARD CONTROL CENTER
+  // ==========================================================
+
+  const personalDashboard = await getPersonalDashboardData(
+    supabase,
+    user.id,
+  );
+
+  // ==========================================================
   // PAGE
   // ==========================================================
 
@@ -876,6 +891,36 @@ export default async function DashboardPage() {
                 </div>
               </div>
             </DashboardReveal>
+          </div>
+        </section>
+
+        {/* =====================================================
+            PERSONAL CONTROL CENTER
+        ===================================================== */}
+
+        <section className="border-b border-black/10">
+          <div className="grid lg:grid-cols-[0.35fr_1fr]">
+            <div className="border-b border-black/10 p-6 sm:p-10 lg:border-b-0 lg:border-r lg:p-16">
+              <DashboardReveal direction="left">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">
+                  03 — Personal center
+                </p>
+
+                <p className="mt-24 max-w-xs text-4xl font-medium leading-[1.02] tracking-[-0.04em]">
+                  Everything you need to keep learning in one place.
+                </p>
+              </DashboardReveal>
+            </div>
+
+            <div className="grid gap-6 p-6 sm:p-10 lg:grid-cols-2 lg:p-16">
+              <ContinueLearningCard data={personalDashboard.continueLearning} />
+              <NotificationsCard notifications={personalDashboard.notifications} />
+              <AchievementsCard achievements={personalDashboard.achievements} />
+              <SavedContentCard items={personalDashboard.savedContent} />
+              <div className="lg:col-span-2">
+                <QuantumLabProjectsCard projects={personalDashboard.labProjects} />
+              </div>
+            </div>
           </div>
         </section>
 
