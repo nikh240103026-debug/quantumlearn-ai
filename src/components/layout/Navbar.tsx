@@ -29,6 +29,7 @@ import {
   ClipboardCheck,
   FileText,
   Settings,
+  LifeBuoy,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
@@ -185,6 +186,11 @@ const standaloneNavigation = [
     href: "/resources",
     icon: Library,
   },
+  {
+    name: "Help Center",
+    href: "/help",
+    icon: LifeBuoy,
+  },
 ];
 
 export function Navbar() {
@@ -251,6 +257,7 @@ export function Navbar() {
 
   const isRouteActive = (href: string) => {
     if (href === "/") return pathname === "/";
+
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
@@ -321,7 +328,7 @@ export function Navbar() {
                     type="button"
                     onClick={() =>
                       setOpenDropdown((current) =>
-                        current === group.name ? null : group.name
+                        current === group.name ? null : group.name,
                       )
                     }
                     className={`inline-flex items-center gap-1.5 border px-3 py-2 text-sm font-medium transition-colors ${
@@ -344,7 +351,6 @@ export function Navbar() {
                     />
                   </button>
 
-                  {/* Dropdown */}
                   {open && (
                     <div className="absolute left-1/2 top-full z-50 w-[330px] -translate-x-1/2 border-x border-b border-white/10 pt-2">
                       <div className="overflow-hidden border border-white/10 bg-[#11151f] shadow-2xl shadow-black/40">
@@ -407,7 +413,7 @@ export function Navbar() {
               );
             })}
 
-            {/* About + Resources */}
+            {/* About + Resources + Help Center */}
             {standaloneNavigation.map((item) => {
               const Icon = item.icon;
               const active = isRouteActive(item.href);
@@ -470,7 +476,6 @@ export function Navbar() {
                   />
                 </button>
 
-                {/* Account Dropdown */}
                 <div className="invisible absolute right-0 top-full w-60 border-x border-b border-white/10 pt-2 opacity-0 transition-all group-hover:visible group-hover:opacity-100">
                   <div className="overflow-hidden border border-white/10 bg-[#11151f] shadow-2xl shadow-black/40">
                     <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
@@ -576,7 +581,7 @@ export function Navbar() {
                       type="button"
                       onClick={() =>
                         setOpenDropdown((current) =>
-                          current === group.name ? null : group.name
+                          current === group.name ? null : group.name,
                         )
                       }
                       className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold ${
@@ -636,12 +641,12 @@ export function Navbar() {
                 );
               })}
 
-              {/* About + Resources */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* About + Resources + Help Center */}
+              <div className="grid grid-cols-3 gap-2">
                 <Link
                   href="/about"
                   onClick={closeMenus}
-                  className={`flex items-center justify-center gap-2 border px-4 py-3 text-sm font-semibold ${
+                  className={`flex items-center justify-center gap-2 border px-3 py-3 text-sm font-semibold ${
                     isRouteActive("/about")
                       ? "border-white/15 bg-white/10 text-white"
                       : "border-white/10 text-white/70 hover:bg-white/5 hover:text-white"
@@ -654,7 +659,7 @@ export function Navbar() {
                 <Link
                   href="/resources"
                   onClick={closeMenus}
-                  className={`flex items-center justify-center gap-2 border px-4 py-3 text-sm font-semibold ${
+                  className={`flex items-center justify-center gap-2 border px-3 py-3 text-sm font-semibold ${
                     isRouteActive("/resources")
                       ? "border-white/15 bg-white/10 text-white"
                       : "border-white/10 text-white/70 hover:bg-white/5 hover:text-white"
@@ -662,6 +667,19 @@ export function Navbar() {
                 >
                   <Library size={17} strokeWidth={1.8} />
                   Resources
+                </Link>
+
+                <Link
+                  href="/help"
+                  onClick={closeMenus}
+                  className={`flex items-center justify-center gap-2 border px-3 py-3 text-sm font-semibold ${
+                    isRouteActive("/help")
+                      ? "border-white/15 bg-white/10 text-white"
+                      : "border-white/10 text-white/70 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <LifeBuoy size={17} strokeWidth={1.8} />
+                  Help
                 </Link>
               </div>
             </div>

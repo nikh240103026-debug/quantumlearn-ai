@@ -1,10 +1,8 @@
 import Link from "next/link";
 import {
-//   Github,
-//   Linkedin,
-//   Twitter,
   Mail,
   Atom,
+  LifeBuoy,
 } from "lucide-react";
 
 const footerLinks = {
@@ -14,15 +12,18 @@ const footerLinks = {
     { label: "Learning Roadmap", href: "/roadmap" },
     { label: "Progress", href: "/progress" },
   ],
+
   Resources: [
     { label: "Research Papers", href: "#resources" },
     { label: "Tutorials", href: "#resources" },
     { label: "Qiskit", href: "#resources" },
   ],
+
   Company: [
-    { label: "About", href: "#" },
-    { label: "Contact", href: "#" },
-    { label: "Privacy", href: "#" },
+    { label: "About", href: "/about" },
+    { label: "Help Center", href: "/help" },
+    { label: "Feedback", href: "/feedback" },
+    { label: "Privacy", href: "/privacy" },
   ],
 };
 
@@ -41,7 +42,10 @@ export function Footer() {
               className="inline-flex items-center gap-2"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white">
-                <Atom size={19} strokeWidth={1.7} />
+                <Atom
+                  size={19}
+                  strokeWidth={1.7}
+                />
               </span>
 
               <span className="text-lg font-bold tracking-tight text-slate-950">
@@ -55,45 +59,35 @@ export function Footer() {
               with, and build.
             </p>
 
-            {/* Social links */}
+            {/* Support / Email */}
             <div className="mt-6 flex items-center gap-2">
-              {/* <SocialLink
-                href="#"
-                label="GitHub"
-                icon={Github}
+              <SocialLink
+                href="/help"
+                label="Help Center"
+                icon={LifeBuoy}
               />
 
               <SocialLink
-                href="#"
-                label="LinkedIn"
-                icon={Linkedin}
-              />
-
-              <SocialLink
-                href="#"
-                label="Twitter"
-                icon={Twitter}
-              /> */}
-
-              <SocialLink
-                href="#"
+                href="mailto:support@quantumlearn.ai"
                 label="Email"
                 icon={Mail}
               />
             </div>
           </div>
 
-          {/* Links */}
+          {/* Platform */}
           <FooterColumn
             title="Platform"
             links={footerLinks.Platform}
           />
 
+          {/* Resources */}
           <FooterColumn
             title="Resources"
             links={footerLinks.Resources}
           />
 
+          {/* Company */}
           <FooterColumn
             title="Company"
             links={footerLinks.Company}
