@@ -10,6 +10,7 @@ import {
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
@@ -218,6 +219,28 @@ function PracticeQuizContent({
 
   const [finished, setFinished] =
     useState(false);
+
+      // ==========================================================
+      // QUESTION REPORT
+      // ==========================================================
+
+      const [showReportForm, setShowReportForm] =
+        useState(false);
+
+      const [reportReason, setReportReason] =
+        useState("");
+
+      const [reportDetails, setReportDetails] =
+        useState("");
+
+      const [submittingReport, setSubmittingReport] =
+        useState(false);
+
+      const [reportSuccess, setReportSuccess] =
+        useState("");
+
+      const [reportError, setReportError] =
+        useState("");
 
   // ==========================================================
   // RESULT STATE
@@ -938,6 +961,71 @@ function PracticeQuizContent({
   function handleRestart() {
     loadQuestions();
   }
+  
+    // ==========================================================
+    // REPORT QUESTION
+    // ==========================================================
+
+    async function handleSubmitQuestionReport() {
+      if (!question?.id || !reportReason) {
+        return;
+      }
+
+      setSubmittingReport(true);
+      setReportError("");
+      setReportSuccess("");
+
+      try {
+        const response = await fetch(
+          "/api/practice/questions/report",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              question_id: question.id,
+              reason: reportReason,
+              details:
+                reportDetails.trim() || null,
+            }),
+          },
+        );
+
+        const data =
+          await response
+            .json()
+            .catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+              "Unable to submit the report.",
+          );
+        }
+
+        setReportSuccess(
+          "Thanks for reporting this question. We'll review it.",
+        );
+
+        setReportReason("");
+        setReportDetails("");
+        setShowReportForm(false);
+      } catch (err) {
+        console.error(
+          "Failed to submit question report:",
+          err,
+        );
+
+        setReportError(
+          err instanceof Error
+            ? err.message
+            : "Unable to submit the report.",
+        );
+      } finally {
+        setSubmittingReport(false);
+      }
+    }
 
   // ==========================================================
   // CHANGE PRACTICE
@@ -1605,6 +1693,181 @@ function PracticeQuizContent({
             </div>
           </div>
         )}
+
+                {/* Question Report */}
+
+        <div className="mt-8 border-t border-slate-200 pt-6">
+          {!showReportForm ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">
+                  Found a problem with this question?
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  Help us improve the quality of the practice questions.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReportForm(true);
+                  setReportError("");
+                  setReportSuccess("");
+                }}
+                className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:self-auto"
+              >
+                <AlertTriangle size={15} />
+                Report Question
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                  <AlertTriangle size={17} />
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Report this question
+                  </h3>
+
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Tell us what is wrong so we can review and improve it.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <label
+                  htmlFor="question-report-reason"
+                  className="block text-sm font-bold text-slate-800"
+                >
+                  What is wrong with this question?
+                </label>
+
+                <select
+                  id="question-report-reason"
+                  value={reportReason}
+                  onChange={(event) => {
+                    setReportReason(
+                      event.target.value,
+                    );
+                    setReportError("");
+                  }}
+                  disabled={submittingReport}
+                  className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                >
+                  <option value="">
+                    Select a reason
+                  </option>
+
+                  <option value="wrong_answer">
+                    Wrong answer
+                  </option>
+
+                  <option value="ambiguous_question">
+                    Ambiguous question
+                  </option>
+
+                  <option value="incorrect_explanation">
+                    Incorrect explanation
+                  </option>
+
+                  <option value="typo">
+                    Typo
+                  </option>
+
+                  <option value="too_difficult">
+                    Too difficult
+                  </option>
+
+                  <option value="other">
+                    Other
+                  </option>
+                </select>
+              </div>
+
+              <div className="mt-4">
+                <label
+                  htmlFor="question-report-details"
+                  className="block text-sm font-bold text-slate-800"
+                >
+                  Additional details
+                  <span className="ml-1 font-normal text-slate-400">
+                    (optional)
+                  </span>
+                </label>
+
+                <textarea
+                  id="question-report-details"
+                  value={reportDetails}
+                  onChange={(event) => {
+                    setReportDetails(
+                      event.target.value,
+                    );
+                    setReportError("");
+                  }}
+                  disabled={submittingReport}
+                  maxLength={5000}
+                  rows={4}
+                  placeholder="Tell us what should be corrected..."
+                  className="mt-2 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                />
+
+                <p className="mt-1 text-right text-xs text-slate-400">
+                  {reportDetails.length}/5000
+                </p>
+              </div>
+
+              {reportError && (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                  {reportError}
+                </div>
+              )}
+
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReportForm(false);
+                    setReportReason("");
+                    setReportDetails("");
+                    setReportError("");
+                  }}
+                  disabled={submittingReport}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    handleSubmitQuestionReport
+                  }
+                  disabled={
+                    submittingReport ||
+                    !reportReason
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submittingReport
+                    ? "Submitting..."
+                    : "Submit Report"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {reportSuccess && (
+            <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm font-semibold text-green-700">
+              {reportSuccess}
+            </div>
+          )}
+        </div>
 
         {/* Actions */}
 
