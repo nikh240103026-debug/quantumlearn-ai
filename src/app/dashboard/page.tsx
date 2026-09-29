@@ -44,6 +44,49 @@ export default async function DashboardPage() {
       ? user.user_metadata.name.trim()
       : "Learner";
 
+  const { data: profile } = await supabase
+  .from("profiles")
+  .select(
+    "full_name, username, bio, institute, branch, role, learning_level, quantum_experience, avatar_url"
+  )
+  .eq("id", user.id)
+  .maybeSingle();
+
+  const profileName =
+    typeof profile?.full_name === "string" &&
+    profile.full_name.trim()
+      ? profile.full_name.trim()
+      : userName;
+
+  const profileRole =
+    typeof profile?.role === "string"
+      ? profile.role
+          .replaceAll("_", " ")
+          .replace(/\b\w/g, (letter) =>
+            letter.toUpperCase(),
+          )
+      : "Learner";
+
+  const learningLevel =
+    typeof profile?.learning_level === "string"
+      ? profile.learning_level
+      : typeof profile?.quantum_experience === "string"
+        ? profile.quantum_experience
+        : "beginner";
+
+  const formattedLearningLevel =
+    learningLevel.replace(/\b\w/g, (letter) =>
+      letter.toUpperCase(),
+    );
+
+  const profileInitials = profileName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+
   // ==========================================================
   // CURRENT PUBLISHED COURSE
   // ==========================================================
@@ -511,62 +554,191 @@ export default async function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-[#f5f5f3] text-[#111318]">
-      {/* =====================================================
-          DASHBOARD HERO
-      ===================================================== */}
+    {/* =====================================================
+    DASHBOARD HERO
+===================================================== */}
 
-      <section className="relative overflow-hidden border-b border-white/10 bg-[#090c11] text-white">
-        <div className="absolute inset-0">
-          <div className="absolute left-[10%] top-[15%] h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
-          <div className="absolute bottom-[5%] right-[8%] h-80 w-80 rounded-full bg-indigo-500/10 blur-3xl" />
+<section className="relative overflow-hidden bg-[#090c11] text-white">
+  <div className="absolute inset-0 pointer-events-none">
+    <div className="absolute left-[10%] top-[15%] h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
 
-          <div
-            className="absolute inset-0 opacity-[0.055]"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)",
-              backgroundSize: "72px 72px",
-            }}
-          />
+    <div className="absolute bottom-[5%] right-[8%] h-80 w-80 rounded-full bg-indigo-500/10 blur-3xl" />
+
+    <div
+      className="absolute inset-0 opacity-[0.055]"
+      style={{
+        backgroundImage:
+          "linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)",
+        backgroundSize: "72px 72px",
+      }}
+    />
+  </div>
+
+  <div className="relative mx-auto max-w-[1600px] px-6 py-16 sm:px-10 lg:px-16 lg:py-20">
+    <DashboardReveal>
+      <div className="grid gap-14 lg:grid-cols-[minmax(0,1fr)_520px] lg:items-center">
+
+        {/* =================================================
+            LEFT — DASHBOARD INTRO
+        ================================================= */}
+
+        <div>
+          <div className="mb-7 flex items-center gap-3">
+            <span className="h-px w-10 bg-blue-500" />
+
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-400">
+              Learning dashboard
+            </p>
+          </div>
+
+          <h1 className="max-w-4xl text-5xl font-medium leading-[0.96] tracking-[-0.055em] sm:text-6xl lg:text-7xl">
+            Welcome back, {profileName}.
+            <span className="block text-white/40">
+              Keep building your quantum understanding.
+            </span>
+          </h1>
+
+          <p className="mt-8 max-w-2xl text-base leading-7 text-white/55 sm:text-lg">
+            Your learning progress, practice performance,
+            experimentation, and personalized recommendations
+            are connected here in one place.
+          </p>
         </div>
 
-        <div className="relative mx-auto max-w-[1600px] px-6 py-20 sm:px-10 lg:px-16 lg:py-24">
-          <DashboardReveal>
-            <div className="grid gap-14 lg:grid-cols-[1fr_auto] lg:items-end">
-              <div>
-                <div className="mb-7 flex items-center gap-3">
-                  <span className="h-px w-10 bg-blue-500" />
+        {/* =================================================
+            RIGHT — GITHUB-STYLE PROFILE
+        ================================================= */}
 
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-400">
-                    Learning dashboard
-                  </p>
-                </div>
+        <div className="w-full">
+          {/* PROFILE HEADER */}
 
-                <h1 className="max-w-5xl text-5xl font-medium leading-[0.96] tracking-[-0.055em] sm:text-6xl lg:text-8xl">
-                  Welcome back, {userName}.
-                  <span className="block text-white/40">
-                    Keep building your quantum understanding.
-                  </span>
-                </h1>
-
-                <p className="mt-8 max-w-2xl text-base leading-7 text-white/55 sm:text-lg">
-                  Your learning progress, practice performance,
-                  experimentation, and personalized recommendations
-                  are connected here in one place.
-                </p>
+          <div className="flex items-start gap-5">
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={`${profileName} profile`}
+                className="h-20 w-20 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-blue-600 text-2xl font-semibold text-white">
+                {profileInitials || "QL"}
               </div>
+            )}
 
-              <Link
-                href="/"
-                className="inline-flex h-fit border border-white/20 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/40 hover:bg-white/5"
-              >
-                Back to home
-              </Link>
+            <div className="min-w-0 pt-1">
+              <h2 className="truncate text-2xl font-medium tracking-[-0.03em]">
+                {profileName}
+              </h2>
+
+              <p className="mt-1 text-sm text-white/55">
+                {profileRole}
+              </p>
+
+              <p className="mt-1 truncate text-xs text-white/35">
+                {user.email}
+              </p>
             </div>
-            </DashboardReveal>
           </div>
-        </section>
 
+          {/* BIO */}
+
+          {profile?.bio && (
+            <p className="mt-5 max-w-lg text-sm leading-6 text-white/55">
+              {profile.bio}
+            </p>
+          )}
+
+          {/* EDUCATION / PROFILE INFO */}
+
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/45">
+            {profile?.branch && (
+              <span>
+                {profile.branch}
+              </span>
+            )}
+
+            {profile?.institute && (
+              <span>
+                {profile.institute}
+              </span>
+            )}
+
+            {formattedLearningLevel && (
+              <span>
+                {formattedLearningLevel}
+              </span>
+            )}
+          </div>
+
+          {/* =================================================
+              PROFILE STATISTICS
+          ================================================= */}
+
+          <div className="mt-8 grid grid-cols-4 gap-5">
+            <ProfileStat
+              value={`${curriculumOverallProgress}%`}
+              label="Progress"
+            />
+
+            <ProfileStat
+              value={String(currentStreak)}
+              label="Streak"
+            />
+
+            <ProfileStat
+              value={String(completedLessons)}
+              label="Lessons"
+            />
+
+            <ProfileStat
+              value={String(practiceAttempts)}
+              label="Practice"
+            />
+          </div>
+
+          {/* SECONDARY STATS */}
+
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-white/40">
+            <span>
+              🔥 {longestStreak} day
+              {longestStreak === 1 ? "" : "s"} longest streak
+            </span>
+
+            <span>
+              {practiceQuestionsAnswered} questions answered
+            </span>
+
+            <span>
+              {personalDashboard.achievements.length} achievements
+            </span>
+          </div>
+
+          {/* ACTIONS */}
+
+          <div className="mt-7 flex items-center gap-4 text-sm">
+            <Link
+              href="/settings"
+              className="font-semibold text-white transition-colors hover:text-blue-400"
+            >
+              View profile
+            </Link>
+
+            <span className="text-white/20">
+              /
+            </span>
+
+            <Link
+              href="/"
+              className="font-semibold text-white/55 transition-colors hover:text-white"
+            >
+              Back to home
+            </Link>
+          </div>
+        </div>
+      </div>
+    </DashboardReveal>
+  </div>
+</section>
         {/* =====================================================
             PROGRESS ANALYTICS — SECOND SECTION
         ===================================================== */}
@@ -1181,6 +1353,30 @@ function ToolLink({
         Open
       </span>
     </Link>
+  );
+}
+
+// ============================================================
+// PROFILE STAT
+// ============================================================
+
+function ProfileStat({
+  value,
+  label,
+}: {
+  value: string;
+  label: string;
+}) {
+  return (
+    <div>
+      <p className="text-2xl font-medium tracking-[-0.04em] text-white">
+        {value}
+      </p>
+
+      <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+        {label}
+      </p>
+    </div>
   );
 }
 
