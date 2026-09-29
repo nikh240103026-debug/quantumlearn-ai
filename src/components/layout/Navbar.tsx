@@ -28,6 +28,7 @@ import {
   Trophy,
   ClipboardCheck,
   FileText,
+  Settings,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
@@ -497,6 +498,15 @@ export function Navbar() {
                       Dashboard
                     </Link>
 
+                    <Link
+                      href="/settings"
+                      onClick={closeMenus}
+                      className="flex items-center gap-3 border-b border-white/5 px-4 py-3 text-sm font-medium text-white/75 transition-colors hover:bg-white/5 hover:text-white"
+                    >
+                      <Settings size={16} />
+                      Settings
+                    </Link>
+
                     <button
                       type="button"
                       onClick={handleLogout}
@@ -669,6 +679,15 @@ export function Navbar() {
                   >
                     <LayoutDashboard size={17} />
                     Dashboard
+                  </Link>
+
+                  <Link
+                    href="/settings"
+                    onClick={closeMenus}
+                    className="flex items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-white/75 hover:bg-white/5 hover:text-white"
+                  >
+                    <Settings size={17} />
+                    Settings
                   </Link>
 
                   <div className="flex items-center gap-3 border border-white/10 bg-white/5 px-4 py-3">

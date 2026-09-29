@@ -32,6 +32,9 @@ export default function LoginPage() {
       );
 
       window.history.replaceState({}, "", "/login");
+    } else if (params.get("security") === "logout_all") {
+      setMessage("You have been logged out of all devices. Please sign in again.");
+      window.history.replaceState({}, "", "/login");
     }
   }, []);
 
@@ -82,6 +85,19 @@ export default function LoginPage() {
       }
 
       return;
+    }
+
+    // Record the successful login after Supabase establishes the session.
+    // The server stores only security metadata (IP/user-agent), never tokens.
+    try {
+      await fetch("/api/account/security", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event_type: "login_success" }),
+        keepalive: true,
+      });
+    } catch (securityError) {
+      console.warn("[LOGIN] Security event logging failed:", securityError);
     }
 
     window.location.href = "/dashboard";
@@ -334,7 +350,7 @@ export default function LoginPage() {
 
               {/* Signup */}
               <p className="text-center text-sm text-white/50">
-                Don't have an account?{" "}
+                Don&apos;t have an account?{" "}
                 <Link
                   href="/signup"
                   className="font-semibold text-blue-300 transition-colors hover:text-blue-200"
