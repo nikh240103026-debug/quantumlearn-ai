@@ -101,10 +101,16 @@ const tabs: Array<{
 ];
 
 const defaultNotifications = {
-  email_updates: true,
+  question_replies: true,
   learning_reminders: true,
-  ai_tutor_updates: true,
+  achievements: true,
+  course_completion: true,
+  practice_results: true,
+  new_challenges: true,
+  platform_announcements: true,
   security_alerts: true,
+  email_updates: true,
+  ai_tutor_updates: true,
 };
 
 const defaultLearning = {
@@ -739,10 +745,38 @@ export default function SettingsClient({
                     }
                     saving={saving}
                     labels={{
-                      email_updates: "Product and platform updates",
+                      question_replies: "Question replies",
                       learning_reminders: "Learning reminders",
+                      achievements: "Achievements",
+                      course_completion: "Course completion",
+                      practice_results: "Practice results",
+                      new_challenges: "New challenges",
+                      platform_announcements: "Platform announcements",
+                      security_alerts: "Security notifications",
+                      email_updates: "Email updates",
                       ai_tutor_updates: "AI Tutor updates",
-                      security_alerts: "Security alerts",
+                    }}
+                    descriptions={{
+                      question_replies:
+                        "Get notified when someone answers or replies to your community questions.",
+                      learning_reminders:
+                        "Receive reminders that help you stay consistent with your learning.",
+                      achievements:
+                        "Get notified when you unlock a new achievement or milestone.",
+                      course_completion:
+                        "Get notified when you complete a course or major learning milestone.",
+                      practice_results:
+                        "Receive updates when your practice results are available.",
+                      new_challenges:
+                        "Get notified when a new quantum challenge becomes available.",
+                      platform_announcements:
+                        "Receive important announcements and updates from QuantumLearn AI.",
+                      security_alerts:
+                        "Receive important account and security notifications.",
+                      email_updates:
+                        "Receive product and platform updates by email.",
+                      ai_tutor_updates:
+                        "Receive updates related to your AI Tutor experience.",
                     }}
                   />
                 )}
@@ -1309,6 +1343,7 @@ function PreferenceSection({
   onSave,
   saving,
   labels,
+  descriptions = {},
   selectOptions = {},
 }: any) {
   return (
@@ -1363,10 +1398,11 @@ function PreferenceSection({
                 <p className="text-sm font-black">
                   {labels[key] ?? key}
                 </p>
-                <p className="mt-1 text-xs text-black/40">
-                  {Boolean(value)
-                    ? "This option is currently enabled."
-                    : "This option is currently disabled."}
+                <p className="mt-1 max-w-xl text-xs leading-5 text-black/40">
+                  {descriptions[key] ??
+                    (Boolean(value)
+                      ? "This option is currently enabled."
+                      : "This option is currently disabled.")}
                 </p>
               </div>
 

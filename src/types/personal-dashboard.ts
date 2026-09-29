@@ -39,11 +39,21 @@ export interface DashboardSavedContent {
   savedAt: string;
 }
 
+export type DashboardNotificationType =
+  | "question_answered"
+  | "comment_reply"
+  | "achievement"
+  | "course_completion"
+  | "practice_result"
+  | "new_challenge"
+  | "system"
+  | "security";
+
 export interface DashboardNotification {
   id: string;
   title: string;
   message: string;
-  type: "system" | "learning" | "achievement" | "practice" | "security";
+  type: DashboardNotificationType;
   read: boolean;
   createdAt: string;
   href: string | null;
