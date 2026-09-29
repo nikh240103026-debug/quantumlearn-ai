@@ -3,6 +3,8 @@ import {
   NextResponse,
 } from "next/server";
 
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -30,6 +32,41 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    /*
+     * ================================================================
+     * AUTHENTICATION
+     * ================================================================
+     *
+     * Code execution consumes server-side execution resources.
+     * Anonymous users must not be allowed to use this endpoint.
+     */
+    const supabase =
+      await createSupabaseServerClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          success: false,
+          output: "",
+          error: "Authentication required.",
+          executionTime: 0,
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
+    /*
+     * ================================================================
+     * REQUEST VALIDATION
+     * ================================================================
+     */
     const body =
       await request.json();
 
@@ -55,6 +92,11 @@ export async function POST(
       );
     }
 
+    /*
+     * ================================================================
+     * QUANTUM EXECUTION SERVICE
+     * ================================================================
+     */
     const quantumApiUrl =
       process.env.QUANTUM_API_URL;
 
@@ -219,6 +261,11 @@ export async function POST(
       );
     }
   } catch (error) {
+    /*
+     * SECURITY:
+     * Keep internal exception details on the server only.
+     * Do not expose raw runtime/network errors to the client.
+     */
     console.error(
       "Coding execution proxy error:",
       error,
@@ -248,9 +295,7 @@ export async function POST(
         success: false,
         output: "",
         error:
-          error instanceof Error
-            ? error.message
-            : "Unable to connect to the quantum execution service.",
+          "Unable to connect to the quantum execution service.",
         executionTime: 0,
       },
       {

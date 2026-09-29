@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -147,6 +148,34 @@ function gradeChallenge(
 
 export async function POST(request: NextRequest) {
   try {
+    /*
+     * ================================================================
+     * SECURITY: REQUIRE AN AUTHENTICATED SUPABASE USER
+     * ================================================================
+     *
+     * Challenge submission invokes the quantum execution service.
+     * Anonymous requests must not be allowed to consume execution
+     * resources through this endpoint.
+     */
+    const supabase = await createSupabaseServerClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Authentication required.",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
     const body = await request.json();
 
     const challenge = findChallenge(body?.challengeId);
