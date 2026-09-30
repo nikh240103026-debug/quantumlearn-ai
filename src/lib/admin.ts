@@ -1,3 +1,4 @@
+// fixing deployemeny error
 import "server-only";
 
 import { redirect } from "next/navigation";

@@ -1,3 +1,4 @@
+// fixing deployemeny error
 import { NextRequest,NextResponse } from "next/server";import { requireAdminApi,writeAdminAuditLog } from "@/lib/admin";
 const TABLES:Record<string,string>={feedback:"feedback",userQuestions:"community_questions",reports:"reports",announcements:"admin_announcements",notifications:"admin_notification_jobs",certificates:"certificates",practiceQuestions:"practice_questions",questionBank:"practice_questions",quantumLab:"quantum_lab_activity",aiTutor:"ai_conversations"};
 const writable=new Set(["feedback","userQuestions","reports","announcements","notifications","certificates","practiceQuestions","questionBank"]);
