@@ -172,6 +172,16 @@ export function validateCircuit(
             operation.column,
         });
       }
+
+      // Mark the control cell as occupied too, so a gate placed on
+      // it later in the array is reported instead of silently
+      // producing an order-dependent result.
+      if (!existingControl) {
+        occupiedCells.set(
+          controlKey,
+          operation,
+        );
+      }
     }
   }
 

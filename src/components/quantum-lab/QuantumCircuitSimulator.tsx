@@ -4,9 +4,8 @@ import { useMemo, useState } from "react";
 
 import {
   basisLabel,
-  calculateProbabilities,
   formatComplex,
-  simulateCircuit,
+  simulateCircuitDetailed,
 } from "@/lib/quantum/simulator";
 
 import { sampleMeasurement } from "@/lib/quantum/measurement";
@@ -191,20 +190,22 @@ export default function QuantumCircuitSimulator() {
   // SIMULATION
   // ==========================================================
 
-  const state = useMemo(() => {
-    return simulateCircuit(
+  // `state` is one measurement trajectory (M gates collapse it at
+  // random); `probabilities` are exact over all outcomes.
+  const simulation = useMemo(() => {
+    return simulateCircuitDetailed(
       qubits,
       circuit,
     );
   }, [qubits, circuit]);
 
+  const state = simulation.state;
+
   // ==========================================================
   // PROBABILITIES
   // ==========================================================
 
-  const probabilities = useMemo(() => {
-    return calculateProbabilities(state);
-  }, [state]);
+  const probabilities = simulation.probabilities;
 
   // ==========================================================
   // UPDATE CIRCUIT WITH HISTORY
@@ -538,18 +539,22 @@ export default function QuantumCircuitSimulator() {
   // ==========================================================
 
   function runMeasurement() {
-    const results =
+    // sampleMeasurement returns a count per basis state, so with one
+    // shot the measured outcome is the index whose count is 1.
+    const counts =
       sampleMeasurement(
         probabilities,
         1,
       );
 
-    if (results.length === 0) {
+    const measuredIndex =
+      counts.findIndex(
+        (count) => count > 0,
+      );
+
+    if (measuredIndex === -1) {
       return;
     }
-
-    const measuredIndex =
-      results[0];
 
     const resultLabel =
       basisLabel(
@@ -611,7 +616,9 @@ export default function QuantumCircuitSimulator() {
         resultCount:
           results.length,
         uniqueOutcomes:
-          new Set(results).size,
+          results.filter(
+            (count) => count > 0,
+          ).length,
       },
     });
   }
@@ -634,17 +641,19 @@ export default function QuantumCircuitSimulator() {
 
     try {
       if (backend === "local") {
-        const localState =
-          simulateCircuit(
+        const localSimulation =
+          simulateCircuitDetailed(
             qubits,
             circuit,
           );
 
-        const localProbabilities =
-          calculateProbabilities(
-            localState,
-          );
+        const localState =
+          localSimulation.state;
 
+        const localProbabilities =
+          localSimulation.probabilities;
+
+        // Counts per basis-state index.
         const localResults =
           sampleMeasurement(
             localProbabilities,
@@ -656,19 +665,18 @@ export default function QuantumCircuitSimulator() {
           number
         > = {};
 
-        for (
-          const index of localResults
-        ) {
-          const label =
-            basisLabel(
-              index,
-              qubits,
-            );
-
-          localCounts[label] =
-            (localCounts[label] ??
-              0) + 1;
-        }
+        localResults.forEach(
+          (count, index) => {
+            if (count > 0) {
+              localCounts[
+                basisLabel(
+                  index,
+                  qubits,
+                )
+              ] = count;
+            }
+          },
+        );
 
         setBackendResult({
           success: true,
