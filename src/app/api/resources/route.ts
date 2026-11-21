@@ -90,8 +90,10 @@ export async function GET(request: Request) {
     }
 
     if (search) {
+      // Characters with meaning in PostgREST `or` filters (and LIKE
+      // wildcards) would break the filter and cause a 500.
       const safeSearch = search
-        .replace(/[%_]/g, "")
+        .replace(/[%_,.()"'\\*:]/g, " ")
         .trim();
 
       if (safeSearch) {

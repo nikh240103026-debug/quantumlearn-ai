@@ -190,11 +190,50 @@ export async function POST(
         );
       }
 
+      // Derive the extension from the validated MIME type, never from
+      // the client-supplied file name (which could be "x.html" or
+      // contain path segments).
+      const extensionByType: Record<string, string> = {
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/webp": "webp",
+      };
+
       const extension =
-        screenshot.name
-          .split(".")
-          .pop()
-          ?.toLowerCase() ?? "png";
+        extensionByType[screenshot.type];
+
+      // The MIME type is also client-supplied: confirm the bytes match.
+      const header = new Uint8Array(
+        await screenshot
+          .slice(0, 12)
+          .arrayBuffer(),
+      );
+
+      const matchesType =
+        (screenshot.type === "image/png" &&
+          header[0] === 0x89 &&
+          header[1] === 0x50 &&
+          header[2] === 0x4e &&
+          header[3] === 0x47) ||
+        (screenshot.type === "image/jpeg" &&
+          header[0] === 0xff &&
+          header[1] === 0xd8 &&
+          header[2] === 0xff) ||
+        (screenshot.type === "image/webp" &&
+          String.fromCharCode(...header.slice(0, 4)) === "RIFF" &&
+          String.fromCharCode(...header.slice(8, 12)) === "WEBP");
+
+      if (!matchesType) {
+        return NextResponse.json(
+          {
+            error:
+              "Screenshot must be PNG, JPG, or WebP.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
 
       const fileName = `${crypto.randomUUID()}.${extension}`;
 
