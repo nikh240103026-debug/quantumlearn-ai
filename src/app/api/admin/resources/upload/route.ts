@@ -1,6 +1,7 @@
 // fixing deployemeny error
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { RESOURCE_BUCKET, resourceStoragePath } from "@/lib/resource-storage";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 
@@ -329,6 +330,75 @@ export async function POST(request: NextRequest) {
         error:
           "An unexpected error occurred while uploading the file.",
       },
+      { status: 500 }
+    );
+  }
+}
+/*
+ * DELETE /api/admin/resources/upload  { url }
+ *
+ * Removes a file this admin just uploaded when saving the resource that
+ * was meant to use it failed. Without this, every failed save (and each
+ * retry) left another orphaned copy in storage.
+ *
+ * Only files in this admin's own upload folder that no resource
+ * references can be removed.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const { supabase, user, error: accessError } =
+      await getAuthenticatedAdmin();
+
+    if (accessError || !user) {
+      return accessError;
+    }
+
+    const body = await request.json().catch(() => null);
+    const url = body && typeof body.url === "string" ? body.url : "";
+    const path = resourceStoragePath(url);
+
+    if (!path || !path.startsWith(`${user.id}/`)) {
+      return NextResponse.json(
+        { error: "Invalid file." },
+        { status: 400 }
+      );
+    }
+
+    const { count, error: usageError } = await supabase
+      .from("resources")
+      .select("id", { count: "exact", head: true })
+      .eq("file_url", url);
+
+    if (usageError) {
+      console.error("Resource upload cleanup lookup error:", usageError);
+      return NextResponse.json(
+        { error: "Unable to clean up the file." },
+        { status: 500 }
+      );
+    }
+
+    if ((count ?? 0) > 0) {
+      // Still referenced: keep it.
+      return NextResponse.json({ removed: false });
+    }
+
+    const { error: removeError } = await supabase.storage
+      .from(RESOURCE_BUCKET)
+      .remove([path]);
+
+    if (removeError) {
+      console.error("Resource upload cleanup error:", removeError);
+      return NextResponse.json(
+        { error: "Unable to clean up the file." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ removed: true });
+  } catch (error) {
+    console.error("Resource upload cleanup unexpected error:", error);
+    return NextResponse.json(
+      { error: "Unable to clean up the file." },
       { status: 500 }
     );
   }

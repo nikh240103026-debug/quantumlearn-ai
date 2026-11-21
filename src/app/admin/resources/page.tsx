@@ -243,6 +243,11 @@ export default function AdminResourcesPage() {
   const [deleteTarget, setDeleteTarget] =
     useState<Resource | null>(null);
 
+
+  const [deletingResource, setDeletingResource] =
+
+    useState(false);
+
   const filteredResources = useMemo(() => {
     const normalizedSearch =
       search.trim().toLowerCase();
@@ -569,6 +574,9 @@ export default function AdminResourcesPage() {
       .map((tag) => tag.trim())
       .filter(Boolean);
 
+    // Set when this save uploaded a new file (cleaned up on failure).
+    let freshlyUploadedUrl: string | null = null;
+
     try {
       setSaving(true);
 
@@ -591,6 +599,7 @@ export default function AdminResourcesPage() {
         }
 
         finalFileUrl = uploadedUrl;
+        freshlyUploadedUrl = uploadedUrl;
       }
 
       const isEditing =
@@ -672,6 +681,16 @@ export default function AdminResourcesPage() {
         err
       );
 
+      // The file was uploaded but the resource wasn't saved: remove the
+      // upload so failed saves and retries don't leave orphaned copies.
+      if (freshlyUploadedUrl) {
+        void fetch("/api/admin/resources/upload", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: freshlyUploadedUrl }),
+        }).catch(() => undefined);
+      }
+
       setError(
         err instanceof Error
           ? err.message
@@ -748,8 +767,11 @@ export default function AdminResourcesPage() {
   }
 
   async function deleteResource() {
-    if (!deleteTarget) return;
+    // In-flight guard: a double click sent two DELETEs and the second
+    // showed an error even though the first succeeded.
+    if (!deleteTarget || deletingResource) return;
 
+    setDeletingResource(true);
     setError("");
     setSuccess("");
 
@@ -797,6 +819,8 @@ export default function AdminResourcesPage() {
           ? err.message
           : "Failed to delete resource."
       );
+    } finally {
+      setDeletingResource(false);
     }
   }
 
@@ -1831,9 +1855,12 @@ export default function AdminResourcesPage() {
                 onClick={() =>
                   void deleteResource()
                 }
-                className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-500"
+                disabled={deletingResource}
+                className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Delete Permanently
+                {deletingResource
+                  ? "Deleting..."
+                  : "Delete Permanently"}
               </button>
             </div>
           </div>

@@ -1,6 +1,8 @@
 // fixing deployemeny error
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { toSafeHttpUrl } from "@/lib/url-safety";
+import { RESOURCE_BUCKET, resourceStoragePath } from "@/lib/resource-storage";
 
 type ResourceType =
   | "research_paper"
@@ -303,6 +305,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Rendered as links on the public resources page: http(s) only.
+    if (
+      (resourceUrl && !toSafeHttpUrl(resourceUrl)) ||
+      (fileUrl && !toSafeHttpUrl(fileUrl))
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Resource and file URLs must be valid http(s) URLs.",
+        },
+        { status: 400 }
+      );
+    }
+
     if (tags.some((tag) => typeof tag !== "string")) {
       return NextResponse.json(
         { error: "Tags must be an array of strings." },
@@ -526,6 +542,16 @@ export async function PATCH(request: NextRequest) {
         typeof body.resourceUrl === "string"
           ? body.resourceUrl.trim() || null
           : null;
+
+      if (
+        typeof updates.resource_url === "string" &&
+        !toSafeHttpUrl(updates.resource_url)
+      ) {
+        return NextResponse.json(
+          { error: "Resource URL must be a valid http(s) URL." },
+          { status: 400 }
+        );
+      }
     }
 
     if (body.fileUrl !== undefined) {
@@ -543,6 +569,16 @@ export async function PATCH(request: NextRequest) {
         typeof body.fileUrl === "string"
           ? body.fileUrl.trim() || null
           : null;
+
+      if (
+        typeof updates.file_url === "string" &&
+        !toSafeHttpUrl(updates.file_url)
+      ) {
+        return NextResponse.json(
+          { error: "File URL must be a valid http(s) URL." },
+          { status: 400 }
+        );
+      }
     }
 
     if (body.author !== undefined) {
@@ -626,6 +662,16 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Previous file, so a replaced upload can be removed from storage.
+    const { data: previous } =
+      updates.file_url !== undefined
+        ? await supabase
+            .from("resources")
+            .select("file_url")
+            .eq("id", id)
+            .maybeSingle()
+        : { data: null };
+
     const { data, error } = await supabase
       .from("resources")
       .update(updates)
@@ -666,6 +712,30 @@ export async function PATCH(request: NextRequest) {
         { error: "Resource not found." },
         { status: 404 }
       );
+    }
+
+    // The file was replaced: remove the old upload unless another
+    // resource still uses it (it used to stay in storage forever).
+    const oldPath = resourceStoragePath(previous?.file_url);
+
+    if (oldPath && previous?.file_url !== data.file_url) {
+      const { count: otherUses } = await supabase
+        .from("resources")
+        .select("id", { count: "exact", head: true })
+        .eq("file_url", previous?.file_url);
+
+      if ((otherUses ?? 0) === 0) {
+        const { error: removeError } = await supabase.storage
+          .from(RESOURCE_BUCKET)
+          .remove([oldPath]);
+
+        if (removeError) {
+          console.error(
+            "Admin resources PATCH old file cleanup error:",
+            removeError
+          );
+        }
+      }
     }
 
     return NextResponse.json({
@@ -710,7 +780,7 @@ export async function DELETE(request: NextRequest) {
     const { data: existingResource, error: lookupError } =
       await supabase
         .from("resources")
-        .select("id")
+        .select("id, file_url")
         .eq("id", resourceId)
         .maybeSingle();
 
@@ -748,6 +818,32 @@ export async function DELETE(request: NextRequest) {
         { error: "Failed to delete resource." },
         { status: 500 }
       );
+    }
+
+    // Remove the uploaded file too (it used to stay in storage forever),
+    // unless another resource still points at the same file.
+    const storagePath = resourceStoragePath(
+      existingResource.file_url,
+    );
+
+    if (storagePath) {
+      const { count: otherUses } = await supabase
+        .from("resources")
+        .select("id", { count: "exact", head: true })
+        .eq("file_url", existingResource.file_url);
+
+      if ((otherUses ?? 0) === 0) {
+        const { error: removeError } = await supabase.storage
+          .from(RESOURCE_BUCKET)
+          .remove([storagePath]);
+
+        if (removeError) {
+          console.error(
+            "Admin resources DELETE file cleanup error:",
+            removeError
+          );
+        }
+      }
     }
 
     return NextResponse.json({
