@@ -16,7 +16,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from engine import execute
+from engine import EngineInputError, execute
 
 
 load_dotenv()
@@ -78,6 +78,39 @@ MAX_PROCESSES = 16
 MAX_FILE_SIZE_MB = 10
 
 MAX_TEMP_FILES = 100
+
+
+# ============================================================
+# SANDBOX CONFIGURATION
+# ============================================================
+#
+# Submitted code is untrusted. The AST/string filters below are only
+# a first layer: Python deny-lists can always be bypassed (for example
+# through modules that allowed packages import internally). The real
+# security boundary is a throwaway Docker container with no network,
+# a read-only filesystem, no capabilities and strict resource limits.
+#
+# If Docker is unavailable, execution is REFUSED (fail closed).
+# For local development only, ALLOW_UNSANDBOXED_CODE_EXECUTION=true
+# runs code directly on this machine. Never set it in production.
+
+SANDBOX_IMAGE = os.getenv(
+    "CODE_SANDBOX_IMAGE",
+    "quantumlearn-sandbox:latest",
+).strip()
+
+DOCKER_BINARY = os.getenv(
+    "DOCKER_BINARY",
+    "docker",
+).strip()
+
+ALLOW_UNSANDBOXED_CODE_EXECUTION = (
+    os.getenv(
+        "ALLOW_UNSANDBOXED_CODE_EXECUTION",
+        "",
+    ).strip().lower()
+    == "true"
+)
 
 
 # ============================================================
@@ -276,7 +309,7 @@ class ExecutionRequest(BaseModel):
 
     qubits: int = Field(
         ge=1,
-        le=30,
+        le=12,
     )
 
     shots: int = Field(
@@ -750,11 +783,14 @@ def build_process_kwargs(
     Configure subprocess isolation in a platform-aware way.
     """
 
+    # NOTE: Popen does not accept subprocess.run()'s `capture_output`
+    # or `timeout`; passing them raised TypeError on every request.
+    # The timeout is applied via communicate().
     kwargs: dict[str, Any] = {
         "cwd": temporary_directory,
-        "capture_output": True,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
         "text": True,
-        "timeout": CODE_TIMEOUT_SECONDS,
         "env": environment,
     }
 
@@ -851,6 +887,127 @@ def terminate_unix_process_group(
 # ============================================================
 # OUTPUT NORMALIZATION
 # ============================================================
+
+def docker_is_available() -> bool:
+    if not shutil.which(DOCKER_BINARY):
+        return False
+
+    try:
+        result = subprocess.run(
+            [
+                DOCKER_BINARY,
+                "image",
+                "inspect",
+                SANDBOX_IMAGE,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+    return result.returncode == 0
+
+
+def build_docker_command(
+    temporary_directory: str,
+    container_name: str,
+) -> list[str]:
+    """
+    Run main.py in a disposable, locked-down container.
+    The container receives no host environment variables.
+    """
+
+    return [
+        DOCKER_BINARY,
+        "run",
+        "--rm",
+        "--name",
+        container_name,
+        "--network",
+        "none",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges",
+        "--user",
+        "65534:65534",
+        "--memory",
+        f"{MAX_MEMORY_MB}m",
+        "--memory-swap",
+        f"{MAX_MEMORY_MB}m",
+        "--cpus",
+        "1",
+        "--pids-limit",
+        "64",
+        "--ulimit",
+        f"fsize={MAX_FILE_SIZE_MB * 1024 * 1024}",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=32m",
+        "--env",
+        "HOME=/tmp",
+        "--volume",
+        f"{temporary_directory}:/sandbox:ro",
+        "--workdir",
+        "/tmp",
+        SANDBOX_IMAGE,
+        "python",
+        "-I",
+        "-u",
+        "/sandbox/main.py",
+    ]
+
+
+def build_docker_cli_environment() -> dict[str, str]:
+    """
+    Environment for the docker CLI process itself (not the container).
+    Only what the CLI needs to reach the daemon is forwarded.
+    """
+
+    environment: dict[str, str] = {}
+
+    for name in (
+        "PATH",
+        "SYSTEMROOT",
+        "HOME",
+        "USERPROFILE",
+        "DOCKER_HOST",
+        "DOCKER_CONFIG",
+        "DOCKER_CONTEXT",
+        "DOCKER_TLS_VERIFY",
+        "DOCKER_CERT_PATH",
+    ):
+        value = os.getenv(name)
+
+        if value:
+            environment[name] = value
+
+    return environment
+
+
+def kill_container(
+    container_name: str,
+) -> None:
+    try:
+        subprocess.run(
+            [
+                DOCKER_BINARY,
+                "kill",
+                container_name,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+        )
+    except Exception as error:
+        logger.warning(
+            "Failed to kill sandbox container %s: %s",
+            container_name,
+            error,
+        )
+
 
 def normalize_output(
     value: Any,
@@ -986,6 +1143,13 @@ def execute_quantum(
             **result,
         }
 
+    except EngineInputError as error:
+        # Our own validation messages; safe to return.
+        raise HTTPException(
+            status_code=error.code,
+            detail=error.message,
+        ) from error
+
     except Exception as error:
         logger.error(
             "Quantum execution FAILED: "
@@ -1032,11 +1196,34 @@ def execute_code(
             detail=validation_error,
         )
 
+    use_docker = docker_is_available()
+
+    if (
+        not use_docker
+        and not ALLOW_UNSANDBOXED_CODE_EXECUTION
+    ):
+        logger.error(
+            "Code execution refused: sandbox image %s is not available "
+            "via '%s'. Build it (see sandbox/Dockerfile) or, for local "
+            "development only, set ALLOW_UNSANDBOXED_CODE_EXECUTION=true.",
+            SANDBOX_IMAGE,
+            DOCKER_BINARY,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Code execution sandbox is not available.",
+        )
+
     started_at = time.perf_counter()
 
     temporary_directory: str | None = None
 
     process: subprocess.Popen[Any] | None = None
+
+    container_name = (
+        f"ql-sandbox-{os.getpid()}-{time.time_ns()}"
+    )
 
     try:
         # --------------------------------------------------------
@@ -1059,6 +1246,18 @@ def execute_code(
             encoding="utf-8",
         )
 
+        if use_docker:
+            # mkdtemp is 0700; the container runs as nobody and
+            # mounts this directory read-only.
+            os.chmod(
+                temporary_directory,
+                0o755,
+            )
+            os.chmod(
+                script_path,
+                0o644,
+            )
+
         # --------------------------------------------------------
         # Restricted environment
         # --------------------------------------------------------
@@ -1073,24 +1272,47 @@ def execute_code(
         # Platform-aware process configuration
         # --------------------------------------------------------
 
-        process_kwargs = (
-            build_process_kwargs(
+        if use_docker:
+            command = build_docker_command(
                 temporary_directory,
-                environment,
+                container_name,
             )
-        )
+
+            # No preexec rlimits here: they would apply to the docker
+            # CLI, not the container (which has its own limits).
+            process_kwargs: dict[str, Any] = {
+                "stdout": subprocess.PIPE,
+                "stderr": subprocess.PIPE,
+                "text": True,
+                "env": build_docker_cli_environment(),
+            }
+        else:
+            logger.warning(
+                "Running submitted code WITHOUT a sandbox "
+                "(ALLOW_UNSANDBOXED_CODE_EXECUTION=true). "
+                "Development use only."
+            )
+
+            command = [
+                sys.executable,
+                "-I",
+                "-u",
+                str(script_path),
+            ]
+
+            process_kwargs = (
+                build_process_kwargs(
+                    temporary_directory,
+                    environment,
+                )
+            )
 
         # --------------------------------------------------------
         # Execute submitted Python
         # --------------------------------------------------------
 
         process = subprocess.Popen(
-            [
-                sys.executable,
-                "-I",
-                "-u",
-                str(script_path),
-            ],
+            command,
             **process_kwargs,
         )
 
@@ -1108,7 +1330,11 @@ def execute_code(
                 process.pid,
             )
 
-            if os.name == "nt":
+            if use_docker:
+                kill_container(
+                    container_name,
+                )
+            elif os.name == "nt":
                 terminate_windows_process_tree(
                     process,
                 )
