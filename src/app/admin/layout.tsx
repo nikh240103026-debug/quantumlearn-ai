@@ -98,6 +98,11 @@ export const ADMIN_NAV_GROUPS = [
       ],
       ["Feedback", "/admin/feedback", "MessageSquare"],
       ["Reports", "/admin/reports", "Flag"],
+      [
+        "Community Reports",
+        "/admin/community-reports",
+        "Flag",
+      ],
     ],
   },
   {
