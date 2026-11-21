@@ -76,6 +76,9 @@ function qiskitGate(
         ? ""
         : `qc.swap(${control}, ${q})`;
 
+    case "M":
+      return `qc.measure(${q}, ${q})`;
+
     default:
       return "";
   }
@@ -131,6 +134,9 @@ function pennylaneGate(
         undefined
         ? ""
         : `qml.SWAP(wires=[${control}, ${q}])`;
+
+    case "M":
+      return `qml.measure(wires=${q})`;
 
     default:
       return "";
@@ -188,6 +194,10 @@ function cirqGate(
         ? ""
         : `cirq.SWAP(q[${control}], q[${q}])`;
 
+    case "M":
+      // Unique key per measurement so repeated M gates don't clash.
+      return `cirq.measure(q[${q}], key="m${operation.column}_${q}")`;
+
     default:
       return "";
   }
@@ -200,7 +210,8 @@ export function generateQiskitCode(
   const lines = [
     "from qiskit import QuantumCircuit",
     "",
-    `qc = QuantumCircuit(${qubits})`,
+    // Classical bits are needed for M gates (qc.measure).
+    `qc = QuantumCircuit(${qubits}, ${qubits})`,
     "",
   ];
 
@@ -232,7 +243,14 @@ export function generatePennyLaneCode(
   const lines = [
     "import pennylane as qml",
     "",
-    `dev = qml.device("default.qubit", wires=${qubits})`,
+    // Mid-circuit measurements need an extra auxiliary wire, so the
+    // device wire count must not be fixed when M gates are present.
+    circuit.some(
+      (operation) =>
+        operation.gate === "M",
+    )
+      ? `dev = qml.device("default.qubit")`
+      : `dev = qml.device("default.qubit", wires=${qubits})`,
     "",
     "@qml.qnode(dev)",
     "def circuit():",
@@ -268,8 +286,15 @@ export function generatePennyLaneCode(
   }
 
   lines.push("");
+  // qml.state() is undefined after a mid-circuit measurement (the
+  // result is a mixture), so return probabilities in that case.
   lines.push(
-    "    return qml.state()",
+    operations.some(
+      (operation) =>
+        operation.gate === "M",
+    )
+      ? `    return qml.probs(wires=range(${qubits}))`
+      : "    return qml.state()",
   );
   lines.push("");
   lines.push(

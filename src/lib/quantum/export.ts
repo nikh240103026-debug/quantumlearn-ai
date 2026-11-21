@@ -266,7 +266,14 @@ export function generatePennyLaneCode(
   const lines = [
     "import pennylane as qml",
     "",
-    `dev = qml.device("default.qubit", wires=${qubits})`,
+    // Mid-circuit measurements need an extra auxiliary wire, so the
+    // device wire count must not be fixed when M gates are present.
+    circuit.some(
+      (operation) =>
+        operation.gate === "M",
+    )
+      ? `dev = qml.device("default.qubit")`
+      : `dev = qml.device("default.qubit", wires=${qubits})`,
     "",
     "@qml.qnode(dev)",
     "def circuit():",
@@ -276,14 +283,9 @@ export function generatePennyLaneCode(
     ...circuit,
   ].sort(
     (a, b) =>
-      a.column - b.column,
+      a.column - b.column ||
+      a.qubit - b.qubit,
   );
-
-  if (sortedCircuit.length === 0) {
-    lines.push(
-      "    pass",
-    );
-  }
 
   for (const operation of sortedCircuit) {
     const target =
@@ -360,13 +362,18 @@ export function generatePennyLaneCode(
         break;
 
       case "M":
+        // Mid-circuit measurement. It must not `return` here, or
+        // every later gate would become dead code.
         lines.push(
-          `    return qml.measure(wires=${target})`,
+          `    qml.measure(wires=${target})`,
         );
         break;
     }
   }
 
+  lines.push(
+    `    return qml.probs(wires=range(${qubits}))`,
+  );
   lines.push("");
   lines.push("print(circuit())");
 
