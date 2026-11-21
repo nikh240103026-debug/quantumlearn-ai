@@ -25,11 +25,18 @@
   box-sizing: border-box;
 }
 
+/*
+ * Disable the browser's rubber-band overscroll bounce: scrolling past
+ * the top/bottom stretched the page and exposed the light body
+ * background behind the dark pages.
+ */
 html {
   scroll-behavior: smooth;
+  overscroll-behavior-y: none;
 }
 
 body {
+  overscroll-behavior-y: none;
   margin: 0;
   background: var(--background);
   color: var(--foreground);
