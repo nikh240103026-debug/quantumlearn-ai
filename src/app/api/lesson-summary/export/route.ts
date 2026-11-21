@@ -176,12 +176,11 @@ export async function POST(
       error,
     );
 
+    // Internal library errors stay in the server log.
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Unable to export the lesson summary.",
+          "Unable to export the lesson summary.",
       },
       {
         status: 500,
@@ -412,8 +411,8 @@ async function createDocx(
 // ============================================================
 
 async function createPdf(
-  title: string,
-  markdown: string,
+  rawTitle: string,
+  rawMarkdown: string,
 ) {
   const pdf =
     await PDFDocument.create();
@@ -427,6 +426,23 @@ async function createPdf(
     await pdf.embedFont(
       StandardFonts.HelveticaBold,
     );
+
+  // Standard PDF fonts only cover WinAnsi; drawing ψ, ⟩, √, emoji, etc.
+  // throws. Convert everything up front so every drawText is safe.
+  const supported = new Set<number>([
+    ...font.getCharacterSet(),
+    ...boldFont.getCharacterSet(),
+  ]);
+
+  const title = toPdfSafeText(
+    rawTitle,
+    supported,
+  );
+
+  const markdown = toPdfSafeText(
+    rawMarkdown,
+    supported,
+  );
 
   const pageWidth = 595;
   const pageHeight = 842;
@@ -611,6 +627,49 @@ async function createPdf(
 // ============================================================
 // HELPERS
 // ============================================================
+
+// Readable ASCII stand-ins for symbols common in quantum lessons.
+const PDF_SYMBOL_REPLACEMENTS: Record<string, string> = {
+  "⟨": "<", "⟩": ">", "〈": "<", "〉": ">",
+  "→": "->", "←": "<-", "↔": "<->", "⇒": "=>", "⇔": "<=>",
+  "√": "sqrt", "⊗": "(x)", "⊕": "(+)", "†": "^dagger",
+  "≈": "~", "≠": "!=", "≤": "<=", "≥": ">=", "∞": "infinity",
+  "∑": "sum", "∏": "prod", "∫": "integral", "∂": "d", "∈": "in",
+  "ℏ": "hbar", "ħ": "hbar",
+  "α": "alpha", "β": "beta", "γ": "gamma", "δ": "delta",
+  "ε": "epsilon", "θ": "theta", "λ": "lambda", "μ": "mu",
+  "π": "pi", "σ": "sigma", "τ": "tau", "φ": "phi", "ϕ": "phi",
+  "χ": "chi", "ψ": "psi", "ω": "omega",
+  "Δ": "Delta", "Θ": "Theta", "Λ": "Lambda", "Π": "Pi",
+  "Σ": "Sigma", "Φ": "Phi", "Ψ": "Psi", "Ω": "Omega",
+  "₀": "0", "₁": "1", "₂": "2", "₃": "3",
+  "⁰": "^0", "¹": "^1", "²": "^2", "³": "^3", "ⁿ": "^n",
+};
+
+function toPdfSafeText(
+  value: string,
+  supported: Set<number>,
+): string {
+  let out = "";
+
+  for (const char of value.normalize("NFC")) {
+    const codePoint = char.codePointAt(0) ?? 0;
+
+    if (
+      char === "\n" ||
+      char === "\t" ||
+      supported.has(codePoint)
+    ) {
+      out += char;
+    } else if (PDF_SYMBOL_REPLACEMENTS[char]) {
+      out += PDF_SYMBOL_REPLACEMENTS[char];
+    } else {
+      out += "?";
+    }
+  }
+
+  return out;
+}
 
 function stripMarkdown(
   value: string,
