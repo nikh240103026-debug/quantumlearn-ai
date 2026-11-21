@@ -4,6 +4,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useMemo,
   useState,
 } from "react";
@@ -21,6 +22,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { fetchAllAdminPages } from "@/components/admin/fetchAllAdminPages";
 
 type Lesson = {
   id: string;
@@ -133,27 +135,12 @@ export default function AdminChaptersPage() {
     setLoadingLessons(true);
 
     try {
-      const response = await fetch(
-        "/api/admin/lessons?page=1&pageSize=100",
-        {
-          credentials: "same-origin",
-          cache: "no-store",
-        },
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          result?.error ||
-            "Unable to load lessons.",
-        );
-      }
-
+      // All lessons, not just the first 100, for the parent dropdown.
       setLessons(
-        Array.isArray(result.lessons)
-          ? result.lessons
-          : [],
+        await fetchAllAdminPages(
+          "/api/admin/lessons",
+          "lessons",
+        ),
       );
     } catch (err) {
       setError(
@@ -166,8 +153,16 @@ export default function AdminChaptersPage() {
     }
   }, []);
 
+  // Only the newest list request may update the table: changing a
+  // filter on page > 1 fired two requests and the stale one could win.
+  const listRequestRef = useRef(0);
+
   const loadChapters = useCallback(
     async (refresh = false) => {
+      const requestId = ++listRequestRef.current;
+      const isStale = () =>
+        requestId !== listRequestRef.current;
+
       try {
         setError("");
 
@@ -226,6 +221,10 @@ export default function AdminChaptersPage() {
             | ChaptersResponse
             | { error?: string };
 
+        if (isStale()) {
+          return;
+        }
+
         if (!response.ok) {
           throw new Error(
             "error" in result
@@ -253,14 +252,20 @@ export default function AdminChaptersPage() {
           },
         );
       } catch (err) {
+        if (isStale()) {
+          return;
+        }
+
         setError(
           err instanceof Error
             ? err.message
             : "Unable to load chapters.",
         );
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (!isStale()) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [
@@ -586,12 +591,12 @@ export default function AdminChaptersPage() {
         />
 
         <StatCard
-          label="Published"
+          label="Published (this page)"
           value={statistics.published}
         />
 
         <StatCard
-          label="Drafts"
+          label="Drafts (this page)"
           value={statistics.drafts}
         />
       </div>

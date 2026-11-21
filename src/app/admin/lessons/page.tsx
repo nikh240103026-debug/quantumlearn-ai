@@ -4,6 +4,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useMemo,
   useState,
 } from "react";
@@ -22,6 +23,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { fetchAllAdminPages } from "@/components/admin/fetchAllAdminPages";
 
 type Course = {
   id: string;
@@ -137,27 +139,12 @@ export default function AdminLessonsPage() {
       setLoadingCourses(true);
 
       try {
-        const response = await fetch(
-          "/api/admin/courses?page=1&pageSize=100",
-          {
-            credentials: "same-origin",
-            cache: "no-store",
-          },
-        );
-
-        const result =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            result?.error ||
-              "Unable to load courses.",
-          );
-        }
-
+        // All courses, not just the first 100, for the parent dropdown.
         setCourses(
-          (result.courses ??
-            []) as Course[],
+          await fetchAllAdminPages<Course>(
+            "/api/admin/courses",
+            "courses",
+          ),
         );
       } catch (err) {
         setError(
@@ -172,8 +159,16 @@ export default function AdminLessonsPage() {
     [],
   );
 
+  // Only the newest list request may update the table: changing a
+  // filter on page > 1 fired two requests and the stale one could win.
+  const listRequestRef = useRef(0);
+
   const loadLessons = useCallback(
     async (refresh = false) => {
+      const requestId = ++listRequestRef.current;
+      const isStale = () =>
+        requestId !== listRequestRef.current;
+
       try {
         setError("");
 
@@ -242,6 +237,10 @@ export default function AdminLessonsPage() {
         const result =
           await response.json();
 
+        if (isStale()) {
+          return;
+        }
+
         if (!response.ok) {
           throw new Error(
             result?.error ||
@@ -257,14 +256,20 @@ export default function AdminLessonsPage() {
           data.pagination,
         );
       } catch (err) {
+        if (isStale()) {
+          return;
+        }
+
         setError(
           err instanceof Error
             ? err.message
             : "Unable to load lessons.",
         );
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (!isStale()) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [
@@ -621,12 +626,12 @@ export default function AdminLessonsPage() {
         />
 
         <StatCard
-          label="Published"
+          label="Published (this page)"
           value={statistics.published}
         />
 
         <StatCard
-          label="Drafts"
+          label="Drafts (this page)"
           value={statistics.drafts}
         />
       </div>
