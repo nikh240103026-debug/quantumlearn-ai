@@ -2,6 +2,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
@@ -182,6 +183,50 @@ export async function requireAdminApi(): Promise<{
   };
 }
 
+/*
+ * Map an error from an admin API handler to a response:
+ *   - 401/403 for missing or non-admin sessions (not a 500)
+ *   - 400 for an unparseable JSON body
+ *   - otherwise a generic 500; details stay in the server log
+ */
+export function adminErrorResponse(
+  error: unknown,
+  fallbackMessage: string,
+  logLabel = "[ADMIN_API]",
+): NextResponse {
+  if (error instanceof AdminAuthorizationError) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: error.status },
+    );
+  }
+
+  if (error instanceof SyntaxError) {
+    return NextResponse.json(
+      { error: "Invalid request body." },
+      { status: 400 },
+    );
+  }
+
+  // Deliberate validation errors thrown with { status: 400 }.
+  if (
+    error instanceof Error &&
+    (error as Error & { status?: unknown }).status === 400
+  ) {
+    return NextResponse.json(
+      { error: error.message },
+      { status: 400 },
+    );
+  }
+
+  console.error(logLabel, error);
+
+  return NextResponse.json(
+    { error: fallbackMessage },
+    { status: 500 },
+  );
+}
+
 export class AdminAuthorizationError extends Error {
   status: 401 | 403;
 
@@ -257,13 +302,18 @@ export async function writeAdminAuditLog({
     );
 
   if (error) {
+    // Every caller writes the audit entry AFTER the change has been
+    // committed. Throwing here reported a successful change as a 500,
+    // and the admin's retry then failed (duplicate slug / 404).
+    // Log loudly instead; the change itself already happened.
     console.error(
-      "[ADMIN_AUDIT_LOG]",
+      "[ADMIN_AUDIT_LOG] FAILED to record audit event:",
+      { action, resourceType, resourceId },
       error,
     );
 
-    throw new Error(
-      "Unable to record admin audit event.",
-    );
+    return false;
   }
+
+  return true;
 }
