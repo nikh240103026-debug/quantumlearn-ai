@@ -17,7 +17,7 @@ async function deliverIfRequested(resource: string, row: ResourceRow, supabase: 
   if (!title || !message) throw Object.assign(new Error("A title and message are required before sending."), { status: 400 });
   const type: NotificationType = resource === "notifications" ? NOTIFICATION_TYPE_BY_JOB_TYPE[String(row.type ?? "")] ?? "system" : "system";
   const delivered = await broadcastNotification({ title, message, type, audience });
-  const { data, error } = await supabase.from(TABLES[resource]).update({ status: "sent" }).eq("id", String(row.id)).select("*").single();
+  const { data, error } = await supabase.from(TABLES[resource]).update(resource === "notifications" ? { status: "sent", sent_count: delivered, completed_at: new Date().toISOString() } : { status: "sent", published_at: new Date().toISOString() }).eq("id", String(row.id)).select("*").single();
   if (error) throw error;
   console.info(`[ADMIN_BROADCAST] ${resource} ${String(row.id)} delivered to ${delivered} users`);
   return data as ResourceRow;
