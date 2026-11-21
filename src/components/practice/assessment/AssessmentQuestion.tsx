@@ -1,9 +1,9 @@
 "use client";
 
-import type { AssessmentQuestion } from "@/types/assessmentQuestion";
+import type { PublicAssessmentQuestion } from "@/types/assessmentQuestion";
 
 interface AssessmentQuestionProps {
-  question: AssessmentQuestion;
+  question: PublicAssessmentQuestion;
   questionNumber: number;
   totalQuestions: number;
   selectedOption?: string;

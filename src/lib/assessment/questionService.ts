@@ -1,3 +1,6 @@
+// Contains correct answers: must never be bundled into client code.
+import "server-only";
+
 import { assessmentQuestions } from "@/data/assessmentQuestion";
 import { AssessmentQuestion } from "@/types/assessmentQuestion";
 

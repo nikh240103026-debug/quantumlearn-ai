@@ -1,3 +1,5 @@
+import "server-only";
+
 import { getQuestionsByAssessmentId } from "./questionService";
 
 export interface AssessmentGrade {

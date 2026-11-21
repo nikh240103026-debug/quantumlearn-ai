@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface AssessmentTimerProps {
   initialTime: number; // in seconds
@@ -13,18 +13,39 @@ export default function AssessmentTimer({
 }: AssessmentTimerProps) {
   const [timeLeft, setTimeLeft] = useState(initialTime);
 
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      onTimeUp();
-      return;
-    }
+  // Keep the latest callback without restarting the countdown when the
+  // parent re-renders with a new function.
+  const onTimeUpRef = useRef(onTimeUp);
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
+  useEffect(() => {
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
+
+  useEffect(() => {
+    // Count down to a fixed end time so re-renders and throttled
+    // background tabs can't stretch the timer.
+    const endsAt = Date.now() + initialTime * 1000;
+    let fired = false;
+
+    const tick = () => {
+      const remaining = Math.max(
+        0,
+        Math.round((endsAt - Date.now()) / 1000),
+      );
+
+      setTimeLeft(remaining);
+
+      if (remaining === 0 && !fired) {
+        fired = true;
+        clearInterval(timer);
+        onTimeUpRef.current();
+      }
+    };
+
+    const timer = setInterval(tick, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, onTimeUp]);
+  }, [initialTime]);
 
   const hours = Math.floor(timeLeft / 3600);
   const minutes = Math.floor((timeLeft % 3600) / 60);

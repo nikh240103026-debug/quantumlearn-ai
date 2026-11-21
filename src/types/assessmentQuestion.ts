@@ -25,6 +25,12 @@ export interface AssessmentQuestion {
   topic: string;
 }
 
+// What the browser receives: no answer key.
+export type PublicAssessmentQuestion = Omit<
+  AssessmentQuestion,
+  "correctAnswer" | "explanation"
+>;
+
 export interface UserAnswer {
   questionId: string;
   selectedOption: string;
