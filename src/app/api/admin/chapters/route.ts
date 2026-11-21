@@ -1,6 +1,7 @@
 // fixing deployemeny error
 import { NextRequest, NextResponse } from "next/server";
 import {
+  adminErrorResponse,
   AdminAuthorizationError,
   requireAdminApi,
   writeAdminAuditLog,
@@ -47,12 +48,6 @@ function parsePositiveInteger(
   }
 
   return number;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "Internal server error.";
 }
 
 function getClientMetadata(
@@ -171,9 +166,12 @@ export async function GET(
     }
 
     if (search) {
+      // Strip LIKE wildcards and PostgREST `or` syntax characters
+      // (the old "\\$" replacement turned % and _ into "\$" and left
+      // brackets/quotes that broke the filter with a 500).
       const safeSearch = search
-        .replace(/[%_]/g, "\\$")
-        .replace(/,/g, "");
+        .replace(/[%_,.()"'\\*:]/g, " ")
+        .trim();
 
       query = query.or(
         `title.ilike.%${safeSearch}%,slug.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`,
@@ -229,18 +227,12 @@ export async function GET(
       );
     }
 
-    console.error(
-      "[ADMIN_CHAPTERS_GET]",
+    // 400 for a malformed JSON body; generic 500 otherwise
+    // (raw error text is logged, not returned).
+    return adminErrorResponse(
       error,
-    );
-
-    return NextResponse.json(
-      {
-        error: errorMessage(error),
-      },
-      {
-        status: 500,
-      },
+      "Something went wrong. Please try again.",
+      "[ADMIN_CHAPTERS_GET]",
     );
   }
 }
@@ -466,6 +458,20 @@ export async function POST(
         error,
       );
 
+      // Unique constraint (e.g. two saves racing past the duplicate
+      // pre-check): a conflict, not a server error.
+      if (error.code === "23505") {
+        return NextResponse.json(
+          {
+            error:
+              "A chapter with this slug or order already exists.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
       return NextResponse.json(
         {
           error:
@@ -513,18 +519,12 @@ export async function POST(
       );
     }
 
-    console.error(
-      "[ADMIN_CHAPTERS_POST]",
+    // 400 for a malformed JSON body; generic 500 otherwise
+    // (raw error text is logged, not returned).
+    return adminErrorResponse(
       error,
-    );
-
-    return NextResponse.json(
-      {
-        error: errorMessage(error),
-      },
-      {
-        status: 500,
-      },
+      "Something went wrong. Please try again.",
+      "[ADMIN_CHAPTERS_POST]",
     );
   }
 }
@@ -908,6 +908,20 @@ export async function PATCH(
         error,
       );
 
+      // Unique constraint (e.g. two saves racing past the duplicate
+      // pre-check): a conflict, not a server error.
+      if (error.code === "23505") {
+        return NextResponse.json(
+          {
+            error:
+              "A chapter with this slug or order already exists.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
       return NextResponse.json(
         {
           error:
@@ -951,18 +965,12 @@ export async function PATCH(
       );
     }
 
-    console.error(
-      "[ADMIN_CHAPTERS_PATCH]",
+    // 400 for a malformed JSON body; generic 500 otherwise
+    // (raw error text is logged, not returned).
+    return adminErrorResponse(
       error,
-    );
-
-    return NextResponse.json(
-      {
-        error: errorMessage(error),
-      },
-      {
-        status: 500,
-      },
+      "Something went wrong. Please try again.",
+      "[ADMIN_CHAPTERS_PATCH]",
     );
   }
 }
@@ -971,8 +979,13 @@ export async function DELETE(
   request: NextRequest,
 ) {
   try {
+    // adminSupabase (service role) is used for the learner-dependency
+    // counts: the admin's own session only sees the admin's own rows
+    // under RLS, so other learners' progress looked like zero and
+    // lessons/chapters with real progress were hard-deleted.
     const {
       supabase,
+      adminSupabase,
       admin,
     } = await requireAdminApi();
 
@@ -1045,7 +1058,7 @@ export async function DELETE(
     const {
       count: progressCount,
       error: progressError,
-    } = await supabase
+    } = await adminSupabase
       .from("user_progress")
       .select("id", {
         count: "exact",
@@ -1053,10 +1066,14 @@ export async function DELETE(
       })
       .eq("chapter_id", id);
 
+    // PGRST205: no user_progress table; 42703: no chapter_id column
+    // (progress is tracked per lesson). Neither means "has progress".
     if (
       progressError &&
       progressError.code !==
-        "PGRST205"
+        "PGRST205" &&
+      progressError.code !==
+        "42703"
     ) {
       console.error(
         "[ADMIN_CHAPTERS_DELETE_PROGRESS]",
@@ -1143,18 +1160,12 @@ export async function DELETE(
       );
     }
 
-    console.error(
-      "[ADMIN_CHAPTERS_DELETE]",
+    // 400 for a malformed JSON body; generic 500 otherwise
+    // (raw error text is logged, not returned).
+    return adminErrorResponse(
       error,
-    );
-
-    return NextResponse.json(
-      {
-        error: errorMessage(error),
-      },
-      {
-        status: 500,
-      },
+      "Something went wrong. Please try again.",
+      "[ADMIN_CHAPTERS_DELETE]",
     );
   }
 }

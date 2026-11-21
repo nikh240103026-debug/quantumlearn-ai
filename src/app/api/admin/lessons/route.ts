@@ -1,6 +1,7 @@
 // fixing deployemeny error
 import { NextRequest, NextResponse } from "next/server";
 import {
+  adminErrorResponse,
   AdminAuthorizationError,
   requireAdminApi,
   writeAdminAuditLog,
@@ -71,12 +72,6 @@ function parseDuration(
   }
 
   return number;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "Internal server error.";
 }
 
 function getClientMetadata(
@@ -199,9 +194,12 @@ export async function GET(
     }
 
     if (search) {
+      // Strip LIKE wildcards and PostgREST `or` syntax characters
+      // (the old "\\$" replacement turned % and _ into "\$" and left
+      // brackets/quotes that broke the filter with a 500).
       const safeSearch = search
-        .replace(/[%_]/g, "\\$")
-        .replace(/,/g, "");
+        .replace(/[%_,.()"'\\*:]/g, " ")
+        .trim();
 
       query = query.or(
         `title.ilike.%${safeSearch}%,slug.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`,
@@ -257,18 +255,12 @@ export async function GET(
       );
     }
 
-    console.error(
-      "[ADMIN_LESSONS_GET]",
+    // 400 for a malformed JSON body; generic 500 otherwise
+    // (raw error text is logged, not returned).
+    return adminErrorResponse(
       error,
-    );
-
-    return NextResponse.json(
-      {
-        error: errorMessage(error),
-      },
-      {
-        status: 500,
-      },
+      "Something went wrong. Please try again.",
+      "[ADMIN_LESSONS_GET]",
     );
   }
 }
@@ -520,6 +512,20 @@ export async function POST(
         error,
       );
 
+      // Unique constraint (e.g. two saves racing past the duplicate
+      // pre-check): a conflict, not a server error.
+      if (error.code === "23505") {
+        return NextResponse.json(
+          {
+            error:
+              "A lesson with this slug or order already exists.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
       return NextResponse.json(
         {
           error:
@@ -567,18 +573,12 @@ export async function POST(
       );
     }
 
-    console.error(
-      "[ADMIN_LESSONS_POST]",
+    // 400 for a malformed JSON body; generic 500 otherwise
+    // (raw error text is logged, not returned).
+    return adminErrorResponse(
       error,
-    );
-
-    return NextResponse.json(
-      {
-        error: errorMessage(error),
-      },
-      {
-        status: 500,
-      },
+      "Something went wrong. Please try again.",
+      "[ADMIN_LESSONS_POST]",
     );
   }
 }
@@ -1000,6 +1000,20 @@ export async function PATCH(
         error,
       );
 
+      // Unique constraint (e.g. two saves racing past the duplicate
+      // pre-check): a conflict, not a server error.
+      if (error.code === "23505") {
+        return NextResponse.json(
+          {
+            error:
+              "A lesson with this slug or order already exists.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
       return NextResponse.json(
         {
           error:
@@ -1043,18 +1057,12 @@ export async function PATCH(
       );
     }
 
-    console.error(
-      "[ADMIN_LESSONS_PATCH]",
+    // 400 for a malformed JSON body; generic 500 otherwise
+    // (raw error text is logged, not returned).
+    return adminErrorResponse(
       error,
-    );
-
-    return NextResponse.json(
-      {
-        error: errorMessage(error),
-      },
-      {
-        status: 500,
-      },
+      "Something went wrong. Please try again.",
+      "[ADMIN_LESSONS_PATCH]",
     );
   }
 }
@@ -1063,8 +1071,13 @@ export async function DELETE(
   request: NextRequest,
 ) {
   try {
+    // adminSupabase (service role) is used for the learner-dependency
+    // counts: the admin's own session only sees the admin's own rows
+    // under RLS, so other learners' progress looked like zero and
+    // lessons/chapters with real progress were hard-deleted.
     const {
       supabase,
+      adminSupabase,
       admin,
     } = await requireAdminApi();
 
@@ -1138,7 +1151,7 @@ export async function DELETE(
     const {
       count: progressCount,
       error: progressError,
-    } = await supabase
+    } = await adminSupabase
       .from("user_progress")
       .select("id", {
         count: "exact",
@@ -1181,7 +1194,8 @@ export async function DELETE(
 
     const {
       count: practiceCount,
-    } = await supabase
+      error: practiceError,
+    } = await adminSupabase
       .from("practice_results")
       .select("id", {
         count: "exact",
@@ -1192,6 +1206,24 @@ export async function DELETE(
         lesson.slug,
       );
 
+    // A failed count must block the delete, not let it through.
+    if (practiceError) {
+      console.error(
+        "[ADMIN_LESSONS_DELETE_PRACTICE]",
+        practiceError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to verify lesson dependencies.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
     if (
       (practiceCount ?? 0) > 0
     ) {
@@ -1201,6 +1233,50 @@ export async function DELETE(
             "This lesson has practice history and cannot be deleted. Unpublish it instead.",
           dependencyCount:
             practiceCount ?? 0,
+        },
+        {
+          status: 409,
+        },
+      );
+    }
+
+    // Chapters belong to a lesson; deleting the lesson would either
+    // cascade-delete them silently or fail with a generic error.
+    const {
+      count: chapterCount,
+      error: chapterError,
+    } = await adminSupabase
+      .from("chapters")
+      .select("id", {
+        count: "exact",
+        head: true,
+      })
+      .eq("lesson_id", id);
+
+    if (chapterError) {
+      console.error(
+        "[ADMIN_LESSONS_DELETE_CHAPTERS]",
+        chapterError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to verify lesson dependencies.",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    if ((chapterCount ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "This lesson still has chapters. Delete or move its chapters first, or unpublish the lesson instead.",
+          dependencyCount:
+            chapterCount ?? 0,
         },
         {
           status: 409,
@@ -1261,18 +1337,12 @@ export async function DELETE(
       );
     }
 
-    console.error(
-      "[ADMIN_LESSONS_DELETE]",
+    // 400 for a malformed JSON body; generic 500 otherwise
+    // (raw error text is logged, not returned).
+    return adminErrorResponse(
       error,
-    );
-
-    return NextResponse.json(
-      {
-        error: errorMessage(error),
-      },
-      {
-        status: 500,
-      },
+      "Something went wrong. Please try again.",
+      "[ADMIN_LESSONS_DELETE]",
     );
   }
 }
