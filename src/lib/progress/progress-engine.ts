@@ -1,4 +1,18 @@
+import {
+  isValidTimeZone,
+  localDateKey,
+} from "@/lib/local-date";
+
+// "Active days" counts distinct days within this many days.
+export const ACTIVE_DAYS_WINDOW = 30;
+
 export interface ProgressEngineInput {
+  // IANA timezone of the learner (e.g. "Asia/Kolkata"); UTC if unknown.
+  timeZone?: string;
+
+  // Reference time for the active-days window (defaults to now).
+  now?: Date;
+
   lessons: Array<{
     id: string;
     progress: number | null;
@@ -48,6 +62,10 @@ export interface ProgressAnalytics {
 
   totalActivity: number;
 }
+
+// Highest point value of any coding challenge
+// (see app/api/coding/challenges/submit/route.ts).
+const MAX_CHALLENGE_POINTS = 35;
 
 function safeNumber(
   value: unknown,
@@ -171,7 +189,10 @@ export function calculateProgressAnalytics(
   const uniqueCodingChallenges =
     new Set<string>();
 
-  let codingPoints = 0;
+  // Best points per challenge: repeats don't add up, and values are
+  // capped in case older rows were written with forged points.
+  const pointsByChallenge =
+    new Map<string, number>();
 
   for (
     const activity of codingActivities
@@ -200,15 +221,34 @@ export function calculateProgressAnalytics(
         uniqueCodingChallenges.add(
           challengeId,
         );
-      }
 
-      codingPoints += Math.max(
-        0,
-        safeNumber(
-          metadata.points,
-        ),
-      );
+        const points = Math.min(
+          MAX_CHALLENGE_POINTS,
+          Math.max(
+            0,
+            safeNumber(
+              metadata.points,
+            ),
+          ),
+        );
+
+        pointsByChallenge.set(
+          challengeId,
+          Math.max(
+            pointsByChallenge.get(
+              challengeId,
+            ) ?? 0,
+            points,
+          ),
+        );
+      }
     }
+  }
+
+  let codingPoints = 0;
+
+  for (const points of pointsByChallenge.values()) {
+    codingPoints += points;
   }
 
   const labRuns =
@@ -244,36 +284,44 @@ export function calculateProgressAnalytics(
       0,
     );
 
+  // Distinct calendar days with activity in the last
+  // ACTIVE_DAYS_WINDOW days, in the learner's own timezone.
+  const timeZone =
+    isValidTimeZone(input.timeZone)
+      ? input.timeZone
+      : "UTC";
+
+  const windowStart =
+    (input.now ?? new Date()).getTime() -
+    ACTIVE_DAYS_WINDOW * 24 * 60 * 60 * 1000;
+
   const activeDates =
     new Set<string>();
 
   for (
-    const activity of input.aiActivities
+    const activity of [
+      ...input.aiActivities,
+      ...input.labActivities,
+    ]
   ) {
-    if (
-      activity.created_at
-    ) {
-      activeDates.add(
-        activity.created_at.slice(
-          0,
-          10,
-        ),
-      );
+    if (!activity.created_at) {
+      continue;
     }
-  }
 
-  for (
-    const activity of input.labActivities
-  ) {
     if (
-      activity.created_at
+      new Date(activity.created_at).getTime() <
+      windowStart
     ) {
-      activeDates.add(
-        activity.created_at.slice(
-          0,
-          10,
-        ),
-      );
+      continue;
+    }
+
+    const day = localDateKey(
+      activity.created_at,
+      timeZone,
+    );
+
+    if (day) {
+      activeDates.add(day);
     }
   }
 
