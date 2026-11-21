@@ -1,8 +1,61 @@
 import Link from "next/link";
 import { ArrowLeft, BrainCircuit } from "lucide-react";
 import PracticeQuiz from "@/components/practice/PracticeQuiz";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getLearningPreferences } from "@/lib/user-preferences";
 
-export default function PracticePage() {
+export const dynamic = "force-dynamic";
+
+type QuizDifficulty = "easy" | "medium" | "difficult";
+
+/*
+ * Default quiz difficulty from Settings > Learning > Preferred
+ * difficulty (a ?difficulty= URL parameter still takes precedence in
+ * the quiz). "Adaptive" picks a level from the learner's recent scores.
+ */
+async function preferredDifficulty(): Promise<QuizDifficulty | undefined> {
+  const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return undefined;
+  }
+
+  const { preferred_difficulty: preference } =
+    await getLearningPreferences(supabase, user.id);
+
+  if (preference === "easy") return "easy";
+  if (preference === "medium") return "medium";
+  if (preference === "hard") return "difficult";
+
+  // Adaptive: average of the last 5 results.
+  const { data: recent } = await supabase
+    .from("practice_results")
+    .select("percentage")
+    .eq("user_id", user.id)
+    .order("completed_at", { ascending: false })
+    .limit(5);
+
+  const scores = (recent ?? [])
+    .map((row) => Number(row.percentage))
+    .filter((value) => Number.isFinite(value));
+
+  if (scores.length === 0) {
+    return "easy";
+  }
+
+  const average =
+    scores.reduce((sum, value) => sum + value, 0) / scores.length;
+
+  return average >= 80 ? "difficult" : average >= 50 ? "medium" : "easy";
+}
+
+export default async function PracticePage() {
+  const difficulty = await preferredDifficulty();
+
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
@@ -42,7 +95,7 @@ export default function PracticePage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-        <PracticeQuiz />
+        <PracticeQuiz difficulty={difficulty} />
       </section>
     </main>
   );
