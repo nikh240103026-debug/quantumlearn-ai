@@ -8,7 +8,7 @@ export const assessments: Assessment[] = [
       "Evaluate your understanding of qubits, superposition, measurement and Bloch sphere.",
     difficulty: "Beginner",
     duration: 30,
-    questions: 20,
+    questions: 10,
     passingMarks: 50,
     totalMarks: 100,
     topics: [
@@ -25,7 +25,7 @@ export const assessments: Assessment[] = [
       "Test your knowledge of single and multi-qubit quantum gates.",
     difficulty: "Intermediate",
     duration: 45,
-    questions: 30,
+    questions: 10,
     passingMarks: 60,
     totalMarks: 100,
     topics: [
@@ -45,7 +45,7 @@ export const assessments: Assessment[] = [
       "Assess your understanding of major quantum algorithms.",
     difficulty: "Advanced",
     duration: 60,
-    questions: 40,
+    questions: 10,
     passingMarks: 70,
     totalMarks: 100,
     topics: [
