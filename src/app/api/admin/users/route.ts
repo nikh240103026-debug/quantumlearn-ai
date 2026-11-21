@@ -74,44 +74,60 @@ export async function GET(request: NextRequest) {
      * ----------------------------------------------------------
      */
 
-    let query = supabase
-      .from("profiles")
-      .select(
-        `
-          id,
-          full_name,
-          username,
-          role,
-          created_at,
-          updated_at
-        `,
-        {
-          count: "exact",
-        },
-      )
-      .order("created_at", {
-        ascending: false,
-      });
+    /*
+     * Search is applied in memory below (name, username AND email).
+     * Filtering the DB by name first made email searches return
+     * nothing, since email lives in auth.users, not profiles.
+     *
+     * PostgREST returns at most 1000 rows per request, so profiles
+     * are loaded in pages.
+     */
+    const PROFILE_PAGE_SIZE = 1000;
 
-    if (role && isValidRole(role)) {
-      query = query.eq("role", role);
+    const profiles: unknown[] = [];
+    let profilesError: unknown = null;
+
+    for (let offset = 0; ; offset += PROFILE_PAGE_SIZE) {
+      let pageQuery = supabase
+        .from("profiles")
+        .select(
+          `
+            id,
+            full_name,
+            username,
+            role,
+            created_at,
+            updated_at
+          `,
+        )
+        .order("created_at", {
+          ascending: false,
+        })
+        .order("id", {
+          ascending: true,
+        })
+        .range(
+          offset,
+          offset + PROFILE_PAGE_SIZE - 1,
+        );
+
+      if (role && isValidRole(role)) {
+        pageQuery = pageQuery.eq("role", role);
+      }
+
+      const { data, error } = await pageQuery;
+
+      if (error) {
+        profilesError = error;
+        break;
+      }
+
+      profiles.push(...(data ?? []));
+
+      if (!data || data.length < PROFILE_PAGE_SIZE) {
+        break;
+      }
     }
-
-    if (search) {
-      const escapedSearch = search
-        .replace(/[%_]/g, "\\$&")
-        .replace(/,/g, "");
-
-      query = query.or(
-        `full_name.ilike.%${escapedSearch}%,username.ilike.%${escapedSearch}%`,
-      );
-    }
-
-    const {
-      data: profiles,
-      count,
-      error: profilesError,
-    } = await query;
 
     if (profilesError) {
       console.error(

@@ -59,30 +59,71 @@ export async function GET(
           1000,
     ).toISOString();
 
-    const {
-      data,
-      error,
-    } =
-      await adminSupabase
-        .from("platform_events")
-        .select(
-          `
-            event_name,
-            event_category,
-            user_id,
-            created_at
-          `,
-        )
-        .gte(
-          "created_at",
-          since,
-        )
-        .order(
-          "created_at",
-          {
-            ascending: true,
-          },
-        );
+    /*
+     * PostgREST returns at most 1000 rows per request; without paging,
+     * the newest events in the window were silently dropped. Pages are
+     * capped so a huge window can't run unbounded.
+     */
+    const EVENTS_PAGE_SIZE = 1000;
+    const MAX_EVENTS = 50_000;
+
+    type EventRow = {
+      event_name: string;
+      event_category: string;
+      user_id: string | null;
+      created_at: string;
+    };
+
+    const data: EventRow[] = [];
+    let error: unknown = null;
+
+    for (
+      let offset = 0;
+      offset < MAX_EVENTS;
+      offset += EVENTS_PAGE_SIZE
+    ) {
+      const page =
+        await adminSupabase
+          .from("platform_events")
+          .select(
+            `
+              event_name,
+              event_category,
+              user_id,
+              created_at
+            `,
+          )
+          .gte(
+            "created_at",
+            since,
+          )
+          .order(
+            "created_at",
+            {
+              ascending: true,
+            },
+          )
+          .range(
+            offset,
+            offset + EVENTS_PAGE_SIZE - 1,
+          );
+
+      if (page.error) {
+        error = page.error;
+        break;
+      }
+
+      data.push(
+        ...((page.data ?? []) as EventRow[]),
+      );
+
+      if (
+        !page.data ||
+        page.data.length < EVENTS_PAGE_SIZE
+      ) {
+        break;
+      }
+    }
 
     if (error) {
       console.error(
