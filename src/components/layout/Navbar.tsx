@@ -34,7 +34,6 @@ import {
   Check,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { syncCodingStorageOwner } from "@/lib/coding-storage";
 
 type IconComponent = React.ComponentType<{
   size?: number;
@@ -266,8 +265,6 @@ export function Navbar() {
 
       if (!mounted) return;
 
-      syncCodingStorageOwner(user?.id ?? null);
-
       setUserEmail(user?.email ?? null);
 
       const name =
@@ -287,16 +284,10 @@ export function Navbar() {
       data: { subscription },
     } =
       supabase.auth.onAuthStateChange(
-        (event, session) => {
+        (_event, session) => {
           if (!mounted) return;
 
           const user = session?.user;
-
-          // Keep locally stored coding programs per user.
-          syncCodingStorageOwner(
-            user?.id ?? null,
-            event === "SIGNED_OUT",
-          );
 
           setUserEmail(user?.email ?? null);
 

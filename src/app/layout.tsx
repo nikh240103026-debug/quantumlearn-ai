@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/layout/Navbar";
 import { PageLoadingBar } from "@/components/layout/PageLoadingBar";
-import { TimezoneCookie } from "@/components/layout/TimezoneCookie";
 import FloatingAITutor from "@/components/ai/FloatingAITutor";
 
 const geistSans = Geist({
@@ -33,8 +32,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <PageLoadingBar />
-
-        <TimezoneCookie />
 
         <Navbar />
 

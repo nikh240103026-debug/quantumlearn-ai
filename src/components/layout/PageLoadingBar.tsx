@@ -236,14 +236,7 @@ export function PageLoadingBar() {
           targetUrl.search === currentUrl.search &&
           targetUrl.hash !== currentUrl.hash;
 
-        // Query-only changes (e.g. ?tab=...) don't change the pathname
-        // either, so the "navigation finished" signal never fired and
-        // the bar stayed up until the 12 s safety timeout.
-        const isQueryOnlyNavigation =
-          targetUrl.pathname === currentUrl.pathname &&
-          targetUrl.search !== currentUrl.search;
-
-        if (isHashNavigation || isQueryOnlyNavigation) {
+        if (isHashNavigation) {
           stopLoading(450);
         }
 
@@ -277,13 +270,8 @@ export function PageLoadingBar() {
    * etc.
    */
   useEffect(() => {
-    // Most forms here call preventDefault() and stay on the page (login
-    // errors, validation messages), so waiting for a pathname change
-    // left the bar stuck for the 12 s safety timeout. Treat a submit
-    // like a button interaction; a real navigation shows its own bar.
     const handleSubmit = () => {
-      startLoading(false);
-      stopLoading(INTERACTION_DISPLAY_TIME);
+      startLoading(true);
     };
 
     document.addEventListener("submit", handleSubmit, true);
@@ -291,7 +279,7 @@ export function PageLoadingBar() {
     return () => {
       document.removeEventListener("submit", handleSubmit, true);
     };
-  }, [startLoading, stopLoading]);
+  }, [startLoading]);
 
   /*
    * Browser Back / Forward.
