@@ -76,17 +76,23 @@ QBRAID_DEVICE_ID = "qbraid:qbraid:sim:qir-sv"
 # ERROR HANDLING
 # ============================================================
 
+class EngineInputError(Exception):
+    """Invalid execution request. Safe to show to the user."""
+
+    def __init__(self, message, code=400):
+        super().__init__(message)
+        self.message = message
+        self.code = code
+
+
 def fail(message, code=400) -> NoReturn:
-    print(
-        json.dumps(
-            {
-                "success": False,
-                "error": message,
-                "code": code,
-            }
-        )
+    # Raise instead of sys.exit(): this module is imported by the
+    # FastAPI server, where SystemExit bypasses `except Exception`
+    # handlers and can take down the worker.
+    raise EngineInputError(
+        message,
+        code,
     )
-    sys.exit(0)
 
 
 # ============================================================
@@ -246,7 +252,16 @@ def counts_to_statevector(
 
 def normalize_counts_bit_order(
     counts,
+    reverse_bits=False,
 ):
+    """
+    Normalize count keys to the app convention:
+    qubit 0 is the LEFTMOST bit (matches the TS simulator,
+    the probabilityMap, Cirq and PennyLane).
+
+    Qiskit/Aer bitstrings put qubit 0 on the RIGHT,
+    so callers pass reverse_bits=True for Qiskit counts.
+    """
     normalized = {}
 
     for bitstring, count in counts.items():
@@ -254,6 +269,9 @@ def normalize_counts_bit_order(
             " ",
             "",
         )
+
+        if reverse_bits:
+            key = key[::-1]
 
         if key:
             normalized[key] = (
@@ -464,8 +482,10 @@ def run_qiskit(
         measurement_result.get_counts()
     )
 
+    # Aer puts qubit 0 rightmost; flip to the app convention.
     counts = normalize_counts_bit_order(
-        raw_counts
+        raw_counts,
+        reverse_bits=True,
     )
 
     return {
@@ -885,14 +905,13 @@ def run_cirq(
         qubit_order=q,
     )
 
+    # Cirq's statevector already uses qubit_order=q with q[0] as the
+    # most significant bit, which matches the app convention.
+    # Do not reverse it (reversing made probabilities disagree with
+    # the counts below and with every other backend).
     state = np.asarray(
         state_result.final_state_vector,
         dtype=complex,
-    )
-
-    state = reverse_statevector_qubit_order(
-        state,
-        qubits,
     )
 
     base_result = state_to_result(
@@ -1262,6 +1281,246 @@ def run_local(
 # EXECUTION DISPATCH
 # ============================================================
 
+# ============================================================
+# MEASUREMENT (M gate)
+# ============================================================
+#
+# A mid-circuit measurement collapses the qubit and turns the pure
+# state into a mixture. The selected library simulates the unitary
+# segments between M gates; this driver tracks every collapse branch
+# with its probability weight, so probabilities are exact. The
+# returned statevector is one randomly chosen branch (a single run),
+# and counts are sampled from the exact distribution.
+#
+# All states here use the app convention: qubit 0 is the leftmost bit.
+
+MAX_MEASUREMENT_BRANCHES = 1024
+
+
+def sort_operations(circuit):
+    return sorted(
+        circuit,
+        key=lambda item: (
+            item.get("column", 0),
+            item.get("qubit", 0),
+        ),
+    )
+
+
+def has_measurements(circuit):
+    return any(
+        operation.get("gate") == "M"
+        for operation in circuit
+    )
+
+
+def has_mid_circuit_measurement(circuit):
+    """True if some qubit is used again after being measured."""
+
+    measured = set()
+
+    for operation in sort_operations(circuit):
+        touched = {operation.get("qubit")}
+
+        if operation.get("controlQubit") is not None:
+            touched.add(operation.get("controlQubit"))
+
+        if operation.get("gate") == "M":
+            measured.add(operation.get("qubit"))
+            continue
+
+        if touched & measured:
+            return True
+
+    return False
+
+
+def project_qubit(state, qubit, qubits, outcome):
+    mask = 1 << (qubits - qubit - 1)
+
+    indices = np.arange(len(state))
+    keep = ((indices & mask) != 0) == bool(outcome)
+
+    probability = float(
+        np.sum(np.abs(state[keep]) ** 2)
+    )
+
+    if probability < 1e-12:
+        return 0.0, None
+
+    projected = np.where(keep, state, 0)
+
+    return probability, projected / np.sqrt(probability)
+
+
+def merge_branches(branches):
+    merged = {}
+
+    for weight, state in branches:
+        key = np.round(state, 9).tobytes()
+
+        if key in merged:
+            merged[key][0] += weight
+        else:
+            merged[key] = [weight, state]
+
+    return [
+        (weight, state)
+        for weight, state in merged.values()
+    ]
+
+
+def simulate_with_measurements(
+    circuit,
+    qubits,
+    shots,
+    evolve,
+    backend_name,
+):
+    """
+    evolve(state, operations) -> state applies unitary gates with the
+    chosen library, starting from `state` (app bit order).
+    """
+
+    initial = np.zeros(2 ** qubits, dtype=complex)
+    initial[0] = 1.0
+
+    branches = [(1.0, initial)]
+    pending = []
+
+    def flush():
+        nonlocal branches, pending
+
+        if pending:
+            branches = [
+                (weight, np.asarray(evolve(state, pending), dtype=complex))
+                for weight, state in branches
+            ]
+            pending = []
+
+    for operation in sort_operations(circuit):
+        if operation.get("gate") != "M":
+            pending.append(operation)
+            continue
+
+        flush()
+
+        qubit = int(operation["qubit"])
+        next_branches = []
+
+        for weight, state in branches:
+            for outcome in (0, 1):
+                probability, projected = project_qubit(
+                    state, qubit, qubits, outcome,
+                )
+
+                if projected is not None and weight * probability > 1e-12:
+                    next_branches.append(
+                        (weight * probability, projected)
+                    )
+
+        branches = merge_branches(next_branches)
+
+        if len(branches) > MAX_MEASUREMENT_BRANCHES:
+            fail(
+                "Too many mid-circuit measurements to simulate exactly. "
+                "Reduce the number of M gates."
+            )
+
+    flush()
+
+    weights = np.array([weight for weight, _ in branches], dtype=float)
+    weights = weights / weights.sum()
+
+    probabilities = np.zeros(2 ** qubits, dtype=float)
+
+    for weight, (_, state) in zip(weights, branches):
+        probabilities += weight * (np.abs(state) ** 2)
+
+    probabilities = probabilities / probabilities.sum()
+
+    rng = np.random.default_rng()
+
+    trajectory = branches[
+        int(rng.choice(len(branches), p=weights))
+    ][1]
+
+    result = state_to_result(trajectory, qubits)
+
+    sampled = rng.multinomial(shots, probabilities)
+
+    counts = {
+        format(index, f"0{qubits}b"): int(count)
+        for index, count in enumerate(sampled)
+        if count > 0
+    }
+
+    return {
+        **result,
+        "probabilities": normalize_probabilities(probabilities),
+        "probabilityMap": {
+            format(index, f"0{qubits}b"): float(probability)
+            for index, probability in enumerate(probabilities)
+        },
+        "counts": counts,
+        "backend": backend_name,
+        "measurementCollapse": True,
+    }
+
+
+def evolve_qiskit(state, operations, qubits):
+    from qiskit.quantum_info import Statevector
+
+    qc = apply_operations_qiskit(operations, qubits)
+
+    # Qiskit is little-endian (qubit 0 rightmost); convert in and out.
+    evolved = Statevector(
+        reverse_statevector_qubit_order(state, qubits)
+    ).evolve(qc)
+
+    return reverse_statevector_qubit_order(
+        np.asarray(evolved.data, dtype=complex),
+        qubits,
+    )
+
+
+def evolve_cirq(state, operations, qubits):
+    import cirq
+
+    q, cirq_operations = apply_operations_cirq(operations, qubits)
+
+    result = cirq.Simulator(dtype=np.complex128).simulate(
+        cirq.Circuit(cirq_operations),
+        qubit_order=q,
+        initial_state=np.asarray(state, dtype=np.complex128),
+    )
+
+    # Cirq already uses qubit 0 as the leftmost bit.
+    return np.asarray(result.final_state_vector, dtype=complex)
+
+
+def evolve_pennylane(state, operations, qubits):
+    import pennylane as qml
+
+    device = qml.device("default.qubit", wires=qubits)
+
+    @qml.qnode(device)
+    def segment():
+        qml.StatePrep(state, wires=range(qubits))
+        apply_operations_pennylane(operations)
+        return qml.state()
+
+    # PennyLane wire 0 is the leftmost bit, like the app.
+    return np.asarray(segment(), dtype=complex)
+
+
+MEASUREMENT_EVOLVERS = {
+    "qiskit-aer": evolve_qiskit,
+    "cirq": evolve_cirq,
+    "pennylane": evolve_pennylane,
+}
+
+
 def execute(payload):
     if not isinstance(
         payload,
@@ -1295,9 +1554,11 @@ def execute(payload):
         [],
     )
 
-    if qubits < 1 or qubits > 30:
+    # 2^12 amplitudes is plenty for the UI (max 5 qubits); 30 qubits
+    # would need ~16 GB of statevector memory.
+    if qubits < 1 or qubits > 12:
         fail(
-            "Qubit count must be between 1 and 30."
+            "Qubit count must be between 1 and 12."
         )
 
     if shots < 1 or shots > 100000:
@@ -1313,11 +1574,61 @@ def execute(payload):
             "Circuit must be an array."
         )
 
+    # Defence in depth: a negative index would silently mean
+    # "last qubit" in Python, so never rely on callers alone.
+    for operation in circuit:
+        if not isinstance(operation, dict):
+            fail("Invalid circuit operation.")
+
+        for field in ("qubit", "controlQubit"):
+            value = operation.get(field)
+
+            if value is None and field == "controlQubit":
+                continue
+
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+                or value >= qubits
+            ):
+                fail(f"Invalid {field} in circuit operation.")
+
     if backend == "local":
         return run_local(
             circuit,
             qubits,
             shots,
+        )
+
+    if (
+        backend in MEASUREMENT_EVOLVERS
+        and has_measurements(circuit)
+    ):
+        evolver = MEASUREMENT_EVOLVERS[backend]
+
+        return simulate_with_measurements(
+            circuit,
+            qubits,
+            shots,
+            lambda state, operations: evolver(
+                state,
+                operations,
+                qubits,
+            ),
+            backend,
+        )
+
+    if (
+        backend == "qbraid"
+        and has_mid_circuit_measurement(circuit)
+    ):
+        # Final M gates are fine (they are implied by the readout),
+        # but mid-circuit collapse is not wired up for qBraid.
+        fail(
+            "The qBraid backend does not support mid-circuit measurement "
+            "(an M gate followed by more gates on the same qubit). "
+            "Use Qiskit, Cirq or PennyLane for this circuit."
         )
 
     if backend == "qiskit-aer":
@@ -1379,6 +1690,17 @@ def main():
                 {
                     "success": True,
                     **result,
+                }
+            )
+        )
+
+    except EngineInputError as error:
+        print(
+            json.dumps(
+                {
+                    "success": False,
+                    "error": error.message,
+                    "code": error.code,
                 }
             )
         )
