@@ -4,6 +4,7 @@ import type {
   PracticeDifficulty,
   PracticeQuestion,
 } from "@/types/practice";
+import { fetchForIds } from "@/lib/supabase-batch";
 
 export interface CurriculumQuestionQuery {
   topicId?: string;
@@ -201,44 +202,53 @@ export async function getCurriculumQuestions(
   // FETCH ACTUAL PRACTICE QUESTIONS
   // ----------------------------------------------------------
 
-  let questionQuery = supabase
-    .from("practice_questions")
-    .select(
-      `
-        id,
-        chapter_number,
-        chapter_slug,
-        chapter_title,
-        topic,
-        difficulty,
-        question,
-        options,
-        correct_answer,
-        explanation,
-        created_at,
-        updated_at
-      `,
-    )
-    .in("id", questionIds);
-
-  if (chapterNumber !== undefined) {
-    questionQuery = questionQuery.eq(
-      "chapter_number",
-      chapterNumber,
-    );
-  }
-
-  if (difficulty) {
-    questionQuery = questionQuery.eq(
-      "difficulty",
-      difficulty,
-    );
-  }
-
+  // Ids are fetched in batches: a module can map hundreds of questions,
+  // and one `.in()` with all of them exceeds URL length limits.
   const {
     data: questions,
     error: questionError,
-  } = await questionQuery;
+  } = await fetchForIds(
+    questionIds,
+    (chunk, from, to) => {
+      let questionQuery = supabase
+        .from("practice_questions")
+        .select(
+          `
+            id,
+            chapter_number,
+            chapter_slug,
+            chapter_title,
+            topic,
+            difficulty,
+            question,
+            options,
+            correct_answer,
+            explanation,
+            created_at,
+            updated_at
+          `,
+        )
+        .in("id", chunk);
+
+      if (chapterNumber !== undefined) {
+        questionQuery = questionQuery.eq(
+          "chapter_number",
+          chapterNumber,
+        );
+      }
+
+      if (difficulty) {
+        questionQuery = questionQuery.eq(
+          "difficulty",
+          difficulty,
+        );
+      }
+
+      return questionQuery
+        .order("id")
+        .range(from, to);
+    },
+  );
 
   if (questionError) {
     console.error(
@@ -266,8 +276,13 @@ export async function getCurriculumQuestions(
         ),
         relevance:
           relevanceByQuestion.get(
-            String(question.id),
+            String(
+              (question as { id: unknown }).id,
+            ),
           ) ?? 0,
+        // Random tie-break so equally relevant questions vary between
+        // attempts instead of always returning the same top-N.
+        tieBreak: Math.random(),
       }),
     );
 
@@ -279,9 +294,7 @@ export async function getCurriculumQuestions(
         return b.relevance - a.relevance;
       }
 
-      return a.question.id.localeCompare(
-        b.question.id,
-      );
+      return a.tieBreak - b.tieBreak;
     },
   );
 

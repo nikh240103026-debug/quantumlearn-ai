@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { isMissingFunctionError } from "@/lib/supabase-errors";
 
 export type CurriculumProgressResult = {
   topicId: string;
@@ -108,7 +109,53 @@ export async function updateCurriculumTopicProgress(
   }
 
   // ------------------------------------------------------------
-  // LOAD EXISTING PROGRESS
+  // ATOMIC UPDATE (preferred)
+  // ------------------------------------------------------------
+  //
+  // The read-modify-write below loses updates when two results for
+  // the same topic are saved concurrently. The database function
+  // (supabase/migrations/..._atomic_progress.sql) does the same
+  // calculation under a lock. Fall back only if it isn't installed.
+
+  const { data: atomicProgress, error: atomicError } =
+    await supabase.rpc("apply_topic_practice_result", {
+      p_topic_id: topicId,
+      p_score: safeScore,
+      p_total: safeTotalQuestions,
+      p_percentage: safePercentage,
+    });
+
+  if (!atomicError && atomicProgress) {
+    const row = atomicProgress as {
+      topic_id: string;
+      progress_percent: number;
+      questions_answered: number;
+      questions_correct: number;
+      mastery_score: number | string;
+      last_activity_at: string | null;
+    };
+
+    return {
+      topicId: row.topic_id,
+      progressPercent: row.progress_percent,
+      questionsAnswered: row.questions_answered,
+      questionsCorrect: row.questions_correct,
+      masteryScore: Number(row.mastery_score),
+      lastActivityAt: row.last_activity_at ?? now,
+    };
+  }
+
+  if (atomicError && !isMissingFunctionError(atomicError)) {
+    console.error(
+      "Curriculum topic progress (atomic) error:",
+      atomicError,
+    );
+
+    return null;
+  }
+
+  // ------------------------------------------------------------
+  // LOAD EXISTING PROGRESS (fallback before the migration)
   // ------------------------------------------------------------
 
   const { data: existingProgress, error: progressError } =
