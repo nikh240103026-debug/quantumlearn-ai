@@ -41,18 +41,29 @@ const frameworkMeta: Record<
   },
 };
 
-export default function CodingTutorials() {
+export default function CodingTutorials({
+  initialFramework = "Qiskit",
+}: {
+  // The /coding/tutorials/cirq and /pennylane pages pass their own
+  // framework; they used to always open on Qiskit.
+  initialFramework?: TutorialFramework;
+} = {}) {
   const [framework, setFramework] =
-    useState<TutorialFramework>("Qiskit");
+    useState<TutorialFramework>(initialFramework);
+
+  const initialTutorial =
+    codingTutorials.find((item) => item.framework === initialFramework) ??
+    codingTutorials[0];
 
   const [selectedTutorial, setSelectedTutorial] = useState(
-    codingTutorials.find((item) => item.framework === "Qiskit")?.id ??
-      codingTutorials[0].id
+    initialTutorial.id
   );
 
   const [stepIndex, setStepIndex] = useState(0);
   const [completed, setCompleted] = useState(false);
-  const [code, setCode] = useState("");
+  // Start with the first step's code (the editor used to start empty,
+  // so "Run" sent empty code until a tutorial was clicked).
+  const [code, setCode] = useState(initialTutorial.steps[0]?.code ?? "");
   const [output, setOutput] = useState("");
 
   const visibleTutorials = useMemo(
@@ -145,13 +156,15 @@ export default function CodingTutorials() {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
+      // The execute API returns HTTP 200 with success:false when the
+      // program raises; that used to be shown as a successful run.
+      if (!response.ok || data?.success === false) {
         setOutput(
-          data?.error ||
-            data?.stderr ||
-            "Code execution failed."
+          [data?.output, data?.error || data?.stderr || "Code execution failed."]
+            .filter(Boolean)
+            .join("\n\n")
         );
         return;
       }

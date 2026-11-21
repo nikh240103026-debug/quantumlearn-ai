@@ -38,10 +38,55 @@ function readStorage<T>(key: string): T[] {
   }
 }
 
-function writeStorage<T>(key: string, value: T[]) {
+// Saved programs are stored in this browser. Cap the total so a large
+// collection can't fill localStorage and break every later write.
+const MAX_SAVED_PROGRAMS = 200;
+
+// Returns false if the browser refused the write (quota exceeded or
+// storage blocked) instead of throwing into the caller, which used to
+// turn a successful code run into an "execution failed" error.
+function writeStorage<T>(key: string, value: T[]): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.warn("[coding-storage] could not save to localStorage:", error);
+    return false;
+  }
+}
+
+/*
+ * Programs and history live in localStorage, which every account on the
+ * same browser shares. Remember which user owns them and clear them when
+ * a different user signs in (or on sign-out), so one learner can't see
+ * another's code on a shared computer.
+ */
+const OWNER_KEY = "quantumlearn_code_owner";
+
+export function syncCodingStorageOwner(
+  userId: string | null,
+  signedOut = false,
+) {
   if (typeof window === "undefined") return;
 
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    const owner = localStorage.getItem(OWNER_KEY);
+
+    if (signedOut || (userId && owner && owner !== userId)) {
+      localStorage.removeItem(SAVED_KEY);
+      localStorage.removeItem(HISTORY_KEY);
+    }
+
+    if (signedOut) {
+      localStorage.removeItem(OWNER_KEY);
+    } else if (userId) {
+      localStorage.setItem(OWNER_KEY, userId);
+    }
+  } catch {
+    // Storage unavailable: nothing is persisted, so nothing to clear.
+  }
 }
 
 export function getSavedCode(): SavedCode[] {
@@ -64,7 +109,16 @@ export function saveCode(
     updatedAt: new Date().toISOString(),
   };
 
-  writeStorage(SAVED_KEY, [item, ...existing]);
+  if (
+    !writeStorage(
+      SAVED_KEY,
+      [item, ...existing].slice(0, MAX_SAVED_PROGRAMS),
+    )
+  ) {
+    throw new Error(
+      "Couldn't save the program: this browser's storage is full or blocked.",
+    );
+  }
 
   return item;
 }

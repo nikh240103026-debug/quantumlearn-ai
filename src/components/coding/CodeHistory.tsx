@@ -78,7 +78,19 @@ export default function CodeHistory() {
   function handleCreate() {
     if (!code.trim()) return;
 
-    const item = saveCode(title, code, "Python");
+    let item;
+
+    try {
+      item = saveCode(title, code, "Python");
+    } catch (error) {
+      // e.g. browser storage full or blocked
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Couldn't save the program.",
+      );
+      return;
+    }
 
     addCodeHistory(item.title, item.code, "saved", "Python");
 

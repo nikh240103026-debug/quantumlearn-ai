@@ -151,9 +151,17 @@ export default function CodingPlayground() {
       return;
     }
 
-    saveCode(programTitle.trim(), code, "Python");
-
-    setShowSaveDialog(false);
+    try {
+      saveCode(programTitle.trim(), code, "Python");
+      setShowSaveDialog(false);
+    } catch (error) {
+      // e.g. browser storage full or blocked
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Couldn't save the program.",
+      );
+    }
   }
 
   const isRunning = executionState === "running";
