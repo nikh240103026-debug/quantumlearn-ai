@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { isMissingColumnError } from "@/lib/supabase-errors";
 
 const VALID_REASONS = [
   "wrong_answer",
@@ -153,15 +154,23 @@ export async function POST(request: Request) {
     // PREVENT DUPLICATE REPORTS
     // ---------------------------------------------------------
 
+    // Only an OPEN report blocks a new one, so a question can be
+    // reported again after the earlier report was resolved. `limit(1)`
+    // instead of maybeSingle(): several older rows must not cause an
+    // error that blocks every future report.
     const {
-      data: existingReport,
+      data: existingReports,
       error: existingReportError,
     } = await supabase
       .from("practice_question_reports")
       .select("id")
       .eq("question_id", questionId)
       .eq("user_id", user.id)
-      .maybeSingle();
+      .eq("status", "open")
+      .limit(1);
+
+    const existingReport =
+      existingReports?.[0] ?? null;
 
     if (existingReportError) {
       console.error(
@@ -195,30 +204,42 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // CREATE REPORT
     //
-    // IMPORTANT:
-    // The database table does not contain a `metadata`
-    // column, so we intentionally do not send one here.
-    //
-    // `details` is also not inserted as a separate column
-    // because the current table schema does not expose it.
-    // The report reason is therefore stored in `reason`.
+    // The table has no `metadata` column. The learner's details
+    // go in `description`, which the migration
+    // supabase/migrations/..._practice_integrity... adds; until
+    // it runs, the insert is retried without it.
     // ---------------------------------------------------------
 
-    const {
-      data,
-      error,
-    } = await supabase
-      .from("practice_question_reports")
-      .insert({
-        question_id: questionId,
-        user_id: user.id,
-        reason,
-        status: "open",
-      })
-      .select(
-        "id, question_id, user_id, reason, status, created_at",
-      )
-      .single();
+    const insertReport = (
+      withDescription: boolean,
+    ) =>
+      supabase
+        .from("practice_question_reports")
+        .insert({
+          question_id: questionId,
+          user_id: user.id,
+          reason,
+          status: "open",
+          ...(withDescription && details
+            ? { description: details }
+            : {}),
+        })
+        .select(
+          "id, question_id, user_id, reason, status, created_at",
+        )
+        .single();
+
+    let { data, error } =
+      await insertReport(true);
+
+    if (
+      error &&
+      details &&
+      isMissingColumnError(error)
+    ) {
+      ({ data, error } =
+        await insertReport(false));
+    }
 
     if (error) {
       console.error(
