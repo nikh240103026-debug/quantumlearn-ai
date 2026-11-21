@@ -2,8 +2,11 @@
 
 import {
   type ReactNode,
+  useEffect,
   useState,
 } from "react";
+
+import { LESSON_OPENED_EVENT } from "@/components/learning/LessonCompleteButton";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -46,6 +49,17 @@ export function LessonExperience({
   children,
 }: LessonExperienceProps) {
   const [expanded, setExpanded] = useState(false);
+
+  // Tell the "Mark as Complete" button the lesson has been opened.
+  useEffect(() => {
+    if (expanded) {
+      window.dispatchEvent(
+        new CustomEvent(LESSON_OPENED_EVENT, {
+          detail: { lessonId },
+        }),
+      );
+    }
+  }, [expanded, lessonId]);
 
   const [summary, setSummary] = useState("");
 
@@ -883,6 +897,14 @@ export function LessonExperience({
                     />
                   </button>
                 </div>
+
+                {/* Export errors: `error` is otherwise only shown when the
+                    summary itself failed, so export failures were silent. */}
+                {summaryState === "success" && error && (
+                  <p className="mt-3 text-xs leading-5 text-red-600">
+                    {error}
+                  </p>
+                )}
               </>
             )}
           </div>

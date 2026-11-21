@@ -1,21 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+
+// Dispatched by LessonExperience when the lesson content is opened.
+export const LESSON_OPENED_EVENT = "quantumlearn:lesson-opened";
 
 interface LessonCompleteButtonProps {
   lessonId: string;
-  courseId: string;
+  // Kept for existing callers; the server derives the course.
+  courseId?: string;
   completed: boolean;
 }
 
 export function LessonCompleteButton({
   lessonId,
-  courseId,
   completed: initialCompleted,
 }: LessonCompleteButtonProps) {
   const [completed, setCompleted] =
@@ -27,150 +29,57 @@ export function LessonCompleteButton({
   const [error, setError] =
     useState("");
 
+  // The button unlocks once the lesson content has been opened
+  // (LessonExperience dispatches LESSON_OPENED_EVENT). Before, a lesson
+  // could be marked complete straight from page load, unread.
+  const [lessonOpened, setLessonOpened] =
+    useState(false);
+
+  useEffect(() => {
+    function handleOpened(event: Event) {
+      const detail = (event as CustomEvent<{ lessonId?: string }>).detail;
+
+      if (!detail?.lessonId || detail.lessonId === lessonId) {
+        setLessonOpened(true);
+      }
+    }
+
+    window.addEventListener(LESSON_OPENED_EVENT, handleOpened);
+
+    return () =>
+      window.removeEventListener(LESSON_OPENED_EVENT, handleOpened);
+  }, [lessonId]);
+
   async function handleComplete() {
-    if (completed || loading) {
+    if (completed || loading || !lessonOpened) {
       return;
     }
 
     setLoading(true);
     setError("");
 
-    const supabase =
-      createSupabaseBrowserClient();
+    try {
+      // Server route: checks the lesson is published, takes course_id
+      // from the lesson, and computes the streak in local time.
+      const response = await fetch("/api/progress/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId }),
+      });
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      const data = await response.json().catch(() => ({}));
 
-    if (!user) {
-      setError(
-        "You must be logged in to complete this lesson.",
-      );
-
-      setLoading(false);
-      return;
-    }
-
-    const now =
-      new Date().toISOString();
-
-    const {
-      error: progressError,
-    } = await supabase
-      .from("user_progress")
-      .upsert(
-        {
-          user_id: user.id,
-          course_id: courseId,
-          lesson_id: lessonId,
-          progress: 100,
-          completed: true,
-          last_accessed_at: now,
-          completed_at: now,
-        },
-        {
-          onConflict:
-            "user_id,lesson_id",
-        },
-      );
-
-    if (progressError) {
-      setError(
-        progressError.message,
-      );
-
-      setLoading(false);
-      return;
-    }
-
-    const today =
-      new Date()
-        .toISOString()
-        .split("T")[0];
-
-    const {
-      data: existingStreak,
-    } = await supabase
-      .from("learning_streaks")
-      .select(
-        "current_streak, longest_streak, last_activity_date",
-      )
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    let currentStreak = 1;
-    let longestStreak = 1;
-
-    if (existingStreak) {
-      const lastActivity =
-        existingStreak.last_activity_date;
-
-      if (lastActivity === today) {
-        currentStreak =
-          existingStreak.current_streak;
-
-        longestStreak =
-          existingStreak.longest_streak;
-      } else {
-        const lastDate =
-          new Date(
-            `${lastActivity}T00:00:00`,
-          );
-
-        const todayDate =
-          new Date(
-            `${today}T00:00:00`,
-          );
-
-        const differenceInDays =
-          Math.floor(
-            (todayDate.getTime() -
-              lastDate.getTime()) /
-              (1000 * 60 * 60 * 24),
-          );
-
-        if (differenceInDays === 1) {
-          currentStreak =
-            existingStreak.current_streak +
-            1;
-        }
-
-        longestStreak =
-          Math.max(
-            existingStreak.longest_streak,
-            currentStreak,
-          );
+      if (!response.ok) {
+        setError(data.error ?? "Unable to complete this lesson.");
+        return;
       }
-    }
 
-    const {
-      error: streakError,
-    } = await supabase
-      .from("learning_streaks")
-      .upsert(
-        {
-          user_id: user.id,
-          current_streak: currentStreak,
-          longest_streak: longestStreak,
-          last_activity_date: today,
-          updated_at: now,
-        },
-        {
-          onConflict: "user_id",
-        },
-      );
-
-    if (streakError) {
-      setError(
-        streakError.message,
-      );
-
+      setCompleted(true);
+    } catch {
+      setError("Unable to complete this lesson. Check your connection.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setCompleted(true);
-    setLoading(false);
   }
 
   if (completed) {
@@ -188,7 +97,12 @@ export function LessonCompleteButton({
       <button
         type="button"
         onClick={handleComplete}
-        disabled={loading}
+        disabled={loading || !lessonOpened}
+        title={
+          lessonOpened
+            ? undefined
+            : "Open and read the lesson first"
+        }
         className="
           group
           relative
@@ -238,6 +152,12 @@ export function LessonCompleteButton({
           "
         />
       </button>
+
+      {!lessonOpened && (
+        <p className="mt-2 text-xs text-slate-500">
+          Open the lesson above to mark it complete.
+        </p>
+      )}
 
       {error && (
         <p className="mt-3 text-sm text-red-600">
