@@ -31,6 +31,11 @@ export const runtime =
 
 const MAX_CIRCUIT_OPERATIONS = 500;
 
+// The UI allows 5 qubits. 2^12 amplitudes keeps simulation cheap and the
+// response far below python-runner's 5 MB limit (30 qubits would need
+// ~16 GB of statevector memory on the Python service).
+const MAX_QUBITS = 12;
+
 const SUPPORTED_GATES: QuantumGate[] = [
   "I",
   "X",
@@ -185,13 +190,13 @@ export async function POST(
         qubits,
       ) ||
       qubits < 1 ||
-      qubits > 30
+      qubits > MAX_QUBITS
     ) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Qubit count must be between 1 and 30.",
+            `Qubit count must be between 1 and ${MAX_QUBITS}.`,
         },
         {
           status: 400,
@@ -259,6 +264,12 @@ export async function POST(
         },
       );
     }
+
+    // Cells (qubit:column) already used by a target or control.
+    // Two operations on the same cell have no defined order, and the
+    // browser and Python simulators would order them differently.
+    const occupiedCells =
+      new Set<string>();
 
     for (
       let index = 0;
@@ -371,6 +382,38 @@ export async function POST(
             },
           );
         }
+      }
+
+      const cells = [
+        `${gate.qubit}:${gate.column}`,
+      ];
+
+      if (
+        isControlledGate &&
+        gate.controlQubit !== undefined
+      ) {
+        cells.push(
+          `${gate.controlQubit}:${gate.column}`,
+        );
+      }
+
+      for (const cell of cells) {
+        if (
+          occupiedCells.has(cell)
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                `Circuit operation ${index + 1} overlaps another gate in column ${gate.column + 1}.`,
+            },
+            {
+              status: 400,
+            },
+          );
+        }
+
+        occupiedCells.add(cell);
       }
     }
 
