@@ -72,25 +72,21 @@ export default function AICodingAssistant() {
     ]);
 
     try {
-      const response = await fetch("/api/ai-tutor", {
+      // `/api/ai-tutor` doesn't exist (only /chat and /conversations
+      // do), so every question 404'd. The Quantum Tutor endpoint takes
+      // a question plus the learner's code.
+      const response = await fetch("/api/quantum-tutor", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          question: `${prompt}
-
-Here is the user's current quantum Python code:
-
-\`\`\`python
-${code}
-\`\`\`
-
-Answer specifically in the context of this code. Explain clearly and provide corrected code when appropriate.`,
+          question: prompt,
+          code,
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         throw new Error(
