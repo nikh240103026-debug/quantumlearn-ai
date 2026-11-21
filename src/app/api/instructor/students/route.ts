@@ -10,6 +10,7 @@ import {
 import {
   createSupabaseAdminClient,
 } from "@/lib/supabase-admin";
+import { fetchAllPages, fetchForIds } from "@/lib/supabase-batch";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,6 +24,13 @@ type StudentRow = {
   quantum_experience?: string | null;
   learning_goal?: string | null;
 };
+
+// Activity rows loaded per batch of 100 students (most recent first).
+const ACTIVITY_ROWS_PER_CHUNK = 20_000;
+
+// Highest point value of any coding challenge
+// (see app/api/coding/challenges/submit/route.ts).
+const MAX_CHALLENGE_POINTS = 35;
 
 function safeNumber(
   value: unknown,
@@ -179,21 +187,25 @@ export async function GET(
       error:
         profilesError,
     } =
-      await admin
-        .from("profiles")
-        .select(
-          "id, full_name, role, institute, branch, quantum_experience, learning_goal",
-        )
-        .eq(
-          "role",
-          "student",
-        )
-        .order(
-          "full_name",
-          {
-            ascending: true,
-          },
-        );
+      await fetchAllPages((from, to) =>
+        admin
+          .from("profiles")
+          .select(
+            "id, full_name, role, institute, branch, quantum_experience, learning_goal",
+          )
+          .eq(
+            "role",
+            "student",
+          )
+          .order(
+            "full_name",
+            {
+              ascending: true,
+            },
+          )
+          .order("id")
+          .range(from, to),
+      );
 
     if (
       profilesError
@@ -246,82 +258,90 @@ export async function GET(
       );
     }
 
+    // Students are queried in batches of 100 ids (a single `.in()` with
+    // hundreds of UUIDs exceeds URL limits), and each batch is paged
+    // (PostgREST caps responses at 1000 rows).
     const [
       progressResult,
       practiceResult,
       activityResult,
       labResult,
     ] = await Promise.all([
-      admin
-        .from("user_progress")
-        .select(
-          "user_id, progress, completed",
-        )
-        .in(
-          "user_id",
-          selectedIds,
-        ),
+      fetchForIds(
+        selectedIds,
+        (chunk, from, to) =>
+          admin
+            .from("user_progress")
+            .select(
+              "user_id, progress, completed",
+            )
+            .in("user_id", chunk)
+            .order("user_id")
+            .range(from, to),
+      ),
 
-      admin
-        .from(
-          "practice_results",
-        )
-        .select(
-          "user_id, percentage, score, total_questions, completed_at",
-        )
-        .in(
-          "user_id",
-          selectedIds,
-        )
-        .order(
-          "completed_at",
-          {
-            ascending:
-              false,
-          },
-        ),
+      fetchForIds(
+        selectedIds,
+        (chunk, from, to) =>
+          admin
+            .from(
+              "practice_results",
+            )
+            .select(
+              "user_id, percentage, score, total_questions, completed_at",
+            )
+            .in("user_id", chunk)
+            .order(
+              "completed_at",
+              {
+                ascending:
+                  false,
+              },
+            )
+            .range(from, to),
+      ),
 
-      admin
-        .from("ai_activity")
-        .select(
-          "user_id, activity_type, topic, created_at, metadata",
-        )
-        .in(
-          "user_id",
-          selectedIds,
-        )
-        .order(
-          "created_at",
-          {
-            ascending:
-              false,
-          },
-        )
-        .limit(
-          2000,
-        ),
+      fetchForIds(
+        selectedIds,
+        (chunk, from, to) =>
+          admin
+            .from("ai_activity")
+            .select(
+              "user_id, activity_type, topic, created_at, metadata",
+            )
+            .in("user_id", chunk)
+            .order(
+              "created_at",
+              {
+                ascending:
+                  false,
+              },
+            )
+            .range(from, to),
+        ACTIVITY_ROWS_PER_CHUNK,
+      ),
 
-      admin
-        .from(
-          "quantum_lab_activity",
-        )
-        .select(
-          "user_id, activity_type, qubits, shots, metadata, created_at",
-        )
-        .in(
-          "user_id",
-          selectedIds,
-        )
-        .order(
-          "created_at",
-          {
-            ascending:
-              false,
-          },
-        )
-        .limit(
-          2000,
-        ),
+      fetchForIds(
+        selectedIds,
+        (chunk, from, to) =>
+          admin
+            .from(
+              "quantum_lab_activity",
+            )
+            .select(
+              "user_id, activity_type, qubits, shots, metadata, created_at",
+            )
+            .in("user_id", chunk)
+            .order(
+              "created_at",
+              {
+                ascending:
+                  false,
+              },
+            )
+            .range(from, to),
+        ACTIVITY_ROWS_PER_CHUNK,
+      ),
     ]);
 
     if (
@@ -437,43 +457,63 @@ export async function GET(
                 "coding_challenge_completed",
             );
 
-          const codingPoints =
-            codingCompleted.reduce(
-              (
-                total,
-                activity,
-              ) => {
-                const metadata =
-                  activity.metadata;
+          // Best points per challenge, capped: repeats don't add up
+          // and older forged rows can't inflate the total.
+          const pointsByChallenge =
+            new Map<string, number>();
 
-                if (
-                  !metadata ||
-                  typeof metadata !==
-                    "object" ||
-                  Array.isArray(
-                    metadata,
-                  )
-                ) {
-                  return total;
-                }
+          for (const activity of codingCompleted) {
+            const metadata =
+              activity.metadata;
 
-                return (
-                  total +
-                  Math.max(
-                    0,
-                    safeNumber(
-                      (
-                        metadata as Record<
-                          string,
-                          unknown
-                        >
-                      ).points,
-                    ),
-                  )
-                );
-              },
-              0,
+            if (
+              !metadata ||
+              typeof metadata !==
+                "object" ||
+              Array.isArray(
+                metadata,
+              )
+            ) {
+              continue;
+            }
+
+            const record =
+              metadata as Record<
+                string,
+                unknown
+              >;
+
+            if (
+              typeof record.challenge_id !==
+              "string"
+            ) {
+              continue;
+            }
+
+            const points = Math.min(
+              MAX_CHALLENGE_POINTS,
+              Math.max(
+                0,
+                safeNumber(record.points),
+              ),
             );
+
+            pointsByChallenge.set(
+              record.challenge_id,
+              Math.max(
+                pointsByChallenge.get(
+                  record.challenge_id,
+                ) ?? 0,
+                points,
+              ),
+            );
+          }
+
+          let codingPoints = 0;
+
+          for (const points of pointsByChallenge.values()) {
+            codingPoints += points;
+          }
 
           const activeDates =
             new Set<string>();
