@@ -561,7 +561,29 @@ export default function PersistentAITutor({
     [],
   );
 
+  // Always-current selection for async handlers: a value captured when
+  // a send starts is stale by the time the reply arrives.
+  const selectedConversationIdRef =
+    useRef<string | null>(null);
+
+  // Set when we create a conversation ourselves. It is known to be
+  // empty, so loading it would only wipe the optimistic message.
+  const freshConversationIdRef =
+    useRef<string | null>(null);
+
   useEffect(() => {
+    selectedConversationIdRef.current =
+      selectedConversationId;
+
+    if (
+      selectedConversationId &&
+      freshConversationIdRef.current ===
+        selectedConversationId
+    ) {
+      freshConversationIdRef.current = null;
+      return;
+    }
+
     ++messagesRequestRef.current;
 
     if (!selectedConversationId) {
@@ -773,6 +795,11 @@ export default function PersistentAITutor({
         ]);
 
         ++messagesRequestRef.current;
+
+        freshConversationIdRef.current =
+          conversation.id;
+        selectedConversationIdRef.current =
+          conversation.id;
 
         setSelectedConversationId(
           conversation.id,
@@ -1034,6 +1061,9 @@ export default function PersistentAITutor({
 
         ++messagesRequestRef.current;
 
+        selectedConversationIdRef.current =
+          conversationId;
+
         setSelectedConversationId(
           conversationId,
         );
@@ -1054,16 +1084,29 @@ export default function PersistentAITutor({
         );
       }
 
+      // Compare with the CURRENT selection (ref), not the value captured
+      // when this send started; otherwise the first reply in a new chat
+      // is dropped, and a reply can land in a chat the user switched to.
       if (
         mountedRef.current &&
-        selectedConversationId ===
+        selectedConversationIdRef.current ===
           conversationId
       ) {
+        const savedUserMessage =
+          data.userMessage as
+            | Message
+            | undefined;
+
         setMessages((previous) => [
-          ...previous.filter(
-            (message) =>
-              message.id !==
-              optimisticMessageId,
+          ...previous.map((message) =>
+            message.id ===
+              optimisticMessageId &&
+            savedUserMessage?.id
+              ? {
+                  ...savedUserMessage,
+                  role: "user" as const,
+                }
+              : message,
           ),
           {
             ...assistantMessageData,
@@ -1077,7 +1120,7 @@ export default function PersistentAITutor({
       if (
         conversationId &&
         mountedRef.current &&
-        selectedConversationId ===
+        selectedConversationIdRef.current ===
           conversationId
       ) {
         await loadConversation(
