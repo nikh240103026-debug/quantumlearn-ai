@@ -8,20 +8,27 @@ export async function DELETE(request: Request) {
 
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
-  const { data: allowed } = await supabase.rpc("consume_account_rate_limit", {
-    p_user_id: user.id,
-    p_action: "account_delete",
-    p_limit: 3,
-    p_window_seconds: 86400,
-  });
-  if (allowed === false) return NextResponse.json({ error: "Too many deletion attempts. Please try again later." }, { status: 429 });
-
+  // Check the confirmation text first, so typos don't use up the
+  // daily deletion attempts.
   let body: { confirmation?: unknown } = {};
   try { body = await request.json(); } catch {}
 
   if (body.confirmation !== "DELETE MY ACCOUNT") {
     return NextResponse.json({ error: "Please type DELETE MY ACCOUNT to confirm." }, { status: 400 });
   }
+
+  const { data: allowed, error: rateLimitError } = await supabase.rpc("consume_account_rate_limit", {
+    p_user_id: user.id,
+    p_action: "account_delete",
+    p_limit: 3,
+    p_window_seconds: 86400,
+  });
+  // Fail closed for an irreversible action if the limit can't be checked.
+  if (rateLimitError) {
+    console.error("[ACCOUNT DELETE] rate limit check failed", rateLimitError);
+    return NextResponse.json({ error: "Unable to process the request right now. Please try again later." }, { status: 503 });
+  }
+  if (allowed === false) return NextResponse.json({ error: "Too many deletion attempts. Please try again later." }, { status: 429 });
 
   try {
     const admin = createSupabaseAdminClient();

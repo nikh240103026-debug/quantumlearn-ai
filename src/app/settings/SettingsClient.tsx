@@ -184,6 +184,9 @@ export default function SettingsClient({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [newEmail, setNewEmail] = useState("");
+  // Required to change email or password, so a stolen session or an
+  // unattended browser can't lock the owner out.
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -199,22 +202,26 @@ export default function SettingsClient({
     clearFeedback();
     setSaving(true);
 
-    const response = await fetch("/api/account/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(profileState),
-    });
+    try {
+      const response = await fetch("/api/account/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profileState),
+      });
 
-    const result = await response.json().catch(() => ({}));
+      const result = await response.json().catch(() => ({}));
 
-    setSaving(false);
+      if (!response.ok) {
+        setError(result.error ?? "Unable to save your profile.");
+        return;
+      }
 
-    if (!response.ok) {
-      setError(result.error ?? "Unable to save your profile.");
-      return;
+      setStatus("Profile updated successfully.");
+    } catch {
+      setError("Unable to save your profile. Check your connection.");
+    } finally {
+      setSaving(false);
     }
-
-    setStatus("Profile updated successfully.");
   }
 
   async function saveSettings(
@@ -228,22 +235,26 @@ export default function SettingsClient({
     clearFeedback();
     setSaving(true);
 
-    const response = await fetch("/api/account/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [key]: value }),
-    });
+    try {
+      const response = await fetch("/api/account/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: value }),
+      });
 
-    const result = await response.json().catch(() => ({}));
+      const result = await response.json().catch(() => ({}));
 
-    setSaving(false);
+      if (!response.ok) {
+        setError(result.error ?? "Unable to save your settings.");
+        return;
+      }
 
-    if (!response.ok) {
-      setError(result.error ?? "Unable to save your settings.");
-      return;
+      setStatus("Settings saved.");
+    } catch {
+      setError("Unable to save your settings. Check your connection.");
+    } finally {
+      setSaving(false);
     }
-
-    setStatus("Settings saved.");
   }
 
   async function uploadAvatar(file: File) {
@@ -324,30 +335,64 @@ export default function SettingsClient({
 
     setSaving(true);
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    try {
+      const verifyError = await verifyCurrentPassword();
 
-    if (!updateError) {
+      if (verifyError) {
+        setError(verifyError);
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+
       await fetch("/api/account/security", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ event_type: "password_changed" }),
+      }).catch(() => undefined);
+
+      setNewPassword("");
+      setConfirmPassword("");
+      setCurrentPassword("");
+      setStatus("Password changed successfully.");
+
+      await refreshEvents();
+    } catch {
+      setError("Unable to change your password. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Confirms the current password by signing in with it. Returns an
+  // error message, or null if it is correct.
+  async function verifyCurrentPassword(): Promise<string | null> {
+    if (!currentPassword) {
+      return "Enter your current password to confirm this change.";
+    }
+
+    const accountEmail = user.email;
+
+    if (!accountEmail) {
+      return "Unable to verify your account. Please sign in again.";
+    }
+
+    const { error: signInError } =
+      await supabase.auth.signInWithPassword({
+        email: accountEmail,
+        password: currentPassword,
       });
-    }
 
-    setSaving(false);
-
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-
-    setNewPassword("");
-    setConfirmPassword("");
-    setStatus("Password changed successfully.");
-
-    await refreshEvents();
+    return signInError
+      ? "Your current password is incorrect."
+      : null;
   }
 
   async function changeEmail() {
@@ -362,11 +407,23 @@ export default function SettingsClient({
 
     setSaving(true);
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      email,
-    });
+    try {
+      const verifyError = await verifyCurrentPassword();
 
-    if (!updateError) {
+      if (verifyError) {
+        setError(verifyError);
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        email,
+      });
+
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+
       await fetch("/api/account/security", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -374,46 +431,48 @@ export default function SettingsClient({
           event_type: "email_change_requested",
           metadata: { email },
         }),
-      });
+      }).catch(() => undefined);
+
+      setNewEmail("");
+      setCurrentPassword("");
+      setStatus(
+        "A confirmation link has been sent. Confirm the new email address to complete the change.",
+      );
+
+      await refreshEvents();
+    } catch {
+      setError("Unable to change your email. Please try again.");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-
-    setNewEmail("");
-    setStatus(
-      "A confirmation link has been sent. Confirm the new email address to complete the change.",
-    );
-
-    await refreshEvents();
   }
 
   async function logoutAllDevices() {
     clearFeedback();
     setSaving(true);
 
-    await fetch("/api/account/security", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_type: "global_logout_requested" }),
-    });
+    try {
+      await fetch("/api/account/security", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event_type: "global_logout_requested" }),
+      }).catch(() => undefined);
 
-    const { error: signOutError } = await supabase.auth.signOut({
-      scope: "global",
-    });
+      const { error: signOutError } = await supabase.auth.signOut({
+        scope: "global",
+      });
 
-    setSaving(false);
+      if (signOutError) {
+        setError(signOutError.message);
+        return;
+      }
 
-    if (signOutError) {
-      setError(signOutError.message);
-      return;
+      window.location.href = "/login?security=logout_all";
+    } catch {
+      setError("Unable to sign out of all devices. Please try again.");
+    } finally {
+      setSaving(false);
     }
-
-    window.location.href = "/login?security=logout_all";
   }
 
   async function refreshEvents() {
@@ -714,6 +773,8 @@ export default function SettingsClient({
                 {tab === "security" && (
                   <SecuritySection
                     email={user.email}
+                    currentPassword={currentPassword}
+                    setCurrentPassword={setCurrentPassword}
                     newEmail={newEmail}
                     setNewEmail={setNewEmail}
                     onEmail={changeEmail}
@@ -735,6 +796,11 @@ export default function SettingsClient({
                     title="Notifications"
                     description="Choose which updates QuantumLearn AI can send you."
                     icon={<Bell size={20} />}
+                    comingSoon={[
+                      "learning_reminders",
+                      "email_updates",
+                      "ai_tutor_updates",
+                    ]}
                     values={notifications}
                     onChange={setNotifications}
                     onSave={() =>
@@ -1146,6 +1212,8 @@ function ProfileSection({
 
 function SecuritySection({
   email,
+  currentPassword,
+  setCurrentPassword,
   newEmail,
   setNewEmail,
   onEmail,
@@ -1169,6 +1237,25 @@ function SecuritySection({
       />
 
       <div className="space-y-8">
+        {/* Re-authentication for credential changes */}
+        <div className="border border-black/10 bg-[#f6f7f6] px-4 py-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-black/35">
+            Confirm it&apos;s you
+          </p>
+          <p className="mt-1 text-xs text-black/50">
+            Enter your current password to change your email or password.
+          </p>
+          <div className="mt-3 max-w-md">
+            <PasswordInput
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              placeholder="Current password"
+              showPassword={showPassword}
+              onToggle={() => setShowPassword((v: boolean) => !v)}
+            />
+          </div>
+        </div>
+
         {/* Email */}
         <SecurityBlock
           icon={<Mail size={18} />}
@@ -1345,6 +1432,9 @@ function PreferenceSection({
   labels,
   descriptions = {},
   selectOptions = {},
+  // Keys for features that don't exist yet: shown disabled with a
+  // "Coming soon" label instead of a toggle that does nothing.
+  comingSoon = [],
 }: any) {
   return (
     <div>
@@ -1392,11 +1482,20 @@ function PreferenceSection({
           ) : (
             <label
               key={key}
-              className="flex cursor-pointer items-center justify-between gap-5 py-5"
+              className={`flex items-center justify-between gap-5 py-5 ${
+                comingSoon.includes(key)
+                  ? "cursor-not-allowed opacity-50"
+                  : "cursor-pointer"
+              }`}
             >
               <div>
                 <p className="text-sm font-black">
                   {labels[key] ?? key}
+                  {comingSoon.includes(key) && (
+                    <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wider text-black/40">
+                      Coming soon
+                    </span>
+                  )}
                 </p>
                 <p className="mt-1 max-w-xl text-xs leading-5 text-black/40">
                   {descriptions[key] ??
@@ -1409,6 +1508,7 @@ function PreferenceSection({
               <span className="relative shrink-0">
                 <input
                   type="checkbox"
+                  disabled={comingSoon.includes(key)}
                   checked={Boolean(value)}
                   onChange={(e) =>
                     onChange((current: any) => ({
@@ -1458,10 +1558,14 @@ function LearningSection({
         <label className="block">
           <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.12em] text-black/55">
             Daily goal · minutes
+            {/* Study time isn't tracked yet, so this goal can't be
+                measured; shown disabled until it is. */}
+            <span className="ml-2 font-bold text-black/35">Coming soon</span>
           </span>
 
           <input
             type="number"
+            disabled
             min="5"
             max="240"
             value={values.daily_goal_minutes}

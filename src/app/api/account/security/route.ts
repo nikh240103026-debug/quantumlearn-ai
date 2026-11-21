@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { notify } from "@/lib/notifications/notify";
 
 const ALLOWED_EVENT_TYPES = new Set([
 "login_success",
@@ -14,10 +15,14 @@ const MAX_METADATA_KEYS = 20;
 const MAX_METADATA_STRING_LENGTH = 500;
 
 function requestMeta(request: Request) {
+// The FIRST x-forwarded-for entry is whatever the client sent, so it
+// can be forged to fake or hide "new location" signals. Prefer
+// x-real-ip (set by the hosting proxy), then the LAST forwarded entry,
+// which is appended by the nearest proxy.
 const forwarded = request.headers.get("x-forwarded-for");
 const ip =
-forwarded?.split(",")[0]?.trim() ||
-request.headers.get("x-real-ip") ||
+request.headers.get("x-real-ip")?.trim() ||
+forwarded?.split(",").pop()?.trim() ||
 null;
 
 return {
@@ -174,6 +179,54 @@ return NextResponse.json(
 { error: "Invalid security event type." },
 { status: 400 },
 );
+}
+
+// Events that claim something happened must match the auth record;
+// otherwise any client could write fake "login" or "password changed"
+// entries into the security log.
+const RECENT_MS = 10 * 60 * 1000;
+const isRecent = (value: string | null | undefined) =>
+Boolean(value) &&
+Date.now() - Date.parse(String(value)) < RECENT_MS;
+
+const authUser = user as typeof user & {
+new_email?: string | null;
+email_change_sent_at?: string | null;
+};
+
+const corroborated =
+eventType === "login_success"
+  ? isRecent(authUser.last_sign_in_at)
+  : eventType === "password_changed"
+    ? isRecent(authUser.updated_at)
+    : eventType === "email_change_requested"
+      ? Boolean(authUser.new_email) ||
+        isRecent(authUser.email_change_sent_at)
+      : true;
+
+if (!corroborated) {
+return NextResponse.json(
+{ error: "This security event could not be verified." },
+{ status: 400 },
+);
+}
+
+// Settings > Notifications > "Security notifications".
+if (
+eventType === "password_changed" ||
+eventType === "email_change_requested"
+) {
+await notify({
+userId: user.id,
+type: "security",
+title:
+  eventType === "password_changed"
+    ? "Your password was changed"
+    : "Email change requested",
+message:
+  "If this wasn't you, reset your password immediately and sign out of all devices.",
+href: "/settings",
+});
 }
 
 const { ip, userAgent } = requestMeta(request);

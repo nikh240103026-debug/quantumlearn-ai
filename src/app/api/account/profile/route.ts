@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { toSafeHttpUrl } from "@/lib/url-safety";
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,24}$/;
 const ALLOWED_LEVELS = new Set(["beginner", "basic", "intermediate", "advanced"]);
@@ -62,6 +63,15 @@ export async function PATCH(request: Request) {
     }
   }
 
+  // The avatar is rendered as an image for other users: http(s) only.
+  if (typeof updates.avatar_url === "string") {
+    const safeAvatar = toSafeHttpUrl(updates.avatar_url);
+    if (!safeAvatar) {
+      return NextResponse.json({ error: "Avatar must be a valid http(s) image URL." }, { status: 400 });
+    }
+    updates.avatar_url = safeAvatar;
+  }
+
   if ("username" in body) {
     const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
     if (username && !USERNAME_RE.test(username)) {
@@ -85,13 +95,21 @@ export async function PATCH(request: Request) {
     updates.quantum_experience = body.quantum_experience;
   }
 
-  if ("age" in body && body.age !== null) {
+  // An empty age field means "not set", not 0 (which failed the
+  // 13-100 check and blocked every profile save for users with no age).
+  if ("age" in body && (body.age === "" || body.age === null)) {
+    updates.age = null;
+  } else if ("age" in body) {
     const age = Number(body.age);
     if (!Number.isInteger(age) || age < 13 || age > 100) {
       return NextResponse.json({ error: "Age must be between 13 and 100." }, { status: 400 });
     }
     updates.age = age;
   }
+
+  // Profile fields and settings may arrive in the same request; save
+  // both (an early return here used to drop the settings silently).
+  const result: Record<string, unknown> = {};
 
   if (Object.keys(updates).length > 0) {
     updates.last_profile_update_at = new Date().toISOString();
@@ -116,7 +134,7 @@ export async function PATCH(request: Request) {
       metadata: { fields: Object.keys(updates).filter((field) => field !== "last_profile_update_at") },
     });
 
-    return NextResponse.json({ profile: data });
+    result.profile = data;
   }
 
   const settingsPayload = ["notification_preferences", "learning_preferences", "ai_tutor_preferences", "privacy_settings"]
@@ -138,7 +156,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Unable to save your settings." }, { status: 500 });
     }
 
-    return NextResponse.json({ settings: data });
+    result.settings = data;
+  }
+
+  if (Object.keys(result).length > 0) {
+    return NextResponse.json(result);
   }
 
   return NextResponse.json({ ok: true });
