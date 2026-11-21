@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  aiPreferencesInstruction,
+  getAiTutorPreferences,
+} from "@/lib/user-preferences";
+import {
+  AI_MAX_OUTPUT_TOKENS,
+  enforceAiRateLimit,
+  markIfTruncated,
+} from "@/lib/ai-guards";
 import { GoogleGenAI } from "@google/genai";
 
 const MODEL = "gemini-3.5-flash-lite";
@@ -217,6 +226,16 @@ export async function POST(request: NextRequest) {
         },
         { status: 401 }
       );
+    }
+
+    const rateLimited = await enforceAiRateLimit(
+      supabase,
+      user.id,
+      "lesson_tutor",
+    );
+
+    if (rateLimited) {
+      return rateLimited;
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -560,12 +579,35 @@ RESPONSE FORMAT:
         model: MODEL,
         contents: conversationHistory,
         config: {
-          systemInstruction: systemInstructions,
-          maxOutputTokens: 2048,
+          // Settings > AI Tutor (response style, follow-up suggestions).
+          systemInstruction:
+            systemInstructions +
+            "\n\n" +
+            aiPreferencesInstruction(
+              await getAiTutorPreferences(supabase, user.id),
+            ),
+          maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
         },
       });
     } catch (geminiError: unknown) {
       console.error("Gemini API error:", geminiError);
+
+      // No answer was produced: remove the saved question so a retry
+      // doesn't leave a duplicate, unanswered turn in the history.
+      if (savedUserMessage?.id) {
+        const { error: cleanupError } = await supabase
+          .from("ai_messages")
+          .delete()
+          .eq("id", savedUserMessage.id)
+          .eq("user_id", user.id);
+
+        if (cleanupError) {
+          console.error(
+            "Tutor user message cleanup error:",
+            cleanupError,
+          );
+        }
+      }
 
       const errorMessage =
         geminiError instanceof Error
@@ -628,8 +670,12 @@ RESPONSE FORMAT:
     }
 
     const answer =
-      typeof response.text === "string"
-        ? response.text.trim()
+      typeof response.text === "string" &&
+      response.text.trim()
+        ? markIfTruncated(
+            response.text.trim(),
+            response.candidates?.[0]?.finishReason,
+          )
         : "";
 
     if (!answer) {

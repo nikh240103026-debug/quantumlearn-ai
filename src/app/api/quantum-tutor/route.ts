@@ -2,6 +2,23 @@ import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  aiPreferencesInstruction,
+  getAiTutorPreferences,
+} from "@/lib/user-preferences";
+import {
+  AI_MAX_OUTPUT_TOKENS,
+  boundedJson,
+  enforceAiRateLimit,
+  markIfTruncated,
+  untrustedDataBlock,
+} from "@/lib/ai-guards";
+
+// Compact JSON budget for qubits + circuit + state + probabilities.
+const MAX_SIMULATOR_JSON_LENGTH = 20_000;
+
+// Python code shared by the Coding Playground assistant.
+const MAX_CODE_LENGTH = 20_000;
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,6 +47,7 @@ type QuantumTutorRequest = {
   circuit?: unknown;
   state?: unknown;
   probabilities?: unknown;
+  code?: unknown;
 };
 
 // ==========================================================
@@ -199,7 +217,7 @@ async function generateTutorResponse(
                 systemInstruction,
                 temperature: 0.35,
                 topP: 0.9,
-                maxOutputTokens: 1800,
+                maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
               },
             },
           );
@@ -217,6 +235,19 @@ async function generateTutorResponse(
           } failed:`,
           error,
         );
+
+        // A missing or invalid model (e.g. a retired name in
+        // GEMINI_TUTOR_MODEL) won't fix itself on retry, but the
+        // fallback models may work: move on to the next model.
+        const status =
+          getStatusCode(error);
+
+        if (
+          status === 404 ||
+          status === 400
+        ) {
+          break;
+        }
 
         if (
           !isRetryableError(
@@ -286,6 +317,17 @@ export async function POST(
           status: 401,
         },
       );
+    }
+
+    const rateLimited =
+      await enforceAiRateLimit(
+        supabase,
+        user.id,
+        "quantum_tutor",
+      );
+
+    if (rateLimited) {
+      return rateLimited;
     }
 
     // ========================================================
@@ -380,9 +422,47 @@ export async function POST(
         ? body.probabilities
         : [];
 
+    // The Lab allows at most 5 qubits (32 amplitudes) and a bounded
+    // circuit, so real simulator data is small. Reject anything that
+    // would inflate the prompt (and the Gemini bill).
+    const simulatorJson =
+      boundedJson(
+        {
+          qubits,
+          circuit,
+          state,
+          probabilities,
+        },
+        MAX_SIMULATOR_JSON_LENGTH,
+      );
+
+    if (simulatorJson === null) {
+      return NextResponse.json(
+        {
+          error:
+            "The simulator data sent with this question is too large.",
+        },
+        {
+          status: 413,
+        },
+      );
+    }
+
+    // Optional Python code from the Coding Playground's AI assistant.
+    const learnerCode =
+      typeof body.code === "string"
+        ? body.code.slice(0, MAX_CODE_LENGTH)
+        : "";
+
     // ========================================================
     // SYSTEM INSTRUCTION
     // ========================================================
+
+    // Settings > AI Tutor (response style, follow-up suggestions).
+    const preferencesInstruction =
+      aiPreferencesInstruction(
+        await getAiTutorPreferences(supabase, user.id),
+      );
 
     const systemInstruction = `
 You are QuantumLearn AI's Quantum Tutor.
@@ -411,19 +491,25 @@ Teaching rules:
 14. If the learner asks for a circuit idea, give a practical circuit they can build in the current Quantum Lab.
 15. If the learner asks why something happened, connect the answer directly to their current circuit.
 
-Current Quantum Lab context:
+${untrustedDataBlock(
+  "Current Quantum Lab context (qubits, circuit, state vector, measurement probabilities)",
+  safeJson({
+    qubits,
+    circuit,
+    state,
+    probabilities,
+  }),
+)}
+${
+  learnerCode
+    ? `
+The learner is working in the Python Coding Playground. Answer in the context of this code, and give corrected code when appropriate.
 
-Number of qubits:
-${qubits}
+${untrustedDataBlock("Learner's Python code", learnerCode)}`
+    : ""
+}
 
-Circuit:
-${safeJson(circuit)}
-
-State vector:
-${safeJson(state)}
-
-Measurement probabilities:
-${safeJson(probabilities)}
+${preferencesInstruction}
 `.trim();
 
     // ========================================================
@@ -545,8 +631,11 @@ ${safeJson(probabilities)}
     // RESPONSE TEXT
     // ========================================================
 
-    const answer =
-      result.response.text?.trim();
+    const answer = markIfTruncated(
+      result.response.text?.trim() ?? "",
+      result.response.candidates?.[0]
+        ?.finishReason,
+    );
 
     if (!answer) {
       return NextResponse.json(

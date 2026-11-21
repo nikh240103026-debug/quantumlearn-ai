@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  AI_MAX_OUTPUT_TOKENS,
+  enforceAiRateLimit,
+  markIfTruncated,
+} from "@/lib/ai-guards";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,7 +16,9 @@ const GEMINI_BASE_URL =
   "https://generativelanguage.googleapis.com/v1beta/models";
 
 const MAX_ATTEMPTS_PER_MODEL = 2;
-const REQUEST_TIMEOUT_MS = 12_000;
+// A full summary often takes longer than 12 s to generate, which made
+// requests time out and fall back to the raw lesson text.
+const REQUEST_TIMEOUT_MS = 30_000;
 
 interface RequestBody {
   lessonId?: unknown;
@@ -112,7 +119,7 @@ async function callGeminiModel(
           ],
 
           generationConfig: {
-            maxOutputTokens: 1800,
+            maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
           },
         }),
 
@@ -179,8 +186,13 @@ async function callGeminiModel(
 
       lastError = normalizedError;
 
+      // Check the ORIGINAL error: createGeminiError() rebuilds it as a
+      // plain Error, so its name is never "AbortError" and timeouts
+      // were never retried.
       const isAbort =
-        normalizedError.name === "AbortError";
+        error instanceof Error &&
+        (error.name === "AbortError" ||
+          error.name === "TimeoutError");
 
       const status = normalizedError.status;
 
@@ -266,7 +278,7 @@ async function generateWithFallback(
 function extractSummary(
   response: GeminiResponse,
 ): string {
-  return (
+  const text =
     response.candidates?.[0]?.content?.parts
       ?.map((part) =>
         typeof part.text === "string"
@@ -274,8 +286,14 @@ function extractSummary(
           : "",
       )
       .join("")
-      .trim() || ""
-  );
+      .trim() || "";
+
+  return text
+    ? markIfTruncated(
+        text,
+        response.candidates?.[0]?.finishReason,
+      )
+    : "";
 }
 
 function createLocalFallbackSummary(
@@ -337,6 +355,16 @@ export async function POST(
         },
         { status: 401 },
       );
+    }
+
+    const rateLimited = await enforceAiRateLimit(
+      supabase,
+      user.id,
+      "lesson_summary",
+    );
+
+    if (rateLimited) {
+      return rateLimited;
     }
 
     // ------------------------------------------------------------

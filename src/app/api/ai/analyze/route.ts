@@ -6,6 +6,10 @@ import {
 import {
   createSupabaseServerClient,
 } from "@/lib/supabase-server";
+import {
+  AI_MAX_OUTPUT_TOKENS,
+  enforceAiRateLimit,
+} from "@/lib/ai-guards";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,6 +40,7 @@ type GeminiResponse = {
         text?: string;
       }>;
     };
+    finishReason?: string;
   }>;
   error?: {
     message?: string;
@@ -292,7 +297,7 @@ Rules:
           generationConfig: {
             temperature: 0.2,
             topP: 0.8,
-            maxOutputTokens: 1600,
+            maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
             responseMimeType:
               "application/json",
           },
@@ -302,8 +307,11 @@ Rules:
       },
     );
 
+  // Google can answer with a non-JSON error page (e.g. a 502).
   const data =
-    (await response.json()) as GeminiResponse;
+    (await response
+      .json()
+      .catch(() => ({}))) as GeminiResponse;
 
   if (!response.ok) {
     const error =
@@ -340,6 +348,17 @@ Rules:
     );
   }
 
+  // A cut-off JSON reply would silently parse to the empty default.
+  if (
+    data?.candidates?.[0]
+      ?.finishReason ===
+    "MAX_TOKENS"
+  ) {
+    throw new Error(
+      "Gemini's analysis was cut off at the length limit.",
+    );
+  }
+
   return parseAnalysis(text);
 }
 
@@ -371,6 +390,17 @@ export async function POST(
           status: 401,
         },
       );
+    }
+
+    const rateLimited =
+      await enforceAiRateLimit(
+        supabase,
+        user.id,
+        "analyze",
+      );
+
+    if (rateLimited) {
+      return rateLimited;
     }
 
     // ========================================================

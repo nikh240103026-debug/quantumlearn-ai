@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import {
+  aiPreferencesInstruction,
+  getAiTutorPreferences,
+} from "@/lib/user-preferences";
+import {
+  AI_MAX_OUTPUT_TOKENS,
+  enforceAiRateLimit,
+  markIfTruncated,
+  sanitizeAiContext,
+  untrustedDataBlock,
+} from "@/lib/ai-guards";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -42,6 +53,7 @@ type GeminiResponse = {
     content?: {
       parts?: GeminiPart[];
     };
+    finishReason?: string;
   }>;
   usageMetadata?: {
     promptTokenCount?: number;
@@ -63,18 +75,12 @@ function cleanMessage(value: unknown): string {
   return value.trim();
 }
 
+// Objects only, and size-capped: context is re-sent to the model on
+// every message, so oversized context multiplies token cost.
 function normalizeContext(
   value: unknown,
 ): Record<string, unknown> {
-  if (
-    value &&
-    typeof value === "object" &&
-    !Array.isArray(value)
-  ) {
-    return value as Record<string, unknown>;
-  }
-
-  return {};
+  return sanitizeAiContext(value);
 }
 
 function buildSystemInstruction(
@@ -105,8 +111,7 @@ Teaching rules:
 Current context type:
 ${contextType ?? "general"}
 
-Current context:
-${contextJson}
+${untrustedDataBlock("Current context", contextJson)}
 
 You are communicating inside the QuantumLearn AI platform.
 `.trim();
@@ -246,7 +251,7 @@ async function callGemini(
           generationConfig: {
             temperature: 0.35,
             topP: 0.9,
-            maxOutputTokens: 1800,
+            maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
           },
         }),
 
@@ -404,7 +409,10 @@ async function callGemini(
        * SUCCESS
        */
       return {
-        text,
+        text: markIfTruncated(
+          text,
+          data.candidates?.[0]?.finishReason,
+        ),
 
         tokensUsed:
           data.usageMetadata
@@ -582,6 +590,16 @@ export async function POST(
         },
         { status: 401 },
       );
+    }
+
+    const rateLimited = await enforceAiRateLimit(
+      supabase,
+      user.id,
+      "tutor_chat",
+    );
+
+    if (rateLimited) {
+      return rateLimited;
     }
 
     let body: ChatRequestBody;
@@ -831,10 +849,15 @@ export async function POST(
       },
     ];
 
+    // Settings > AI Tutor (response style, follow-up suggestions).
     const systemInstruction =
       buildSystemInstruction(
         conversation.context_type,
         conversation.context,
+      ) +
+      "\n\n" +
+      aiPreferencesInstruction(
+        await getAiTutorPreferences(supabase, user.id),
       );
 
     const {
@@ -887,6 +910,22 @@ export async function POST(
         systemInstruction,
       );
     } catch (error) {
+      // No answer was produced: remove the saved question so the
+      // client's retry doesn't leave a duplicate, unanswered turn in
+      // the history sent to the model.
+      const { error: cleanupError } = await supabase
+        .from("ai_messages")
+        .delete()
+        .eq("id", savedUserMessage.id)
+        .eq("user_id", user.id);
+
+      if (cleanupError) {
+        console.error(
+          "AI user message cleanup error:",
+          cleanupError,
+        );
+      }
+
       const status =
         typeof error === "object" &&
         error !== null &&

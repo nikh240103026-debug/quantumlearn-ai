@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { sanitizeAiContext } from "@/lib/ai-guards";
 
 type CreateConversationBody = {
   title?: string;
@@ -21,14 +22,12 @@ function sanitizeText(value: unknown, fallback: string): string {
   return trimmed.slice(0, 200);
 }
 
+// Stored context is injected into every later prompt for this
+// conversation, so it is size-capped.
 function sanitizeContext(
   value: unknown,
 ): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value as Record<string, unknown>;
+  return sanitizeAiContext(value);
 }
 
 /**
