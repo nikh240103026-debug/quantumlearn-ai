@@ -11,14 +11,16 @@ type ActivityBody = {
   metadata?: Record<string, unknown>;
 };
 
+// Types a client may record. Progress-bearing activities
+// ("practice_completed", "coding_challenge_completed") are written
+// only by the server after grading, so their scores/points can't be
+// forged through this endpoint.
 const ALLOWED_ACTIVITY_TYPES = new Set([
   "tutor_message",
   "analysis_generated",
   "recommendation_opened",
-  "practice_completed",
   "quantum_lab_tutor",
   "tutor_opened",
-  "coding_challenge_completed",
 ]);
 
 function cleanOptionalString(
@@ -251,7 +253,16 @@ export async function GET(
           )
         : 30;
 
-    const { data, error } = await supabase
+    // Optional ?type= filter, e.g. the Challenges page only needs
+    // coding completions; without it they were pushed out of the
+    // newest-100 window by other activity.
+    const activityType =
+      cleanOptionalString(
+        searchParams.get("type"),
+        100,
+      );
+
+    let query = supabase
       .from("ai_activity")
       .select(
         `
@@ -265,7 +276,16 @@ export async function GET(
           created_at
         `,
       )
-      .eq("user_id", user.id)
+      .eq("user_id", user.id);
+
+    if (activityType) {
+      query = query.eq(
+        "activity_type",
+        activityType,
+      );
+    }
+
+    const { data, error } = await query
       .order("created_at", {
         ascending: false,
       })

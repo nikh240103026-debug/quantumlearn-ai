@@ -312,7 +312,7 @@ export default function CodingChallenges() {
       try {
         const response =
           await fetch(
-            "/api/activity?limit=100",
+            "/api/activity?limit=100&type=coding_challenge_completed",
             {
               cache:
                 "no-store",
@@ -411,13 +411,26 @@ export default function CodingChallenges() {
           );
         }
 
-        setCompleted(
-          nextCompleted,
+        // Merge with anything completed while this was loading, instead
+        // of overwriting it.
+        setCompleted((current) =>
+          Array.from(
+            new Set([
+              ...current,
+              ...nextCompleted,
+            ]),
+          ),
         );
 
-        setScoreMap(
-          nextScores,
-        );
+        setScoreMap((current) => {
+          const merged = { ...nextScores };
+
+          for (const [id, points] of Object.entries(current)) {
+            merged[id] = Math.max(merged[id] ?? 0, points);
+          }
+
+          return merged;
+        });
       } catch (error) {
         console.error(
           "Failed to load coding progress:",

@@ -113,13 +113,87 @@ function validateCode(code: string): string | null {
   return null;
 }
 
+/*
+ * Remove Python comments and string literals so required operations
+ * can't be "satisfied" by text in a comment or a string.
+ */
+function stripCommentsAndStrings(code: string): string {
+  return code
+    .replace(/("""|''')[\s\S]*?\1/g, "")
+    .replace(/"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/g, "\"\"")
+    .replace(/#.*$/gm, "");
+}
+
+async function recordChallengeCompletion(
+  supabase: Awaited<
+    ReturnType<typeof createSupabaseServerClient>
+  >,
+  userId: string,
+  challenge: ChallengeDefinition,
+) {
+  try {
+    const { data: existing, error: lookupError } =
+      await supabase
+        .from("ai_activity")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("activity_type", "coding_challenge_completed")
+        .eq("metadata->>challenge_id", challenge.id)
+        .limit(1);
+
+    if (lookupError) {
+      console.error(
+        "Challenge completion lookup error:",
+        lookupError,
+      );
+      return;
+    }
+
+    // Points are awarded once per challenge.
+    if (existing && existing.length > 0) {
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("ai_activity")
+      .insert({
+        user_id: userId,
+        activity_type: "coding_challenge_completed",
+        source_page: "/coding/challenges",
+        topic: challenge.topic,
+        description: `Completed coding challenge "${challenge.id}".`,
+        metadata: {
+          challenge_id: challenge.id,
+          points: challenge.points,
+          difficulty: challenge.difficulty,
+        },
+      });
+
+    if (insertError) {
+      console.error(
+        "Challenge completion insert error:",
+        insertError,
+      );
+    }
+  } catch (error) {
+    // Recording progress must never break grading.
+    console.error(
+      "Challenge completion recording failed:",
+      error,
+    );
+  }
+}
+
 function gradeChallenge(
   challenge: ChallengeDefinition,
   code: string,
   output: string,
 ) {
+  const codeWithoutComments =
+    stripCommentsAndStrings(code);
+
   const missingPatterns = challenge.requiredPatterns.filter(
-    (pattern) => !pattern.test(code),
+    (pattern) => !pattern.test(codeWithoutComments),
   );
 
   const executionSucceeded = output.trim().length > 0;
@@ -307,6 +381,19 @@ export async function POST(request: NextRequest) {
         code,
         output,
       );
+
+      /*
+       * Record completion here, server-side, with the server's own
+       * point value. /api/activity refuses client-sent completions,
+       * so points can't be forged.
+       */
+      if (grading.passed) {
+        await recordChallengeCompletion(
+          supabase,
+          user.id,
+          challenge,
+        );
+      }
 
       return NextResponse.json(
         {
