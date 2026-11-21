@@ -19,7 +19,13 @@ import {
   getOverallCurriculumProgress,
 } from "@/lib/curriculum/curriculum-recommendation-service";
 
-import { calculateProgressAnalytics } from "@/lib/progress/progress-engine";
+import {
+  ACTIVE_DAYS_WINDOW,
+  calculateProgressAnalytics,
+} from "@/lib/progress/progress-engine";
+import { cookies, headers } from "next/headers";
+import { isValidTimeZone, TIMEZONE_COOKIE } from "@/lib/local-date";
+import { getLearningPreferences } from "@/lib/user-preferences";
 
 import type { RecentActivity as RecentActivityItem } from "@/types/dashboard";
 import { getPersonalDashboardData } from "@/lib/dashboard/personal-dashboard";
@@ -30,6 +36,19 @@ export const revalidate = 0;
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient();
 
+  // Learner's timezone for calendar-day counts: set by the browser
+  // (TimezoneCookie), else Vercel's IP-based guess, else UTC.
+  const cookieTimeZone = decodeURIComponent(
+    (await cookies()).get(TIMEZONE_COOKIE)?.value ?? "",
+  );
+  const headerTimeZone =
+    (await headers()).get("x-vercel-ip-timezone") ?? "";
+  const timeZone = isValidTimeZone(cookieTimeZone)
+    ? cookieTimeZone
+    : isValidTimeZone(headerTimeZone)
+      ? headerTimeZone
+      : "UTC";
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -37,6 +56,9 @@ export default async function DashboardPage() {
   if (!user) {
     redirect("/login");
   }
+
+  const learningPreferences =
+    await getLearningPreferences(supabase, user.id);
 
   const userName =
     typeof user.user_metadata?.name === "string" &&
@@ -231,15 +253,27 @@ export default async function DashboardPage() {
 
   const totalLessons = lessons?.length ?? 0;
 
-  const completedLessons =
-    progressRows?.filter(
-      (item) => item.completed,
-    ).length ?? 0;
+  // Only count completions of lessons that are currently published:
+  // progress rows for lessons that were later unpublished (or rows for
+  // unknown lesson ids) made "4 of 3 lessons" and progress over 100%.
+  const publishedLessonIds = new Set(
+    (lessons ?? []).map((lesson) => lesson.id),
+  );
 
-  const completedLessonIds =
-    progressRows
-      ?.filter((item) => item.completed)
-      .map((item) => item.lesson_id) ?? [];
+  const completedLessonIds = Array.from(
+    new Set(
+      (progressRows ?? [])
+        .filter(
+          (item) =>
+            item.completed &&
+            publishedLessonIds.has(item.lesson_id),
+        )
+        .map((item) => item.lesson_id),
+    ),
+  );
+
+  const completedLessons =
+    completedLessonIds.length;
 
   const courseProgress =
     totalLessons > 0
@@ -405,6 +439,8 @@ export default async function DashboardPage() {
 
       labActivities:
         labActivities ?? [],
+
+      timeZone,
     });
 
   // ==========================================================
@@ -1053,7 +1089,7 @@ export default async function DashboardPage() {
 
                   <div className="pt-6 pl-6">
                     <p className="text-xs uppercase tracking-[0.15em] text-white/30">
-                      Active days
+                      Active days ({ACTIVE_DAYS_WINDOW}d)
                     </p>
 
                     <p className="mt-3 text-3xl font-medium">
@@ -1105,6 +1141,9 @@ export default async function DashboardPage() {
             lessons={lessons ?? []}
             completedLessonIds={
               completedLessonIds
+            }
+            showCompleted={
+              learningPreferences.show_completed_lessons
             }
           />
         </div>

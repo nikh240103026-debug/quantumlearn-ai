@@ -130,7 +130,13 @@ export function NotificationsCard({
                       {notification.title}
                     </h3>
 
-                    <span className="shrink-0 text-[10px] text-black/30">
+                    {/* The server renders this in its timezone and the
+                        browser re-renders in the learner's, so the day can
+                        legitimately differ; the browser value wins. */}
+                    <span
+                      className="shrink-0 text-[10px] text-black/30"
+                      suppressHydrationWarning
+                    >
                       {formatDate(notification.createdAt)}
                     </span>
                   </div>

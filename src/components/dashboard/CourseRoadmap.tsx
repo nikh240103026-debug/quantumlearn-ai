@@ -19,11 +19,14 @@ interface RoadmapLesson {
 interface CourseRoadmapProps {
   lessons: RoadmapLesson[];
   completedLessonIds: string[];
+  // Settings > Learning > "Show completed lessons".
+  showCompleted?: boolean;
 }
 
 export function CourseRoadmap({
   lessons,
   completedLessonIds,
+  showCompleted = true,
 }: CourseRoadmapProps) {
   const completedSet =
     new Set(completedLessonIds);
@@ -120,6 +123,12 @@ export function CourseRoadmap({
                       completedSet.has(
                         lesson.id,
                       );
+
+                    // Hidden per the learner's setting; numbering keeps
+                    // each lesson's original position.
+                    if (completed && !showCompleted) {
+                      return null;
+                    }
 
                     return (
                       <Link

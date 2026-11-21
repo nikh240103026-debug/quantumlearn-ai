@@ -24,6 +24,9 @@ import {
   Zap,
 } from "lucide-react";
 
+// Same threshold the curriculum recommendation service uses.
+const TOPIC_COMPLETE_PERCENT = 80;
+
 type Lesson = {
   id: string;
   title: string;
@@ -383,9 +386,21 @@ export default async function RoadmapPage() {
 
   const totalLessons = lessons.length;
 
-  const completedLessons = progressRows.filter(
-    (item) => item.completed,
-  ).length;
+  // Only completions of currently published lessons count (rows for
+  // unpublished lessons inflated the count beyond the total).
+  const publishedLessonIds = new Set(
+    lessons.map((lesson) => lesson.id),
+  );
+
+  const completedLessons = new Set(
+    progressRows
+      .filter(
+        (item) =>
+          item.completed &&
+          publishedLessonIds.has(item.lesson_id),
+      )
+      .map((item) => item.lesson_id),
+  ).size;
 
   const overallProgress =
     totalLessons > 0
@@ -522,12 +537,35 @@ export default async function RoadmapPage() {
         const topics =
           (topicsData ?? []) as CurriculumTopic[];
 
-        const completedTopicCount =
-          progressData.completedTopics;
+        // Pick the first topic (in order) that isn't completed yet.
+        // Indexing by the completed COUNT assumed completed topics come
+        // first, and could recommend one the learner already finished.
+        const { data: topicProgressRows } = await supabase
+          .from("curriculum_topic_progress")
+          .select("topic_id, progress_percent")
+          .eq("user_id", user.id)
+          .in(
+            "topic_id",
+            topics.map((topic) => topic.id),
+          );
+
+        const completedTopicIds = new Set(
+          (topicProgressRows ?? [])
+            .filter(
+              (row) =>
+                Number(row.progress_percent ?? 0) >=
+                TOPIC_COMPLETE_PERCENT,
+            )
+            .map((row) => String(row.topic_id)),
+        );
 
         const incompleteTopic =
-          topics[completedTopicCount] ??
-          topics[0];
+          topics.find(
+            (topic) => !completedTopicIds.has(topic.id),
+          ) ??
+          (progressData.completedTopics < topics.length
+            ? topics[0]
+            : undefined);
 
         if (incompleteTopic) {
           recommendedTopic = incompleteTopic;
