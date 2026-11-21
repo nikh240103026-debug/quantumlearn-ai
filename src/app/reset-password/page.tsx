@@ -165,17 +165,31 @@ export default function ResetPasswordPage() {
 
     const supabase = createSupabaseBrowserClient();
 
-    const { error: updateError } = await supabase.auth.updateUser({
-      password,
-    });
+    let updateError: { message: string } | null = null;
 
-    setLoading(false);
+    try {
+      ({ error: updateError } = await supabase.auth.updateUser({
+        password,
+      }));
+    } catch {
+      setLoading(false);
+      setError(
+        "Unable to reach the server. Check your connection and try again.",
+      );
+      return;
+    }
 
     if (updateError) {
+      setLoading(false);
       setError(updateError.message);
       return;
     }
 
+    // End the recovery session so the next step really is a fresh
+    // sign-in with the new password (the message says "log in").
+    await supabase.auth.signOut().catch(() => undefined);
+
+    setLoading(false);
     setPassword("");
     setConfirmPassword("");
 

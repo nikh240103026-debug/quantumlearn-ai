@@ -35,6 +35,15 @@ export default function LoginPage() {
     } else if (params.get("security") === "logout_all") {
       setMessage("You have been logged out of all devices. Please sign in again.");
       window.history.replaceState({}, "", "/login");
+    } else if (params.get("error") === "confirmation_failed") {
+      // Set by /auth/callback when an email link is invalid or expired.
+      setError(
+        "That email link is invalid or has expired. Try signing in, or request a new link.",
+      );
+      window.history.replaceState({}, "", "/login");
+    } else if (params.get("reset") === "success") {
+      setMessage("Your password has been updated. Please sign in with your new password.");
+      window.history.replaceState({}, "", "/login");
     }
   }, []);
 
@@ -63,16 +72,29 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    const { error: loginError } =
-      await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
-      });
+    // A network failure used to throw here and leave the button stuck
+    // on "loading" with no message.
+    let loginError: { message: string; code?: string } | null = null;
+
+    try {
+      ({ error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password,
+        }));
+    } catch {
+      setLoading(false);
+      setError(
+        "Unable to reach the server. Check your connection and try again.",
+      );
+      return;
+    }
 
     if (loginError) {
       setLoading(false);
 
       if (
+        loginError.code === "email_not_confirmed" ||
         loginError.message
           .toLowerCase()
           .includes("email not confirmed")

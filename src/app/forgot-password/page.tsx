@@ -33,10 +33,23 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
 
-    const { error: resetError } =
-      await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+    let resetError: { message: string } | null = null;
+
+    try {
+      // The link goes through /auth/callback, which finishes the
+      // recovery on the server and then opens /reset-password. Add
+      // <your-domain>/auth/callback to Supabase's allowed Redirect URLs.
+      ({ error: resetError } =
+        await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+          redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+        }));
+    } catch {
+      setLoading(false);
+      setError(
+        "Unable to reach the server. Check your connection and try again.",
+      );
+      return;
+    }
 
     setLoading(false);
 
