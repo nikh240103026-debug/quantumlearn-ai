@@ -4,6 +4,7 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -31,8 +32,6 @@ interface PracticeQuestion {
   difficulty: Difficulty;
   question: string;
   options: string[];
-  correctAnswer: number;
-  explanation: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -216,6 +215,32 @@ function PracticeQuizContent({
 
   const [submitted, setSubmitted] =
     useState(false);
+
+  // Correct answers are not sent with the questions. They are
+  // revealed per question by /api/practice/check after answering.
+  const [revealed, setRevealed] =
+    useState<
+      Record<
+        string,
+        {
+          correctAnswer: number;
+          explanation: string;
+        }
+      >
+    >({});
+
+  const [checkingAnswer, setCheckingAnswer] =
+    useState(false);
+
+  const savingResultRef = useRef(false);
+
+  // Server-issued practice session (null before the migration or for
+  // guests). Sent with every check and with the final result.
+  const [sessionId, setSessionId] =
+    useState<string | null>(null);
+
+  const [checkError, setCheckError] =
+    useState("");
 
   const [finished, setFinished] =
     useState(false);
@@ -452,8 +477,8 @@ function PracticeQuizContent({
 
         return (
           total +
-          (questions[index]
-            .correctAnswer ===
+          (revealed[questions[index].id]
+            ?.correctAnswer ===
           answer
             ? 1
             : 0)
@@ -461,7 +486,7 @@ function PracticeQuizContent({
       },
       0,
     );
-  }, [answers, questions]);
+  }, [answers, questions, revealed]);
 
   // ==========================================================
   // FETCH QUESTIONS
@@ -472,6 +497,7 @@ function PracticeQuizContent({
     setError("");
     setResultError("");
     setQuestions([]);
+    setSessionId(null);
     setNextRecommendation(null);
 
     try {
@@ -562,16 +588,29 @@ function PracticeQuizContent({
           fetchedQuestions,
         );
 
+      const nextSessionId =
+        typeof data.sessionId === "string"
+          ? data.sessionId
+          : null;
+
+      // A session pins exactly the questions the server returned, so
+      // don't trim them (the server already applied the limit).
       setQuestions(
-        randomized.slice(
-          0,
-          questionLimit,
-        ),
+        nextSessionId
+          ? randomized
+          : randomized.slice(
+              0,
+              questionLimit,
+            ),
       );
+
+      setSessionId(nextSessionId);
 
       setCurrentQuestion(0);
       setSelectedAnswer(null);
       setAnswers({});
+      setRevealed({});
+      setCheckError("");
       setSubmitted(false);
       setFinished(false);
       setStarted(true);
@@ -666,18 +705,86 @@ function PracticeQuizContent({
   // SUBMIT ANSWER
   // ==========================================================
 
-  function handleSubmitAnswer() {
-    if (selectedAnswer === null) {
+  async function handleSubmitAnswer() {
+    const current =
+      questions[currentQuestion];
+
+    if (
+      selectedAnswer === null ||
+      !current ||
+      checkingAnswer
+    ) {
       return;
     }
 
-    setAnswers((previous) => ({
-      ...previous,
-      [currentQuestion]:
-        selectedAnswer,
-    }));
+    setCheckingAnswer(true);
+    setCheckError("");
 
-    setSubmitted(true);
+    try {
+      const response =
+        await fetch(
+          "/api/practice/check",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              questionId:
+                current.id,
+              answer:
+                selectedAnswer,
+              sessionId,
+            }),
+          },
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(() => ({}));
+
+      if (
+        !response.ok ||
+        typeof data.correctAnswer !==
+          "number"
+      ) {
+        throw new Error(
+          data.error ||
+            "Could not check your answer. Please try again.",
+        );
+      }
+
+      setRevealed((previous) => ({
+        ...previous,
+        [current.id]: {
+          correctAnswer:
+            data.correctAnswer,
+          explanation:
+            typeof data.explanation ===
+            "string"
+              ? data.explanation
+              : "",
+        },
+      }));
+
+      setAnswers((previous) => ({
+        ...previous,
+        [currentQuestion]:
+          selectedAnswer,
+      }));
+
+      setSubmitted(true);
+    } catch (err) {
+      setCheckError(
+        err instanceof Error
+          ? err.message
+          : "Could not check your answer. Please try again.",
+      );
+    } finally {
+      setCheckingAnswer(false);
+    }
   }
 
   // ==========================================================
@@ -712,6 +819,15 @@ function PracticeQuizContent({
         nextIndex,
       ),
     );
+
+    // Report state belongs to the previous question; carrying it over
+    // would report the wrong question.
+    setShowReportForm(false);
+    setReportReason("");
+    setReportDetails("");
+    setReportSuccess("");
+    setReportError("");
+    setCheckError("");
   }
 
   // ==========================================================
@@ -801,10 +917,13 @@ function PracticeQuizContent({
   // ==========================================================
 
   async function finishQuiz() {
-    if (savingResult) {
+    // A ref, not state: a fast double-click fires twice before the
+    // `savingResult` state update re-renders, saving the result twice.
+    if (savingResultRef.current) {
       return;
     }
 
+    savingResultRef.current = true;
     setSavingResult(true);
     setResultError("");
     setNextRecommendation(null);
@@ -836,8 +955,8 @@ function PracticeQuizContent({
 
           return (
             total +
-            (questions[index]
-              .correctAnswer ===
+            (revealed[questions[index].id]
+              ?.correctAnswer ===
             answer
               ? 1
               : 0)
@@ -897,6 +1016,8 @@ function PracticeQuizContent({
                     question.id,
                 ),
 
+              sessionId,
+
               curriculumTopicId:
                 selectedTopicId ??
                 null,
@@ -950,6 +1071,7 @@ function PracticeQuizContent({
        */
       setFinished(true);
     } finally {
+      savingResultRef.current = false;
       setSavingResult(false);
     }
   }
@@ -1035,9 +1157,12 @@ function PracticeQuizContent({
     setStarted(false);
     setFinished(false);
     setQuestions([]);
+    setSessionId(null);
     setCurrentQuestion(0);
     setSelectedAnswer(null);
     setAnswers({});
+    setRevealed({});
+    setCheckError("");
     setSubmitted(false);
     setError("");
     setResultError("");
@@ -1493,10 +1618,14 @@ function PracticeQuizContent({
       questions.length) *
     100;
 
+  const revealedAnswer =
+    revealed[question.id];
+
   const isCorrect =
     submitted &&
+    revealedAnswer !== undefined &&
     selectedAnswer ===
-      question.correctAnswer;
+      revealedAnswer.correctAnswer;
 
   // ==========================================================
   // QUIZ
@@ -1571,7 +1700,7 @@ function PracticeQuizContent({
               const isCorrectOption =
                 submitted &&
                 index ===
-                  question.correctAnswer;
+                  revealedAnswer?.correctAnswer;
 
               const isWrongSelection =
                 submitted &&
@@ -1687,7 +1816,7 @@ function PracticeQuizContent({
                 </p>
 
                 <p className="mt-1 text-sm leading-6 text-slate-700">
-                  {question.explanation}
+                  {revealedAnswer?.explanation}
                 </p>
               </div>
             </div>
@@ -1889,11 +2018,14 @@ function PracticeQuizContent({
                 handleSubmitAnswer
               }
               disabled={
-                selectedAnswer === null
+                selectedAnswer === null ||
+                checkingAnswer
               }
               className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Check Answer
+              {checkingAnswer
+                ? "Checking..."
+                : "Check Answer"}
             </button>
           ) : (
             <button
@@ -1911,6 +2043,12 @@ function PracticeQuizContent({
             </button>
           )}
         </div>
+
+        {checkError && (
+          <p className="mt-4 text-sm text-red-600">
+            {checkError}
+          </p>
+        )}
 
         {resultError && (
           <p className="mt-4 text-sm text-red-600">

@@ -1,6 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getCurriculumQuestions } from "@/lib/curriculum/curriculum-question-service";
+import { createPracticeSession } from "@/lib/practice-sessions";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+
+// Never send answers to the browser before the learner answers;
+// the quiz fetches them per question from /api/practice/check.
+function withoutAnswer<
+  T extends {
+    correctAnswer?: unknown;
+    explanation?: unknown;
+  },
+>(question: T) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { correctAnswer, explanation, ...rest } = question;
+  return rest;
+}
+
+// Start a practice session (pins this question set and enables
+// first-answer grading). Null for guests or before the migration.
+async function startSessionFor(
+  questions: Array<{ id: unknown }>,
+): Promise<string | null> {
+  const supabase =
+    await createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  return createPracticeSession(
+    supabase,
+    user.id,
+    questions.map((question) =>
+      String(question.id),
+    ),
+  );
+}
 
 const VALID_DIFFICULTIES = [
   "easy",
@@ -153,9 +193,15 @@ export async function GET(
         });
 
       return NextResponse.json({
-        questions,
+        questions: questions.map(
+          withoutAnswer,
+        ),
         count: questions.length,
         source: "curriculum",
+        sessionId:
+          await startSessionFor(
+            questions,
+          ),
       });
     }
 
@@ -184,8 +230,6 @@ export async function GET(
           difficulty,
           question,
           options,
-          correct_answer,
-          explanation,
           created_at,
           updated_at
         `,
@@ -251,10 +295,8 @@ export async function GET(
             question.question,
           options:
             question.options,
-          correctAnswer:
-            question.correct_answer,
-          explanation:
-            question.explanation,
+          // correct_answer and explanation are revealed per question
+          // by POST /api/practice/check after the learner answers.
           createdAt:
             question.created_at,
           updatedAt:
@@ -266,6 +308,10 @@ export async function GET(
       questions,
       count: questions.length,
       source: "legacy",
+      sessionId:
+        await startSessionFor(
+          questions,
+        ),
     });
   } catch (error) {
     console.error(

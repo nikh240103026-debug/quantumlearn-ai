@@ -2,10 +2,18 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { updateCurriculumTopicProgress } from "@/lib/curriculum/curriculum-progress-service";
 import {
+  completeSession,
+  practiceSessionsAvailable,
+} from "@/lib/practice-sessions";
+import { notify } from "@/lib/notifications/notify";
+import {
   createNextTopicRecommendation,
   getCurriculumProgress,
   getOverallCurriculumProgress,
 } from "@/lib/curriculum/curriculum-recommendation-service";
+
+// Upper bound on questions in one practice result.
+const MAX_QUESTIONS = 100;
 
 export async function POST(request: Request) {
   try {
@@ -35,17 +43,18 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    // NOTE: any client-sent `score`, `totalQuestions` or `percentage`
+    // is deliberately ignored. The result is graded below from the
+    // submitted answers and the stored correct answers.
     const {
       lessonSlug,
       chapterNumber,
       difficulty,
-      score,
-      totalQuestions,
-      percentage,
       answers,
       questionIds,
       curriculumTopicId,
       curriculumModuleId,
+      sessionId,
     } = body;
 
     // ==========================================================
@@ -62,9 +71,14 @@ export async function POST(request: Request) {
     }
 
     if (
-      typeof score !== "number" ||
-      typeof totalQuestions !== "number" ||
-      typeof percentage !== "number"
+      !Array.isArray(questionIds) ||
+      questionIds.length === 0 ||
+      questionIds.length > MAX_QUESTIONS ||
+      !questionIds.every(
+        (id: unknown) =>
+          (typeof id === "string" && id.trim() !== "") ||
+          (typeof id === "number" && Number.isFinite(id)),
+      )
     ) {
       return NextResponse.json(
         {
@@ -74,33 +88,166 @@ export async function POST(request: Request) {
       );
     }
 
-    if (totalQuestions <= 0) {
+    const orderedIds = questionIds.map(
+      (id: string | number) => String(id),
+    );
+
+    if (new Set(orderedIds).size !== orderedIds.length) {
+      return NextResponse.json(
+        {
+          error: "Duplicate questions in practice result.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      answers !== undefined &&
+      (typeof answers !== "object" ||
+        answers === null ||
+        Array.isArray(answers))
+    ) {
+      return NextResponse.json(
+        {
+          error: "Invalid answers.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // ==========================================================
+    // PRACTICE SESSION
+    // ==========================================================
+    //
+    // With the practice-sessions migration applied, a result must
+    // complete the learner's open session: the question set must
+    // match it, the first answer checked for each question wins,
+    // and a session can be completed only once (no duplicates).
+
+    let firstAnswers: Map<string, number> | null = null;
+
+    if (typeof sessionId === "string" && sessionId) {
+      const completion = await completeSession(
+        supabase,
+        user.id,
+        sessionId,
+      );
+
+      if (completion.status === "completed") {
+        return NextResponse.json(
+          { error: "This practice result was already saved." },
+          { status: 409 },
+        );
+      }
+
+      if (completion.status !== "ok") {
+        return NextResponse.json(
+          { error: "Practice session not found. Please restart the quiz." },
+          { status: completion.status === "error" ? 500 : 400 },
+        );
+      }
+
+      // Same set of questions (the quiz shuffles, so order may differ).
+      // A subset is rejected: it would let a learner drop the
+      // questions they got wrong.
+      const sessionIds = new Set(completion.questionIds);
+
+      if (
+        sessionIds.size !== orderedIds.length ||
+        orderedIds.some((id: string) => !sessionIds.has(id))
+      ) {
+        return NextResponse.json(
+          { error: "These questions don't match your practice session." },
+          { status: 400 },
+        );
+      }
+
+      firstAnswers = completion.firstAnswers;
+    } else if (await practiceSessionsAvailable(supabase)) {
+      return NextResponse.json(
+        { error: "Practice session required. Please restart the quiz." },
+        { status: 400 },
+      );
+    }
+
+    // ==========================================================
+    // GRADE ON THE SERVER
+    // ==========================================================
+    //
+    // `answers` maps the question's position in `questionIds`
+    // to the chosen option index (this is what PracticeQuiz sends).
+
+    const { data: storedQuestions, error: questionsError } =
+      await supabase
+        .from("practice_questions")
+        .select("id, correct_answer")
+        .in("id", orderedIds);
+
+    if (questionsError) {
+      console.error(
+        "Practice grading question lookup error:",
+        questionsError,
+      );
+
       return NextResponse.json(
         {
           error:
-            "Total questions must be greater than zero.",
+            "Unable to grade your practice result.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const correctById = new Map<string, number>(
+      (storedQuestions ?? []).map((question) => [
+        String(question.id),
+        Number(question.correct_answer),
+      ]),
+    );
+
+    if (correctById.size !== orderedIds.length) {
+      return NextResponse.json(
+        {
+          error:
+            "Some questions in this result no longer exist.",
         },
         { status: 400 },
       );
     }
 
-    if (score < 0 || score > totalQuestions) {
-      return NextResponse.json(
-        {
-          error: "Invalid score.",
-        },
-        { status: 400 },
-      );
-    }
+    const submittedAnswers =
+      (answers ?? {}) as Record<string, unknown>;
 
-    if (percentage < 0 || percentage > 100) {
-      return NextResponse.json(
-        {
-          error: "Invalid percentage.",
-        },
-        { status: 400 },
-      );
-    }
+    const gradedAnswers: Record<string, number> = {};
+
+    let score = 0;
+
+    orderedIds.forEach((id: string, index: number) => {
+      // The first answer recorded at check time wins over whatever the
+      // client submits now.
+      const answer =
+        firstAnswers?.get(id) ??
+        submittedAnswers[String(index)];
+
+      if (
+        typeof answer !== "number" ||
+        !Number.isInteger(answer)
+      ) {
+        return;
+      }
+
+      gradedAnswers[String(index)] = answer;
+
+      if (answer === correctById.get(id)) {
+        score += 1;
+      }
+    });
+
+    const totalQuestions = orderedIds.length;
+
+    const percentage = Math.round(
+      (score / totalQuestions) * 100,
+    );
 
     // ==========================================================
     // SAVE PRACTICE RESULT
@@ -117,7 +264,7 @@ export async function POST(request: Request) {
           score,
           total_questions: totalQuestions,
           percentage,
-          answers: answers ?? {},
+          answers: gradedAnswers,
           completed_at: now,
           created_at: now,
         })
@@ -280,6 +427,15 @@ export async function POST(request: Request) {
         activityError,
       );
     }
+
+    // Settings > Notifications > "Practice results".
+    await notify({
+      userId: user.id,
+      type: "practice_result",
+      title: "Practice result saved",
+      message: `You scored ${score}/${totalQuestions} (${percentage}%).`,
+      href: "/practice",
+    });
 
     // ==========================================================
     // RETURN RESULT
