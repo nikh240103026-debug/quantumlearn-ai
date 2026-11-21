@@ -35,12 +35,6 @@ const GENDER_OPTIONS = [
   { value: "prefer_not_to_say", label: "Prefer not to say" },
 ];
 
-const ROLE_OPTIONS = [
-  { value: "student", label: "Student" },
-  { value: "tutor", label: "Tutor" },
-  { value: "researcher", label: "Researcher" },
-];
-
 const EXPERIENCE_OPTIONS = [
   { value: "beginner", label: "Beginner" },
   { value: "basic", label: "Basic" },
@@ -63,7 +57,6 @@ export default function SignupPage() {
   const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
   const [city, setCity] = useState("");
-  const [role, setRole] = useState("student");
   const [institute, setInstitute] = useState("");
   const [branch, setBranch] = useState("");
   const [email, setEmail] = useState("");
@@ -124,11 +117,6 @@ export default function SignupPage() {
 
     if (!trimmedCity) {
       setError("Please enter your city.");
-      return;
-    }
-
-    if (!role) {
-      setError("Please select your role.");
       return;
     }
 
@@ -204,7 +192,6 @@ export default function SignupPage() {
           age: numericAge,
           gender,
           city: trimmedCity,
-          role,
           institute: trimmedInstitute,
           branch: trimmedBranch,
           phone: trimmedPhone || null,
@@ -469,26 +456,13 @@ export default function SignupPage() {
                   <SectionTitle>Education & role</SectionTitle>
 
                   <div className="space-y-5">
-                    <Field label="Role" htmlFor="role">
-                      <select
-                        id="role"
-                        value={role}
-                        onChange={(event) =>
-                          setRole(event.target.value)
-                        }
-                        className={inputClass}
-                      >
-                        {ROLE_OPTIONS.map((option) => (
-                          <option
-                            key={option.value}
-                            value={option.value}
-                            className="bg-[#11151f]"
-                          >
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+                    {/* Role is not self-selected: everyone starts as a
+                        student and an administrator grants tutor access
+                        (enforced in the database). */}
+                    <p className="text-xs leading-5 text-white/45">
+                      All accounts start as student accounts. Tutor access
+                      is enabled by an administrator.
+                    </p>
 
                     <Field label="Institute" htmlFor="institute">
                       <IconInput

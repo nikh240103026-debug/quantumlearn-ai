@@ -29,12 +29,30 @@ export default function ResetPasswordPage() {
     const supabase = createSupabaseBrowserClient();
     let mounted = true;
 
+    /*
+     * Only a password-recovery link may open this form. Before, any
+     * signed-in session was accepted, so anyone with access to an
+     * unlocked, logged-in browser could set a new password here.
+     * A recovery link arrives with ?code=... (PKCE), #...type=recovery
+     * (implicit flow), or via /auth/callback, which adds ?recovery=1
+     * after verifying a recovery token.
+     */
+    const url = new URL(window.location.href);
+    const arrivedFromRecoveryLink =
+      url.searchParams.has("code") ||
+      url.searchParams.get("recovery") === "1" ||
+      url.hash.includes("type=recovery");
+
     const initializeRecovery = async () => {
       try {
-        /*
-         * Supabase handles the recovery access token from the URL.
-         * We first check whether a session already exists.
-         */
+        if (!arrivedFromRecoveryLink) {
+          if (!mounted) return;
+
+          setReady(false);
+          setCheckingSession(false);
+          return;
+        }
+
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -87,9 +105,12 @@ export default function ResetPasswordPage() {
         setCheckingSession(false);
       }
 
+      // A plain sign-in only counts when this page was opened from a
+      // recovery link (the link's token signs the user in first).
       if (
         event === "SIGNED_IN" &&
-        session
+        session &&
+        arrivedFromRecoveryLink
       ) {
         setReady(true);
         setCheckingSession(false);
