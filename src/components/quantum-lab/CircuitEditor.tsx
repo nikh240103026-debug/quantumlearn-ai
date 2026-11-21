@@ -193,6 +193,10 @@ function validatePlacement(
   column: number,
   qubits: number,
   ignoredOperation?: CircuitGate,
+  // Control position relative to the target. New gates use the qubit
+  // directly above (-1); a MOVED gate keeps its own offset, since the
+  // control can be set to any qubit in the controlled-gate editor.
+  controlOffset = -1,
 ) {
   if (
     targetQubit < 0 ||
@@ -204,18 +208,16 @@ function validatePlacement(
   if (
     isTwoQubitGate(gate)
   ) {
-    /*
-     * The visual editor uses the qubit
-     * directly above the target as the
-     * control.
-     */
+    const controlQubit =
+      targetQubit + controlOffset;
 
-    if (targetQubit <= 0) {
+    if (
+      controlOffset === 0 ||
+      controlQubit < 0 ||
+      controlQubit >= qubits
+    ) {
       return false;
     }
-
-    const controlQubit =
-      targetQubit - 1;
 
     if (
       isCellOccupied(
@@ -539,6 +541,14 @@ export default function CircuitEditor({
         sourceOperation,
       );
 
+    // Preserve the gate's control-to-target offset when moving it;
+    // moving used to silently rewire the control to "target - 1".
+    const controlOffset =
+      isTwoQubitGate(sourceOperation.gate) &&
+      sourceOperation.controlQubit !== undefined
+        ? sourceOperation.controlQubit - sourceOperation.qubit
+        : -1;
+
     if (
       !validatePlacement(
         circuitWithoutSource,
@@ -546,6 +556,8 @@ export default function CircuitEditor({
         targetQubit,
         targetColumn,
         qubits,
+        undefined,
+        controlOffset,
       )
     ) {
       setEditorStatus(
@@ -566,7 +578,7 @@ export default function CircuitEditor({
             column:
               targetColumn,
             controlQubit:
-              targetQubit - 1,
+              targetQubit + controlOffset,
           }
         : {
             ...sourceOperation,
