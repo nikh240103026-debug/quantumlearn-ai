@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { applyProfilePrivacy } from "@/lib/profile-privacy";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 
 type Params = {
   params: Promise<{
@@ -9,10 +11,14 @@ type Params = {
 };
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: Params,
 ) {
   const { id } = await params;
+
+  // ?view=0: a refresh after the viewer's own vote/answer, not a new view.
+  const countView =
+    new URL(request.url).searchParams.get("view") !== "0";
 
   const supabase =
     await createSupabaseServerClient();
@@ -169,10 +175,14 @@ export async function GET(
         }>,
       };
 
+  // Hide bio/institute/branch/level of authors whose profile is private.
+  const visibleProfiles = await applyProfilePrivacy(
+    profilesResult.data ?? [],
+    user.id,
+  );
+
   const profiles = new Map(
-    (
-      profilesResult.data ?? []
-    ).map((profile) => [
+    visibleProfiles.map((profile) => [
       profile.id,
       profile,
     ]),
@@ -202,14 +212,33 @@ export async function GET(
     }
   }
 
-  await supabase
-    .from("community_questions")
-    .update({
-      view_count:
-        (question.view_count ??
-          0) + 1,
-    })
-    .eq("id", id);
+  if (countView) {
+    // Viewers usually aren't the owner, so under owner-only RLS this
+    // never incremented. Only view_count is touched, via service role.
+    try {
+      const { error: viewError } =
+        await createSupabaseAdminClient()
+          .from("community_questions")
+          .update({
+            view_count:
+              (question.view_count ??
+                0) + 1,
+          })
+          .eq("id", id);
+
+      if (viewError) {
+        console.error(
+          "Failed to increment view count:",
+          viewError,
+        );
+      }
+    } catch (viewError) {
+      console.error(
+        "Failed to increment view count:",
+        viewError,
+      );
+    }
+  }
 
   return NextResponse.json({
     question: {
@@ -217,7 +246,7 @@ export async function GET(
 
       view_count:
         (question.view_count ??
-          0) + 1,
+          0) + (countView ? 1 : 0),
 
       author:
         profiles.get(
@@ -293,7 +322,7 @@ export async function DELETE(
     );
   }
 
-  const { error } =
+  const { data: deleted, error } =
     await supabase
       .from(
         "community_questions",
@@ -303,7 +332,8 @@ export async function DELETE(
       .eq(
         "user_id",
         user.id,
-      );
+      )
+      .select("id");
 
   if (error) {
     return NextResponse.json(
@@ -313,6 +343,20 @@ export async function DELETE(
       },
       {
         status: 500,
+      },
+    );
+  }
+
+  // Zero rows means it doesn't exist or isn't this user's question;
+  // don't report success for a delete that didn't happen.
+  if (!deleted || deleted.length === 0) {
+    return NextResponse.json(
+      {
+        error:
+          "Question not found or you can't delete it.",
+      },
+      {
+        status: 404,
       },
     );
   }

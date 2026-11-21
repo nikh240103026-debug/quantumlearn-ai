@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { cssUrl, toSafeHttpUrl } from "@/lib/url-safety";
 
 import {
   ArrowLeft,
@@ -86,7 +87,7 @@ export default function QuestionDetailPage() {
   const [message, setMessage] =
     useState("");
 
-  async function load() {
+  async function load(countView = true) {
     if (!id) return;
 
     try {
@@ -94,7 +95,7 @@ export default function QuestionDetailPage() {
       setError("");
 
       const response = await fetch(
-        `/api/questions/${id}`,
+        `/api/questions/${id}${countView ? "" : "?view=0"}`,
         {
           cache: "no-store",
         },
@@ -172,7 +173,8 @@ export default function QuestionDetailPage() {
         );
       }
 
-      await load();
+      // Refresh without counting another view.
+      await load(false);
 
       return data;
     } catch (err) {
@@ -219,12 +221,21 @@ export default function QuestionDetailPage() {
 
     setBusy(true);
 
-    const response = await fetch(
-      `/api/questions/${id}`,
-      {
-        method: "DELETE",
-      },
-    );
+    let response: Response;
+
+    try {
+      response = await fetch(
+        `/api/questions/${id}`,
+        {
+          method: "DELETE",
+        },
+      );
+    } catch {
+      // Network failure used to leave the page stuck in "busy".
+      setError("Unable to delete question. Check your connection.");
+      setBusy(false);
+      return;
+    }
 
     if (!response.ok) {
       const data =
@@ -343,10 +354,10 @@ export default function QuestionDetailPage() {
               {question.description}
             </div>
 
-            {question.attachment_url && (
+            {toSafeHttpUrl(question.attachment_url) && (
               <a
                 href={
-                  question.attachment_url
+                  toSafeHttpUrl(question.attachment_url) ?? undefined
                 }
                 target="_blank"
                 rel="noreferrer"
@@ -359,7 +370,7 @@ export default function QuestionDetailPage() {
                 <div
                   className="mt-3 min-h-64 w-full bg-contain bg-center bg-no-repeat"
                   style={{
-                    backgroundImage: `url(${question.attachment_url})`,
+                    backgroundImage: cssUrl(toSafeHttpUrl(question.attachment_url) ?? ""),
                   }}
                   aria-label="Question attachment"
                   role="img"
@@ -456,12 +467,12 @@ export default function QuestionDetailPage() {
             </div>
 
             <div className="mt-16 flex items-center gap-4 bg-white/[0.035] p-5">
-              {question.author
-                ?.avatar_url ? (
+              {toSafeHttpUrl(question.author
+                ?.avatar_url) ? (
                 <div
                   className="h-12 w-12 shrink-0 rounded-full bg-cover bg-center"
                   style={{
-                    backgroundImage: `url(${question.author.avatar_url})`,
+                    backgroundImage: cssUrl(toSafeHttpUrl(question.author?.avatar_url) ?? ""),
                   }}
                 />
               ) : (
@@ -690,12 +701,12 @@ function AnswerCard({
 
       <div className="mt-7 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {answer.author
-            ?.avatar_url ? (
+          {toSafeHttpUrl(answer.author
+            ?.avatar_url) ? (
             <div
               className="h-9 w-9 rounded-full bg-cover bg-center"
               style={{
-                backgroundImage: `url(${answer.author.avatar_url})`,
+                backgroundImage: cssUrl(toSafeHttpUrl(answer.author?.avatar_url) ?? ""),
               }}
             />
           ) : (

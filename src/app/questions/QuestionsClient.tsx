@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { cssUrl, toSafeHttpUrl } from "@/lib/url-safety";
 
 import type { CommunityQuestion } from "@/types/community";
 
@@ -81,11 +82,11 @@ function ProfileMini({
 
   return (
     <div className="flex items-center gap-3">
-      {author?.avatar_url ? (
+      {toSafeHttpUrl(author?.avatar_url) ? (
         <div
           className="h-9 w-9 shrink-0 rounded-full bg-cover bg-center"
           style={{
-            backgroundImage: `url(${author.avatar_url})`,
+            backgroundImage: cssUrl(toSafeHttpUrl(author?.avatar_url) ?? ""),
           }}
         />
       ) : (
@@ -125,7 +126,15 @@ export default function QuestionsClient() {
 
   const [showAsk, setShowAsk] = useState(false);
 
+  // Only the latest request may update the list: switching filters
+  // quickly let an older response overwrite the newer one.
+  const questionsRequestRef = useRef(0);
+
   async function loadQuestions() {
+    const requestId = ++questionsRequestRef.current;
+    const isStale = () =>
+      requestId !== questionsRequestRef.current;
+
     try {
       setLoading(true);
       setError("");
@@ -153,6 +162,8 @@ export default function QuestionsClient() {
         .json()
         .catch(() => null);
 
+      if (isStale()) return;
+
       if (response.status === 401) {
         window.location.href = "/login";
         return;
@@ -171,13 +182,17 @@ export default function QuestionsClient() {
           : [],
       );
     } catch (err) {
+      if (isStale()) return;
+
       setError(
         err instanceof Error
           ? err.message
           : "Unable to load questions.",
       );
     } finally {
-      setLoading(false);
+      if (!isStale()) {
+        setLoading(false);
+      }
     }
   }
 

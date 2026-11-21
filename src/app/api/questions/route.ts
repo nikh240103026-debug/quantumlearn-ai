@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { applyProfilePrivacy } from "@/lib/profile-privacy";
+import { toSafeHttpUrl } from "@/lib/url-safety";
 
 const MAX_TITLE = 180;
 const MAX_DESCRIPTION = 12000;
@@ -76,10 +78,11 @@ export async function GET(
     .limit(40);
 
   if (search) {
-    const safe = search.replace(
-      /[%_,]/g,
-      " ",
-    );
+    // Characters with meaning in PostgREST `or` filters (and LIKE
+    // wildcards) would break the filter and cause a 500.
+    const safe = search
+      .replace(/[%_,.()"'\\*:]/g, " ")
+      .trim();
 
     query = query.or(
       `title.ilike.%${safe}%,description.ilike.%${safe}%,topic.ilike.%${safe}%`,
@@ -211,10 +214,14 @@ export async function GET(
       ),
   ]);
 
+  // Hide bio/institute/branch/level of authors whose profile is private.
+  const visibleProfiles = await applyProfilePrivacy(
+    profilesResult.data ?? [],
+    user.id,
+  );
+
   const profiles = new Map(
-    (
-      profilesResult.data ?? []
-    ).map((profile) => [
+    visibleProfiles.map((profile) => [
       profile.id,
       profile,
     ]),
@@ -376,13 +383,30 @@ export async function POST(
         )
       : null;
 
-  const attachmentUrl =
+  // Rendered as a link and an image, so only real http(s) URLs.
+  const hasAttachmentUrl =
     typeof body.attachment_url ===
-    "string"
-      ? body.attachment_url
-          .trim()
-          .slice(0, 2048)
-      : null;
+      "string" &&
+    body.attachment_url.trim() !==
+      "";
+
+  const attachmentUrl =
+    toSafeHttpUrl(
+      body.attachment_url,
+    );
+
+  if (
+    hasAttachmentUrl &&
+    !attachmentUrl
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Attachment must be a valid http(s) URL.",
+      },
+      { status: 400 },
+    );
+  }
 
   const attachmentType =
     body.attachment_type ===

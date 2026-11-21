@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { notify } from "@/lib/notifications/notify";
 
 type Params = {
   params: Promise<{
@@ -276,18 +278,66 @@ export async function POST(
       );
     }
 
-    await supabase
-      .from(
-        "community_questions",
-      )
-      .update({
-        status: "answered",
-      })
-      .eq("id", id)
-      .eq(
-        "status",
-        "unanswered",
+    // The answerer usually isn't the question's owner, so under
+    // owner-only RLS this update silently did nothing. It is a fixed
+    // system transition (unanswered -> answered) on this question only,
+    // so it runs with the service-role client.
+    try {
+      const { error: statusError } =
+        await createSupabaseAdminClient()
+          .from(
+            "community_questions",
+          )
+          .update({
+            status: "answered",
+          })
+          .eq("id", id)
+          .eq(
+            "status",
+            "unanswered",
+          );
+
+      if (statusError) {
+        console.error(
+          "Failed to mark question answered:",
+          statusError,
+        );
+      }
+    } catch (statusError) {
+      console.error(
+        "Failed to mark question answered:",
+        statusError,
       );
+    }
+
+    // Notify the question's author (Settings > Notifications >
+    // "Question replies"), unless they answered their own question.
+    try {
+      const { data: question } =
+        await createSupabaseAdminClient()
+          .from("community_questions")
+          .select("user_id, title")
+          .eq("id", id)
+          .maybeSingle();
+
+      if (
+        question?.user_id &&
+        question.user_id !== user.id
+      ) {
+        await notify({
+          userId: question.user_id,
+          type: "question_answered",
+          title: "New answer to your question",
+          message: `Someone answered "${String(question.title ?? "your question").slice(0, 120)}".`,
+          href: `/questions/${id}`,
+        });
+      }
+    } catch (notifyError) {
+      console.error(
+        "Answer notification failed:",
+        notifyError,
+      );
+    }
 
     return NextResponse.json(
       {
