@@ -1,6 +1,7 @@
 // fixing deployemeny error
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { fetchAllPages } from "@/lib/supabase-batch";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -160,13 +161,17 @@ export async function GET(
   const publishedParam =
     searchParams.get("published");
 
+  // Paged: a single request is capped at 1000 rows by PostgREST, which
+  // under-counted lessons once there were more than 1000.
   const lessonCountResult =
-    await auth.supabase
-      .from("lessons")
-      .select(
-        "course_id",
-        { count: "exact", head: false },
-      );
+    await fetchAllPages<{ course_id: string | null }>(
+      (from, to) =>
+        auth.supabase
+          .from("lessons")
+          .select("course_id")
+          .order("id")
+          .range(from, to),
+    );
 
   if (lessonCountResult.error) {
     return errorResponse(
@@ -460,26 +465,45 @@ export async function PATCH(
     );
   }
 
+  // Same slug rule as POST.
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    return errorResponse(
+      "Invalid course slug.",
+      400,
+    );
+  }
+
+  // Only update fields the request actually sent: a PATCH with just
+  // {id, title, slug} used to unpublish the course and wipe its
+  // description and level.
+  const updates: Record<string, unknown> = {
+    title,
+    slug,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (payload.description !== undefined) {
+    updates.description = validateDescription(
+      payload.description,
+    );
+  }
+
+  if (payload.level !== undefined) {
+    updates.level = validateLevel(payload.level);
+  }
+
+  if (payload.isPublished !== undefined) {
+    updates.is_published = parseBoolean(
+      payload.isPublished,
+    );
+  }
+
   const {
     data,
     error,
   } = await auth.supabase
     .from("courses")
-    .update({
-      title,
-      slug,
-      description:
-        validateDescription(
-          payload.description,
-        ),
-      level:
-        validateLevel(payload.level),
-      is_published:
-        parseBoolean(
-          payload.isPublished,
-        ),
-      updated_at: new Date().toISOString(),
-    })
+    .update(updates)
     .eq("id", id)
     .select(
       "id, title, slug, description, level, is_published, created_at, updated_at",
