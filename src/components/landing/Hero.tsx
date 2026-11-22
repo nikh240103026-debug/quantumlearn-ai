@@ -2,40 +2,37 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  ArrowUpRight,
-  BookOpen,
-  Code2,
-  FlaskConical,
-  Play,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, FlaskConical } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { QuantumCircuitField } from "@/components/fx/QuantumCircuitField";
+import { CountUp } from "@/components/fx/CountUp";
+import { platformFacts } from "@/lib/platform-facts";
+
+const ROTATING_WORDS = ["building it.", "simulating it.", "coding it.", "questioning it."];
+
+const STATS = [
+  { value: platformFacts.chapters, label: "Curriculum chapters" },
+  { value: platformFacts.topics, label: "Mapped topics" },
+  { value: platformFacts.algorithmTemplates, label: "Algorithm templates" },
+  { value: platformFacts.sdks.length, label: "SDK targets" },
+];
 
 export function Hero() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [wordIndex, setWordIndex] = useState(0);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
 
-    const checkAuth = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        setIsAuthenticated(!!user);
-      } catch (error) {
+    supabase.auth
+      .getUser()
+      .then(({ data: { user } }) => setIsAuthenticated(!!user))
+      .catch((error) => {
         console.error("Failed to check authentication:", error);
         setIsAuthenticated(false);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    checkAuth();
+      })
+      .finally(() => setAuthLoading(false));
 
     const {
       data: { subscription },
@@ -44,358 +41,139 @@ export function Hero() {
       setAuthLoading(false);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(
+      () => setWordIndex((index) => (index + 1) % ROTATING_WORDS.length),
+      2600,
+    );
+    return () => window.clearInterval(timer);
   }, []);
 
   const startLearningHref = isAuthenticated ? "/dashboard" : "/signup";
 
   return (
-    <section className="hero-section relative w-full overflow-hidden bg-black text-white">
-      {/* Background image */}
-      <div className="hero-image absolute inset-0">
-        <img
-          src="/images/quantum-computer.jpg"
-          alt="Quantum computer"
-          className="h-full w-full object-cover object-center"
-        />
+    <section className="relative isolate overflow-hidden bg-[#05070d] text-white">
+      {/* Backdrop layers */}
+      <div className="ql-grid-bg pointer-events-none absolute inset-0 -z-10" />
+      <div className="pointer-events-none absolute -top-40 left-1/2 -z-10 h-[620px] w-[1100px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(59,130,246,0.28),transparent)] blur-2xl" />
+      <div className="pointer-events-none absolute -right-40 top-1/3 -z-10 h-[480px] w-[480px] rounded-full bg-[radial-gradient(closest-side,rgba(139,92,246,0.22),transparent)] blur-2xl" />
+      {/* Live circuit — the background itself */}
+      <div className="absolute inset-0 -z-10">
+        <QuantumCircuitField />
       </div>
+      {/* Readability: darken behind the copy, leave the right side vivid */}
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(5,7,13,0.94)_0%,rgba(5,7,13,0.82)_34%,rgba(5,7,13,0.25)_62%,rgba(5,7,13,0)_100%)] max-lg:bg-[linear-gradient(180deg,rgba(5,7,13,0.55)_0%,rgba(5,7,13,0.85)_45%,rgba(5,7,13,0.55)_100%)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-b from-transparent to-[#05070d]" />
 
-      {/* Cinematic overlay */}
-      <div className="hero-overlay absolute inset-0" />
+      <p className="ql-enter pointer-events-none absolute right-8 top-8 hidden items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-white/40 lg:flex" style={{ "--ql-delay": "900ms" } as React.CSSProperties}>
+        <span className="ql-pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        Live circuit · hover to interact
+      </p>
 
-      {/* Content */}
-      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-[1800px] flex-col justify-between px-6 py-10 sm:px-10 lg:px-14 xl:px-20">
-        <div className="flex flex-1 items-center">
-          <div className="grid w-full grid-cols-1 gap-14 lg:grid-cols-[1.25fr_0.75fr] lg:items-center lg:gap-20">
-            {/* LEFT SIDE */}
-            <div className="hero-left max-w-5xl">
-              <div className="mb-8 inline-flex items-center gap-2 border border-white/25 bg-black/20 px-4 py-2 backdrop-blur-md">
-                <Sparkles
-                  size={14}
-                  strokeWidth={1.7}
-                  className="text-blue-400"
-                />
+      <div className="mx-auto flex min-h-[calc(100svh-72px)] max-w-[1400px] items-center px-5 pb-16 pt-14 sm:px-8 lg:px-12 lg:pt-20">
+        {/* Copy */}
+        <div className="max-w-2xl">
+          <Link
+            href="/quantum-lab"
+            className="ql-enter group inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] py-1 pl-1 pr-3.5 text-xs text-white/70 backdrop-blur-md transition-colors hover:border-white/20 hover:text-white"
+          >
+            <span className="rounded-full bg-gradient-to-r from-blue-600 to-violet-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
+              Live
+            </span>
+            A real statevector simulator, right in your browser
+            <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+          </Link>
 
-                <span className="text-[11px] font-medium uppercase tracking-[0.22em] text-white/85">
-                  Interactive Quantum Learning
-                </span>
-              </div>
-
-              <h1 className="max-w-5xl text-[clamp(3.7rem,7.5vw,8.8rem)] font-semibold leading-[0.87] tracking-[-0.065em]">
-                Learn quantum
-                <br />
-                computing by
-                <br />
-                <span className="text-blue-500">building it.</span>
-              </h1>
-
-              <p className="mt-8 max-w-2xl text-base leading-7 text-white/75 sm:text-lg">
-                An interactive AI-powered platform for learning quantum
-                computing through concepts, circuits, simulations, coding,
-                experimentation, and intelligent guidance.
-              </p>
-            </div>
-
-            {/* RIGHT SIDE */}
-            <div className="hero-right w-full lg:ml-auto lg:max-w-[470px]">
-              <div className="border border-white/15 bg-black/35 p-6 backdrop-blur-xl sm:p-8">
-                <div className="mb-7">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-blue-400">
-                    Start your journey
-                  </p>
-
-                  <h2 className="mt-3 text-2xl font-medium tracking-tight sm:text-3xl">
-                    Learn. Build. Execute.
-                  </h2>
-
-                  <p className="mt-3 text-sm leading-6 text-white/60">
-                    Move from quantum fundamentals to real circuits and
-                    executable algorithms in one continuous environment.
-                  </p>
-                </div>
-
-                <Link
-                  href={startLearningHref}
-                  aria-disabled={authLoading}
-                  onClick={(event) => {
-                    if (authLoading) {
-                      event.preventDefault();
-                    }
-                  }}
-                  className={`group flex w-full items-center justify-between bg-blue-600 px-5 py-4 text-sm font-medium transition-colors ${
-                    authLoading
-                      ? "cursor-wait opacity-80"
-                      : "hover:bg-blue-500"
+          <h1
+            className="ql-enter mt-8 text-[clamp(2.75rem,6.4vw,5.75rem)] font-semibold leading-[0.95] tracking-[-0.05em]"
+            style={{ "--ql-delay": "80ms" } as React.CSSProperties}
+          >
+            <span className="ql-text-fade">Learn quantum computing by</span>
+            <br />
+            <span className="relative inline-grid">
+              {ROTATING_WORDS.map((word, index) => (
+                <span
+                  key={word}
+                  aria-hidden={index !== wordIndex}
+                  className={`ql-text-gradient col-start-1 row-start-1 pb-2 transition-all duration-700 ${
+                    index === wordIndex
+                      ? "translate-y-0 opacity-100 blur-0"
+                      : "pointer-events-none translate-y-6 opacity-0 blur-sm"
                   }`}
                 >
-                  <span>Start Learning</span>
+                  {word}
+                </span>
+              ))}
+            </span>
+          </h1>
 
-                  <ArrowRight
-                    size={18}
-                    strokeWidth={1.8}
-                    className="transition-transform duration-300 group-hover:translate-x-1"
-                  />
-                </Link>
+          <p
+            className="ql-enter mt-6 max-w-xl text-base leading-7 text-white/60 sm:text-lg sm:leading-8"
+            style={{ "--ql-delay": "160ms" } as React.CSSProperties}
+          >
+            A structured curriculum, a circuit lab, multi-SDK coding and an
+            AI tutor that knows what you are studying — one continuous
+            workspace from your first qubit to your first algorithm.
+          </p>
 
-                <Link
-                  href="/quantum-lab"
-                  className="group mt-3 flex w-full items-center justify-between border border-white/20 bg-white/5 px-5 py-4 text-sm font-medium backdrop-blur-sm transition-colors hover:bg-white/10"
-                >
-                  <span>Explore Quantum Lab</span>
-
-                  <ArrowUpRight
-                    size={17}
-                    strokeWidth={1.8}
-                    className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                  />
-                </Link>
-
-                <div className="mt-8 border-t border-white/10 pt-6">
-                  <p className="mb-4 text-[10px] uppercase tracking-[0.2em] text-white/40">
-                    Platform workflow
-                  </p>
-
-                  <div className="grid grid-cols-3">
-                    <div className="border-r border-white/10 pr-3">
-                      <BookOpen
-                        size={17}
-                        strokeWidth={1.5}
-                        className="mb-3 text-blue-400"
-                      />
-
-                      <p className="text-sm font-medium">Learn</p>
-
-                      <p className="mt-1 text-[11px] leading-5 text-white/45">
-                        Concepts
-                      </p>
-                    </div>
-
-                    <div className="border-r border-white/10 px-3">
-                      <FlaskConical
-                        size={17}
-                        strokeWidth={1.5}
-                        className="mb-3 text-blue-400"
-                      />
-
-                      <p className="text-sm font-medium">Build</p>
-
-                      <p className="mt-1 text-[11px] leading-5 text-white/45">
-                        Circuits
-                      </p>
-                    </div>
-
-                    <div className="pl-3">
-                      <Play
-                        size={17}
-                        strokeWidth={1.5}
-                        className="mb-3 text-blue-400"
-                      />
-
-                      <p className="text-sm font-medium">Execute</p>
-
-                      <p className="mt-1 text-[11px] leading-5 text-white/45">
-                        Simulations
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* SDK strip */}
-              <div className="mt-3 grid grid-cols-3 border border-white/10 bg-black/30 backdrop-blur-md">
-                <div className="border-r border-white/10 px-4 py-3">
-                  <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">
-                    SDK
-                  </p>
-
-                  <p className="mt-1 text-xs text-white/75">Qiskit</p>
-                </div>
-
-                <div className="border-r border-white/10 px-4 py-3">
-                  <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">
-                    SDK
-                  </p>
-
-                  <p className="mt-1 text-xs text-white/75">PennyLane</p>
-                </div>
-
-                <div className="px-4 py-3">
-                  <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">
-                    SDK
-                  </p>
-
-                  <p className="mt-1 text-xs text-white/75">Cirq</p>
-                </div>
-              </div>
-            </div>
+          <div
+            className="ql-enter mt-9 flex flex-col gap-3 sm:flex-row"
+            style={{ "--ql-delay": "240ms" } as React.CSSProperties}
+          >
+            <Link
+              href={startLearningHref}
+              aria-disabled={authLoading}
+              onClick={(event) => {
+                if (authLoading) event.preventDefault();
+              }}
+              className={`ql-shine group inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_8px_40px_-8px_rgba(59,130,246,0.9)] transition-colors hover:bg-blue-500 ${
+                authLoading ? "cursor-wait opacity-80" : ""
+              }`}
+            >
+              {isAuthenticated ? "Go to dashboard" : "Start learning"}
+              <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+            </Link>
+            <Link
+              href="/quantum-lab"
+              className="group inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/[0.04] px-6 py-3.5 text-sm font-semibold text-white backdrop-blur-md transition-colors hover:border-white/30 hover:bg-white/[0.08]"
+            >
+              <FlaskConical size={16} className="text-blue-300" />
+              Open Quantum Lab
+            </Link>
           </div>
+
+          <p
+            className="ql-enter mt-6 hidden items-center gap-2 text-xs text-white/40 sm:flex"
+            style={{ "--ql-delay": "320ms" } as React.CSSProperties}
+          >
+            Tip: press
+            <kbd className="rounded border border-white/15 bg-white/[0.05] px-1.5 py-0.5 font-mono text-[10px] text-white/70">
+              Ctrl K
+            </kbd>
+            anywhere to jump to any page.
+          </p>
+
+          {/* Stats */}
+          <dl
+            className="ql-enter mt-12 grid max-w-xl grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 sm:grid-cols-4"
+            style={{ "--ql-delay": "400ms" } as React.CSSProperties}
+          >
+            {STATS.map((stat) => (
+              <div key={stat.label} className="bg-[#05070d]/80 px-4 py-4 backdrop-blur-md">
+                <dd className="text-2xl font-semibold tracking-tight text-white">
+                  <CountUp value={stat.value} />
+                </dd>
+                <dt className="mt-1 text-[11px] leading-4 text-white/45">{stat.label}</dt>
+              </div>
+            ))}
+          </dl>
         </div>
 
-        {/* Bottom information */}
-        <div className="hero-bottom mt-10 grid border-t border-white/15 sm:grid-cols-3">
-          <div className="border-b border-white/10 py-5 sm:border-b-0 sm:border-r sm:pr-8">
-            <div className="flex items-center gap-3">
-              <BookOpen
-                size={16}
-                strokeWidth={1.5}
-                className="text-blue-400"
-              />
-
-              <span className="text-sm font-medium">
-                Understand the theory
-              </span>
-            </div>
-          </div>
-
-          <div className="border-b border-white/10 py-5 sm:border-b-0 sm:border-r sm:px-8">
-            <div className="flex items-center gap-3">
-              <Code2
-                size={16}
-                strokeWidth={1.5}
-                className="text-blue-400"
-              />
-
-              <span className="text-sm font-medium">
-                Write quantum code
-              </span>
-            </div>
-          </div>
-
-          <div className="py-5 sm:pl-8">
-            <div className="flex items-center gap-3">
-              <FlaskConical
-                size={16}
-                strokeWidth={1.5}
-                className="text-blue-400"
-              />
-
-              <span className="text-sm font-medium">
-                Experiment and understand results
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
-
-      {/* Animation styles */}
-      <style jsx>{`
-        .hero-image {
-          opacity: 0;
-          transform: translateY(-34px) scale(1.035);
-          animation: imageEnter 1.4s cubic-bezier(0.22, 1, 0.36, 1)
-            forwards;
-        }
-
-        .hero-overlay {
-          opacity: 0;
-          background:
-            linear-gradient(
-              90deg,
-              rgba(0, 0, 0, 0.58) 0%,
-              rgba(0, 0, 0, 0.39) 48%,
-              rgba(0, 0, 0, 0.32) 100%
-            ),
-            linear-gradient(
-              180deg,
-              rgba(0, 0, 0, 0.2) 0%,
-              rgba(0, 0, 0, 0.34) 100%
-            );
-          animation: overlayEnter 1.2s ease-out 0.2s forwards;
-        }
-
-        .hero-left {
-          opacity: 0;
-          transform: translateX(-70px);
-          animation: leftEnter 1s cubic-bezier(0.22, 1, 0.36, 1) 0.55s
-            forwards;
-        }
-
-        .hero-right {
-          opacity: 0;
-          transform: translateX(70px);
-          animation: rightEnter 1s cubic-bezier(0.22, 1, 0.36, 1) 0.7s
-            forwards;
-        }
-
-        .hero-bottom {
-          opacity: 0;
-          transform: translateY(30px);
-          animation: bottomEnter 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1s
-            forwards;
-        }
-
-        @keyframes imageEnter {
-          0% {
-            opacity: 0;
-            transform: translateY(-34px) scale(1.035);
-          }
-
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        @keyframes overlayEnter {
-          0% {
-            opacity: 0;
-          }
-
-          100% {
-            opacity: 1;
-          }
-        }
-
-        @keyframes leftEnter {
-          0% {
-            opacity: 0;
-            transform: translateX(-70px);
-          }
-
-          100% {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        @keyframes rightEnter {
-          0% {
-            opacity: 0;
-            transform: translateX(70px);
-          }
-
-          100% {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
-        @keyframes bottomEnter {
-          0% {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .hero-image,
-          .hero-overlay,
-          .hero-left,
-          .hero-right,
-          .hero-bottom {
-            animation: none;
-            opacity: 1;
-            transform: none;
-          }
-        }
-      `}</style>
     </section>
   );
 }
