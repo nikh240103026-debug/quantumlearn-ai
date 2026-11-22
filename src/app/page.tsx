@@ -1,27 +1,25 @@
 import { Hero } from "@/components/landing/Hero";
-import { ProblemSection } from "@/components/landing/ProblemSection";
-import { LearningJourney } from "@/components/landing/LearningJourney";
+import { TechMarquee } from "@/components/landing/TechMarquee";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
-import { QuantumLabPreview } from "@/components/landing/QuantumLabPreview";
-import { AITutorPreview } from "@/components/landing/AITutorPreview";
-import { LearningRoadmap } from "@/components/landing/LearningRoadmap";
-import { ProgressPreview } from "@/components/landing/ProgressPreview";
-import { ResourcesSection } from "@/components/landing/ResourcesSection";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { CurriculumExplorer } from "@/components/landing/CurriculumExplorer";
+import { SdkExport } from "@/components/landing/SdkExport";
+import { TrustSection } from "@/components/landing/TrustSection";
+import { FaqSection } from "@/components/landing/FaqSection";
 import { FinalCTA } from "@/components/landing/FinalCTA";
 import { Footer } from "@/components/layout/Footer";
 
 export default function Home() {
   return (
-    <main>
+    <main className="bg-[#05070d]">
       <Hero />
-      <ProblemSection />
-      <LearningJourney />
+      <TechMarquee />
       <FeaturesSection />
-      <QuantumLabPreview />
-      <AITutorPreview />
-      <LearningRoadmap />
-      <ProgressPreview />
-      <ResourcesSection />
+      <HowItWorks />
+      <CurriculumExplorer />
+      <SdkExport />
+      <TrustSection />
+      <FaqSection />
       <FinalCTA />
       <Footer />
     </main>
