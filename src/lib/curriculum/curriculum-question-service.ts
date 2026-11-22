@@ -222,12 +222,13 @@ export async function getCurriculumQuestions(
             difficulty,
             question,
             options,
-            correct_answer,
-            explanation,
             created_at,
             updated_at
           `,
         )
+        // No correct_answer/explanation: the answer key is not
+        // readable with user keys (migration 20261122000200) and the
+        // practice API never sends it; /api/practice/check reveals it.
         .in("id", chunk);
 
       if (chapterNumber !== undefined) {

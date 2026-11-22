@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { updateCurriculumTopicProgress } from "@/lib/curriculum/curriculum-progress-service";
 import {
@@ -177,8 +178,10 @@ export async function POST(request: Request) {
     // `answers` maps the question's position in `questionIds`
     // to the chosen option index (this is what PracticeQuiz sends).
 
+    // Answer key: readable only with the server-side admin client
+    // (see migration 20261122000200).
     const { data: storedQuestions, error: questionsError } =
-      await supabase
+      await createSupabaseAdminClient()
         .from("practice_questions")
         .select("id, correct_answer")
         .in("id", orderedIds);

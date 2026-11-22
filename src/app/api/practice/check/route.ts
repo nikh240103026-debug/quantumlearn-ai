@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import {
   getOpenSession,
@@ -106,7 +107,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: question, error } = await supabase
+  // The answer key is not readable with the public/user keys (see
+  // migration 20261122000200); only the server-side admin client can
+  // read it, and only after the checks above.
+  const { data: question, error } = await createSupabaseAdminClient()
     .from("practice_questions")
     .select("id, correct_answer, explanation")
     .eq("id", questionId)
