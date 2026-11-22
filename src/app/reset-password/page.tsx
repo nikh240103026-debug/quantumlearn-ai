@@ -24,6 +24,8 @@ export default function ResetPasswordPage() {
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  // Why the link didn't work, when Supabase or the session told us.
+  const [linkProblem, setLinkProblem] = useState("");
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -63,19 +65,55 @@ export default function ResetPasswordPage() {
         const accessToken = hash.get("access_token");
         const refreshToken = hash.get("refresh_token");
 
-        if (accessToken && refreshToken) {
+        /*
+         * A rejected link comes back as #error=...&error_code=... (or in
+         * the query string). Say why instead of a generic message.
+         */
+        const linkErrorCode =
+          hash.get("error_code") ?? url.searchParams.get("error_code");
+        const linkErrorText =
+          hash.get("error_description") ??
+          url.searchParams.get("error_description");
+
+        if (linkErrorCode || linkErrorText) {
           window.history.replaceState(
             {},
             "",
             `${url.pathname}${url.search}`,
           );
 
+          if (!mounted) return;
+
+          setLinkProblem(
+            linkErrorCode === "otp_expired"
+              ? "This reset link has already been used or has expired. Each link works once, and only the newest reset email's link works. Please request a new one and open it right away."
+              : `This reset link didn't work: ${linkErrorText ?? linkErrorCode}. Please request a new one.`,
+          );
+          setReady(false);
+          setCheckingSession(false);
+          return;
+        }
+
+        if (accessToken && refreshToken) {
           const { error: setSessionError } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
 
           if (!mounted) return;
+
+          // Only now: a remount (dev Strict Mode) must still see them.
+          window.history.replaceState(
+            {},
+            "",
+            `${url.pathname}${url.search}`,
+          );
+
+          if (setSessionError) {
+            setLinkProblem(
+              `This reset link couldn't be used: ${setSessionError.message}. Please request a new one.`,
+            );
+          }
 
           setReady(!setSessionError);
           setCheckingSession(false);
@@ -280,8 +318,8 @@ export default function ResetPasswordPage() {
               </div>
             ) : !ready && !message ? (
               <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
-                This password reset link is invalid or has expired.
-                Please request a new password reset link.
+                {linkProblem ||
+                  "This password reset link is invalid or has expired. Please request a new password reset link."}
               </div>
             ) : message ? (
               <div className="space-y-4">
