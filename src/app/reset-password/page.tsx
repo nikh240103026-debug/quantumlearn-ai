@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
+const LINK_EXPIRED =
+  "This reset link has already been used or has expired. Each link works once, and only the newest reset email's link works. Please request a new one and open it right away.";
+
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,6 +29,10 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState("");
   // Why the link didn't work, when Supabase or the session told us.
   const [linkProblem, setLinkProblem] = useState("");
+  // Set when the email links here with ?token_hash=...&type=recovery.
+  // It is verified only when the form is submitted, so email security
+  // scanners that open links can't use it up first.
+  const [tokenHash, setTokenHash] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -47,6 +54,17 @@ export default function ResetPasswordPage() {
 
     const initializeRecovery = async () => {
       try {
+        const linkTokenHash = url.searchParams.get("token_hash");
+
+        if (linkTokenHash && url.searchParams.get("type") === "recovery") {
+          if (!mounted) return;
+
+          setTokenHash(linkTokenHash);
+          setReady(true);
+          setCheckingSession(false);
+          return;
+        }
+
         if (!arrivedFromRecoveryLink) {
           if (!mounted) return;
 
@@ -86,7 +104,7 @@ export default function ResetPasswordPage() {
 
           setLinkProblem(
             linkErrorCode === "otp_expired"
-              ? "This reset link has already been used or has expired. Each link works once, and only the newest reset email's link works. Please request a new one and open it right away."
+              ? LINK_EXPIRED
               : `This reset link didn't work: ${linkErrorText ?? linkErrorCode}. Please request a new one.`,
           );
           setReady(false);
@@ -235,6 +253,30 @@ export default function ResetPasswordPage() {
     let updateError: { message: string } | null = null;
 
     try {
+      if (tokenHash) {
+        // Use the emailed one-time token now; this signs the user in.
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: tokenHash,
+        });
+
+        if (verifyError) {
+          setLoading(false);
+          setLinkProblem(
+            verifyError.code === "otp_expired" ||
+              /expired|invalid/i.test(verifyError.message)
+              ? LINK_EXPIRED
+              : `This reset link couldn't be used: ${verifyError.message}. Please request a new one.`,
+          );
+          setReady(false);
+          return;
+        }
+
+        // Verified: a retry after a failed update reuses this session.
+        setTokenHash(null);
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+
       ({ error: updateError } = await supabase.auth.updateUser({
         password,
       }));
