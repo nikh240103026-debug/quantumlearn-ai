@@ -32,8 +32,10 @@ import {
   LifeBuoy,
   Bell,
   Check,
+  Search,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { openCommandPalette } from "@/components/layout/CommandPalette";
 
 type IconComponent = React.ComponentType<{
   size?: number;
@@ -528,7 +530,7 @@ export function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/5 bg-[#0b0f17]/70 text-white backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#05070d]/90 text-white backdrop-blur-xl backdrop-saturate-150">
       <nav
         className="flex h-[72px] w-full items-center border-b border-white/5 px-5 sm:px-8 lg:px-10 xl:px-12"
         aria-label="Main navigation"
@@ -542,7 +544,7 @@ export function Navbar() {
           <img
             src="/images/quantumlearn-logo.png"
             alt="QuantumLearn AI"
-            className="h-10 w-10 object-contain"
+            className="h-9 w-9 object-contain invert"
           />
 
           <span className="whitespace-nowrap text-[15px] font-semibold tracking-tight text-white">
@@ -723,6 +725,19 @@ export function Navbar() {
         {/* RIGHT SIDE */}
 
         <div className="hidden shrink-0 items-center gap-2 border-white/10 pl-6 lg:flex">
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            aria-label="Search pages (Ctrl+K)"
+            className="group flex h-10 items-center gap-2 border border-white/10 bg-white/[0.03] px-3 text-sm text-white/45 transition-colors hover:border-white/20 hover:text-white"
+          >
+            <Search size={15} />
+            <span className="hidden xl:inline">Search</span>
+            <kbd className="hidden rounded border border-white/15 px-1.5 font-mono text-[10px] text-white/40 xl:inline">
+              Ctrl K
+            </kbd>
+          </button>
+
           {authLoading ? (
             <div className="h-9 w-24 animate-pulse border border-white/10 bg-white/5" />
           ) : userEmail ? (
