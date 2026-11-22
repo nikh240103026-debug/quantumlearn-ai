@@ -12,14 +12,22 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowRight,
+  Bot,
   CheckCircle2,
+  Flag,
+  Flame,
+  Keyboard,
+  LayoutDashboard,
+  LogIn,
   RotateCcw,
+  SlidersHorizontal,
   Sparkles,
-  Trophy,
   XCircle,
 } from "lucide-react";
+import { ExamShell } from "@/components/exam/ExamShell";
+import { OmrOption, type OmrState } from "@/components/exam/OmrOption";
+import { ConfirmDialog } from "@/components/exam/ConfirmDialog";
 
 type Difficulty = "easy" | "medium" | "difficult";
 
@@ -42,6 +50,9 @@ interface PracticeQuizProps {
   limit?: number;
   topicId?: string;
   moduleId?: string;
+  // Checking answers requires an account; guests are asked to sign
+  // in before starting instead of failing on the first answer.
+  isSignedIn?: boolean;
 }
 
 interface CurriculumTopic {
@@ -114,6 +125,7 @@ function PracticeQuizContent({
   limit = 10,
   topicId: initialTopicId,
   moduleId: initialModuleId,
+  isSignedIn = true,
 }: PracticeQuizProps) {
   const searchParams = useSearchParams();
 
@@ -386,8 +398,8 @@ function PracticeQuizContent({
       return undefined;
     }
 
-    for (const module of curriculumModules) {
-      const topic = module.topics?.find(
+    for (const curriculumModule of curriculumModules) {
+      const topic = curriculumModule.topics?.find(
         (item) =>
           item.id === selectedTopicId,
       );
@@ -412,8 +424,8 @@ function PracticeQuizContent({
       return undefined;
     }
 
-    for (const module of curriculumModules) {
-      const topic = module.topics?.find(
+    for (const curriculumModule of curriculumModules) {
+      const topic = curriculumModule.topics?.find(
         (item) =>
           item.id ===
           nextRecommendation.topicId,
@@ -1170,418 +1182,627 @@ function PracticeQuizContent({
   }
 
   // ==========================================================
-  // FINISHED SCREEN
+  // DERIVED SESSION STATE (per-question outcome, streaks)
+  // ==========================================================
+
+  const questionStates = useMemo(
+    () =>
+      questions.map((item, index): QuestionState => {
+        if (!Object.prototype.hasOwnProperty.call(answers, index)) {
+          return "pending";
+        }
+
+        const key = revealed[item.id];
+
+        if (!key) {
+          return "pending";
+        }
+
+        return key.correctAnswer === answers[index]
+          ? "correct"
+          : "wrong";
+      }),
+    [questions, answers, revealed],
+  );
+
+  const sessionStats = useMemo(() => {
+    let best = 0;
+    let run = 0;
+
+    for (const state of questionStates) {
+      if (state === "correct") {
+        run += 1;
+        best = Math.max(best, run);
+      } else if (state === "wrong") {
+        run = 0;
+      }
+    }
+
+    let current = 0;
+
+    for (let i = questionStates.length - 1; i >= 0; i--) {
+      if (questionStates[i] === "pending") continue;
+      if (questionStates[i] === "correct") current += 1;
+      else break;
+    }
+
+    const answered = questionStates.filter(
+      (state) => state !== "pending",
+    ).length;
+
+    const correct = questionStates.filter(
+      (state) => state === "correct",
+    ).length;
+
+    return {
+      answered,
+      correct,
+      wrong: answered - correct,
+      best,
+      current,
+      accuracy: answered
+        ? Math.round((correct / answered) * 100)
+        : 0,
+    };
+  }, [questionStates]);
+
+  const [reviewFilter, setReviewFilter] =
+    useState<"all" | "wrong">("all");
+
+  // ==========================================================
+  // KEYBOARD SHORTCUTS
+  // 1–9 / A–H pick an option, Enter checks or advances.
+  // ==========================================================
+
+  const keyboardRef = useRef<(event: KeyboardEvent) => void>(
+    () => {},
+  );
+
+  useEffect(() => {
+    keyboardRef.current = (event: KeyboardEvent) => {
+      if (
+        !started ||
+        finished ||
+        loading ||
+        questions.length === 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable='true'], [role='dialog'], [role='alertdialog']",
+        ) ||
+        document.querySelector("[role='alertdialog'], [role='dialog']")
+      ) {
+        return;
+      }
+
+      const current = questions[currentQuestion];
+
+      if (!current) return;
+
+      const key = event.key.toLowerCase();
+
+      let optionIndex = -1;
+
+      if (key.length === 1) {
+        const letter = "abcdefgh".indexOf(key);
+        const digit = Number(key);
+
+        if (letter >= 0) optionIndex = letter;
+        else if (Number.isInteger(digit) && digit >= 1) {
+          optionIndex = digit - 1;
+        }
+      }
+
+      if (
+        optionIndex >= 0 &&
+        optionIndex < current.options.length &&
+        !submitted
+      ) {
+        event.preventDefault();
+        handleSelectAnswer(optionIndex);
+        return;
+      }
+
+      if (key === "enter") {
+        // A focused button already handles Enter natively.
+        if (target?.closest("button, a")) return;
+
+        event.preventDefault();
+
+        if (!submitted) {
+          void handleSubmitAnswer();
+        } else if (!savingResult) {
+          void handleNext();
+        }
+      }
+    };
+  });
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) =>
+      keyboardRef.current(event);
+
+    window.addEventListener("keydown", listener);
+
+    return () =>
+      window.removeEventListener("keydown", listener);
+  }, []);
+
+  const [confirmExit, setConfirmExit] =
+    useState(false);
+
+  const scopeTitle = selectedTopic
+    ? selectedTopic.title
+    : selectedModule
+      ? selectedModule.title
+      : `Chapter ${selectedChapter}`;
+
+  const difficultyLabel =
+    DIFFICULTIES.find((item) => item.value === selectedDifficulty)?.label ??
+    selectedDifficulty;
+
+  // ==========================================================
+  // FINISHED SCREEN — a marked answer script
   // ==========================================================
 
   if (finished) {
     const finalPercentage =
       questions.length > 0
-        ? Math.round(
-            (score /
-              questions.length) *
-              100,
-          )
+        ? Math.round((score / questions.length) * 100)
         : 0;
 
-    let message =
-      "Keep practicing!";
+    const remark =
+      finalPercentage >= 90
+        ? "Excellent — you own this topic."
+        : finalPercentage >= 70
+          ? "Strong work. Nearly there."
+          : finalPercentage >= 50
+            ? "Good effort. Review the misses."
+            : "Keep going — revise and retry.";
 
-    if (finalPercentage >= 90) {
-      message = "Excellent work!";
-    } else if (finalPercentage >= 70) {
-      message = "Good job!";
-    } else if (finalPercentage >= 50) {
-      message =
-        "You're making progress!";
-    }
+    const reviewItems = questions
+      .map((item, index) => ({
+        item,
+        index,
+        state: questionStates[index],
+      }))
+      .filter(
+        ({ state }) =>
+          reviewFilter === "all" || state === "wrong",
+      );
 
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm sm:p-10">
-        <div className="mx-auto max-w-xl text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-            <Trophy size={30} />
-          </div>
+      <ExamShell
+        eyebrow="Practice · marked script"
+        title={`${scopeTitle} · ${difficultyLabel}`}
+        onExit={handleChangePractice}
+        exitLabel="Close"
+      >
+        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12">
+          {/* Score sheet */}
+          <section className="ql-sheet relative overflow-hidden rounded-xl border border-rule">
+            <div className="grid gap-8 p-6 sm:p-10 md:grid-cols-[auto_1fr] md:items-center">
+              <RedPenScore score={score} total={questions.length} />
 
-          <p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
-            Practice Complete
-          </p>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-ink-soft">
+                  Result · {finalPercentage}%
+                </p>
+                <p className="mt-2 font-serif text-3xl italic leading-tight text-exam-red sm:text-4xl">
+                  {remark}
+                </p>
 
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
-            {message}
-          </h1>
+                <dl className="mt-6 grid grid-cols-2 border-y border-rule sm:grid-cols-4">
+                  <ScriptStat label="Correct" value={sessionStats.correct} tone="text-exam-green" />
+                  <ScriptStat label="Incorrect" value={sessionStats.wrong} tone="text-exam-red" />
+                  <ScriptStat label="Accuracy" value={`${finalPercentage}%`} tone="text-ink" />
+                  <ScriptStat label="Best streak" value={sessionStats.best} tone="text-exam-amber" />
+                </dl>
 
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            {selectedTopic
-              ? selectedTopic.title
-              : selectedModule
-                ? selectedModule.title
-                : `Chapter ${selectedChapter}`}{" "}
-            · {selectedDifficulty}
-          </p>
+                <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleRestart}
+                    disabled={loading}
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-black disabled:cursor-wait disabled:opacity-70"
+                  >
+                    <RotateCcw size={15} />
+                    {loading ? "Preparing…" : "New set, same settings"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleChangePractice}
+                    className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/25 bg-white px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink/60"
+                  >
+                    <SlidersHorizontal size={15} />
+                    Change settings
+                  </button>
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-semibold text-ink-soft transition-colors hover:text-ink"
+                  >
+                    <LayoutDashboard size={15} />
+                    Dashboard
+                  </Link>
+                </div>
 
-          <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-6">
-            <p className="text-sm font-semibold text-slate-500">
-              Your Score
-            </p>
+                {resultError && (
+                  <p className="mt-4 flex items-start gap-2 rounded-md border border-exam-amber/30 bg-[#fdf3e2] px-3 py-2.5 text-sm text-[#7a4a00]">
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                    <span>Your score is shown but wasn&apos;t saved: {resultError}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
 
-            <p className="mt-2 text-5xl font-black text-slate-950">
-              {score}
-              <span className="text-2xl text-slate-400">
-                /{questions.length}
-              </span>
-            </p>
-
-            <p className="mt-2 text-sm font-semibold text-blue-600">
-              {finalPercentage}%
-            </p>
-          </div>
-
-          {/* Next Topic Recommendation */}
-
-          {nextRecommendation &&
-            recommendedTopic && (
-              <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-left">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
-                    <Sparkles size={19} />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">
-                      Recommended Next Topic
-                    </p>
-
-                    <h2 className="mt-1 text-lg font-black text-slate-950">
-                      {recommendedTopic.title}
-                    </h2>
-
-                    {recommendedModule && (
-                      <p className="mt-1 text-xs font-semibold text-slate-500">
-                        Module{" "}
-                        {
-                          recommendedModule.moduleNumber
-                        }{" "}
-                        ·{" "}
-                        {
-                          recommendedModule.title
-                        }
-                      </p>
-                    )}
-
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      {nextRecommendation.reason ||
-                        "Continue with this topic to keep progressing through your quantum computing curriculum."}
-                    </p>
-
-                    <Link
-                      href={`/practice?topicId=${encodeURIComponent(
-                        recommendedTopic.id,
-                      )}&moduleId=${encodeURIComponent(
-                        recommendedTopic.moduleId,
-                      )}`}
-                      className="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
-                    >
-                      Continue to Next Topic
-                      <ArrowRight size={16} />
-                    </Link>
-                  </div>
+          {/* Recommendation */}
+          {nextRecommendation && recommendedTopic && (
+            <section className="mt-5 flex flex-col gap-4 rounded-xl border-2 border-dashed border-exam-blue/40 bg-[#eef1ff] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div className="flex items-start gap-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-exam-blue text-white">
+                  <Sparkles size={17} />
+                </span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-exam-blue">
+                    Study next{recommendedModule ? ` · Module ${recommendedModule.moduleNumber}` : ""}
+                  </p>
+                  <p className="mt-1 font-serif text-xl font-semibold">{recommendedTopic.title}</p>
+                  <p className="mt-1 text-sm text-ink-soft">
+                    {nextRecommendation.reason ||
+                      "Continue with this topic to keep progressing through your curriculum."}
+                  </p>
                 </div>
               </div>
-            )}
-
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
-            <button
-              type="button"
-              onClick={handleRestart}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-            >
-              <RotateCcw size={17} />
-              Try Another Set
-            </button>
-
-            <button
-              type="button"
-              onClick={
-                handleChangePractice
-              }
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              Change Practice
-            </button>
-
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              <ArrowLeft size={17} />
-              Home
-            </Link>
-
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              <ArrowLeft size={17} />
-              Dashboard
-            </Link>
-          </div>
-
-          {resultError && (
-            <p className="mt-4 text-sm text-red-600">
-              {resultError}
-            </p>
+              <Link
+                href={`/practice?topicId=${encodeURIComponent(recommendedTopic.id)}&moduleId=${encodeURIComponent(recommendedTopic.moduleId)}`}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-exam-blue px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1a33c4]"
+              >
+                Practise it
+                <ArrowRight size={15} />
+              </Link>
+            </section>
           )}
+
+          {/* Marked answer script */}
+          <section className="ql-sheet mt-5 overflow-hidden rounded-xl border border-rule">
+            <div className="flex flex-col gap-3 border-b border-rule px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+              <h2 className="font-serif text-2xl font-semibold">Answer script</h2>
+              <div role="tablist" aria-label="Filter answers" className="inline-flex self-start rounded-md border border-rule bg-paper p-0.5 sm:self-auto">
+                {(
+                  [
+                    ["all", `All ${questions.length}`],
+                    ["wrong", `Mistakes ${sessionStats.wrong}`],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={reviewFilter === value}
+                    onClick={() => setReviewFilter(value)}
+                    className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      reviewFilter === value ? "bg-ink text-white" : "text-ink-soft hover:text-ink"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {reviewItems.length === 0 ? (
+              <p className="px-8 py-14 text-center font-serif text-xl italic text-exam-green">
+                No mistakes in this set. Try a harder level next.
+              </p>
+            ) : (
+              <ol>
+                {reviewItems.map(({ item, index, state }) => {
+                  const key = revealed[item.id];
+                  const yours = answers[index];
+                  const correct = state === "correct";
+
+                  return (
+                    <li key={item.id} className="relative border-b border-rule last:border-b-0">
+                      {/* margin with red-pen mark */}
+                      <div className="grid grid-cols-[56px_1fr] sm:grid-cols-[84px_1fr]">
+                        <div className="flex flex-col items-center gap-2 border-r-2 border-exam-red/25 py-5">
+                          <span className="font-serif text-lg font-semibold text-ink-soft">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                          <PenMark correct={correct} />
+                        </div>
+
+                        <div className="px-4 py-5 sm:px-7">
+                          <p className="font-serif text-lg leading-7">{item.question}</p>
+
+                          <div className="mt-4 space-y-2 text-sm">
+                            {!correct && yours !== undefined && (
+                              <ScriptAnswer
+                                label="Your answer"
+                                letter={String.fromCharCode(65 + yours)}
+                                text={item.options[yours]}
+                                tone="wrong"
+                              />
+                            )}
+                            {key && (
+                              <ScriptAnswer
+                                label={correct ? "Your answer" : "Correct answer"}
+                                letter={String.fromCharCode(65 + key.correctAnswer)}
+                                text={item.options[key.correctAnswer]}
+                                tone="right"
+                              />
+                            )}
+                          </div>
+
+                          {key?.explanation && (
+                            <p className="mt-4 border-l-2 border-exam-blue/40 pl-4 font-serif text-[15px] italic leading-6 text-ink-soft">
+                              {key.explanation}
+                            </p>
+                          )}
+
+                          <Link
+                            href={`/ai-tutor?topic=${encodeURIComponent(item.topic)}`}
+                            className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-exam-blue hover:underline"
+                          >
+                            <Bot size={13} />
+                            Ask the AI tutor about {item.topic}
+                          </Link>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </section>
         </div>
-      </div>
+      </ExamShell>
     );
   }
 
   // ==========================================================
-  // SETUP SCREEN
+  // SETUP SCREEN — fill in the paper form
   // ==========================================================
 
   if (!started) {
+    const scopeKind = selectedTopic
+      ? "Topic"
+      : selectedModule
+        ? `Module ${selectedModule.moduleNumber}`
+        : "Chapter";
+
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-6">
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
-            Practice Setup
-          </p>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
+        <div className="ql-sheet overflow-hidden rounded-xl border border-rule">
+          <div className="flex items-center justify-between border-b border-rule px-5 py-4 sm:px-8">
+            <h2 className="font-serif text-2xl font-semibold">Practice paper</h2>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-soft">
+              Fill the bubbles
+            </span>
+          </div>
 
-          <h1 className="mt-1 text-2xl font-black text-slate-950">
-            Choose your practice
-          </h1>
-
-          <p className="mt-2 text-sm leading-6 text-slate-500">
-            Select a curriculum topic,
-            module, or legacy chapter,
-            then choose your difficulty
-            and number of questions.
-          </p>
-        </div>
-
-        <div className="space-y-6 p-6">
-          {/* Module */}
-
-          <div>
-            <label
-              htmlFor="practice-module"
-              className="block text-sm font-bold text-slate-800"
-            >
-              Curriculum Module
-            </label>
-
-            <select
-              id="practice-module"
-              value={selectedModuleId ?? ""}
-              onChange={(event) =>
-                handleModuleChange(
-                  event.target.value,
-                )
-              }
-              disabled={curriculumLoading}
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-            >
-              <option value="">
-                All curriculum modules
-              </option>
-
-              {curriculumModules.map(
-                (module) => (
-                  <option
+          {/* Section A — syllabus */}
+          <FormSection letter="A" title="Syllabus" hint="Choose a curriculum module, then narrow it to a topic if you like.">
+            {curriculumLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div key={index} className="h-12 animate-pulse rounded-md bg-paper" />
+                ))}
+              </div>
+            ) : (
+              <div role="radiogroup" aria-label="Syllabus" className="divide-y divide-rule overflow-hidden rounded-lg border border-rule">
+                <SyllabusRow
+                  active={!selectedModuleId}
+                  onClick={() => handleModuleChange("")}
+                  code="CH"
+                  title="Whole chapter"
+                  meta={`Chapters 1–${CHAPTERS.length}`}
+                />
+                {curriculumModules.map((module) => (
+                  <SyllabusRow
                     key={module.id}
-                    value={module.id}
-                  >
-                    Module{" "}
-                    {module.moduleNumber} —{" "}
-                    {module.title}
-                  </option>
-                ),
-              )}
-            </select>
-          </div>
-
-          {/* Topic */}
-
-          <div>
-            <label
-              htmlFor="practice-topic"
-              className="block text-sm font-bold text-slate-800"
-            >
-              Curriculum Topic
-            </label>
-
-            <select
-              id="practice-topic"
-              value={selectedTopicId ?? ""}
-              onChange={(event) =>
-                handleTopicChange(
-                  event.target.value,
-                )
-              }
-              disabled={
-                curriculumLoading ||
-                !selectedModuleId
-              }
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50"
-            >
-              <option value="">
-                All topics in selected module
-              </option>
-
-              {selectedModule?.topics?.map(
-                (topic) => (
-                  <option
-                    key={topic.id}
-                    value={topic.id}
-                  >
-                    {topic.title}
-                  </option>
-                ),
-              )}
-            </select>
-          </div>
-
-          {curriculumError && (
-            <p className="text-xs text-slate-400">
-              {curriculumError}
-            </p>
-          )}
-
-          {/* Legacy Chapter */}
-
-          {!selectedTopicId &&
-            !selectedModuleId && (
-              <div>
-                <label
-                  htmlFor="practice-chapter"
-                  className="block text-sm font-bold text-slate-800"
-                >
-                  Legacy Chapter
-                </label>
-
-                <select
-                  id="practice-chapter"
-                  value={selectedChapter}
-                  onChange={(event) =>
-                    setSelectedChapter(
-                      Number(
-                        event.target.value,
-                      ),
-                    )
-                  }
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                >
-                  {CHAPTERS.map(
-                    (chapter) => (
-                      <option
-                        key={chapter}
-                        value={chapter}
-                      >
-                        Chapter {chapter}
-                      </option>
-                    ),
-                  )}
-                </select>
+                    active={selectedModuleId === module.id}
+                    onClick={() => handleModuleChange(module.id)}
+                    code={`M${module.moduleNumber}`}
+                    title={module.title}
+                    meta={`${module.topics?.length ?? 0} topics`}
+                  />
+                ))}
               </div>
             )}
 
-          {/* Difficulty */}
+            {curriculumError && (
+              <p className="mt-3 flex items-center gap-2 text-xs text-exam-amber">
+                <AlertTriangle size={13} />
+                {curriculumError} Chapter practice still works.
+              </p>
+            )}
 
-          <div>
-            <p className="text-sm font-bold text-slate-800">
-              Difficulty
-            </p>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              {DIFFICULTIES.map(
-                (difficulty) => {
-                  const active =
-                    selectedDifficulty ===
-                    difficulty.value;
-
-                  return (
-                    <button
-                      key={
-                        difficulty.value
-                      }
-                      type="button"
-                      onClick={() =>
-                        setSelectedDifficulty(
-                          difficulty.value,
-                        )
-                      }
-                      className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${
-                        active
-                          ? "border-blue-600 bg-blue-600 text-white"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"
-                      }`}
+            {selectedModule ? (
+              <div className="mt-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-soft">Topic</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <TopicTag active={!selectedTopicId} onClick={() => handleTopicChange("")}>
+                    All topics
+                  </TopicTag>
+                  {selectedModule.topics?.map((topic) => (
+                    <TopicTag
+                      key={topic.id}
+                      active={selectedTopicId === topic.id}
+                      onClick={() => handleTopicChange(topic.id)}
                     >
-                      {difficulty.label}
-                    </button>
-                  );
-                },
-              )}
+                      {topic.title}
+                    </TopicTag>
+                  ))}
+                </div>
+              </div>
+            ) : !selectedModuleId ? (
+              <div className="mt-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-soft">Chapter</p>
+                <BubbleRow
+                  label="Chapter"
+                  options={CHAPTERS.map((chapter) => ({ value: chapter, label: String(chapter).padStart(2, "0") }))}
+                  value={selectedChapter}
+                  onChange={setSelectedChapter}
+                />
+              </div>
+            ) : null}
+          </FormSection>
+
+          {/* Section B — level */}
+          <FormSection letter="B" title="Level" hint="Pre-filled from Settings → Learning.">
+            <div role="radiogroup" aria-label="Difficulty" className="grid gap-2.5 sm:grid-cols-3">
+              {DIFFICULTIES.map((difficulty) => {
+                const active = selectedDifficulty === difficulty.value;
+                const meta = DIFFICULTY_META[difficulty.value];
+                return (
+                  <button
+                    key={difficulty.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setSelectedDifficulty(difficulty.value)}
+                    className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
+                      active ? "border-ink bg-white" : "border-rule bg-sheet hover:border-ink/40"
+                    }`}
+                  >
+                    <FormBubble filled={active} />
+                    <span>
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        {difficulty.label}
+                        <SignalBars level={meta.level} className={active ? meta.text : "text-ink/25"} />
+                      </span>
+                      <span className="mt-0.5 block text-xs text-ink-soft">{meta.blurb}</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          </FormSection>
 
-          {/* Question Count */}
-
-          <div>
-            <label
-              htmlFor="question-limit"
-              className="block text-sm font-bold text-slate-800"
-            >
-              Number of Questions
-            </label>
-
-            <select
-              id="question-limit"
+          {/* Section C — length */}
+          <FormSection letter="C" title="Number of questions" hint="Short sets are perfect for a daily check-in." last>
+            <BubbleRow
+              label="Number of questions"
+              options={QUESTION_COUNTS.map((count) => ({ value: count, label: String(count) }))}
               value={questionLimit}
-              onChange={(event) =>
-                setQuestionLimit(
-                  Number(
-                    event.target.value,
-                  ),
-                )
-              }
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value={5}>
-                5 Questions
-              </option>
-              <option value={10}>
-                10 Questions
-              </option>
-              <option value={15}>
-                15 Questions
-              </option>
-              <option value={20}>
-                20 Questions
-              </option>
-            </select>
-          </div>
+              onChange={setQuestionLimit}
+              size="lg"
+            />
+          </FormSection>
+        </div>
 
-          {/* Error */}
-
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
-              {error}
+        {/* Admit card */}
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <div className="relative overflow-hidden rounded-xl border border-ink bg-sheet shadow-[6px_6px_0_var(--color-ink)]">
+            <div className="flex items-center justify-between bg-ink px-5 py-3 text-white">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">Admit card</span>
+              <span className="font-mono text-[11px] text-white/60">Practice</span>
             </div>
-          )}
 
-          {/* Start */}
+            <dl className="divide-y divide-dashed divide-rule px-5 text-sm">
+              <TicketRow label={scopeKind} value={scopeTitle} />
+              <TicketRow label="Level" value={difficultyLabel} />
+              <TicketRow label="Questions" value={String(questionLimit)} />
+              <TicketRow label="Est. time" value={`~${questionLimit} min`} />
+              <TicketRow label="Marking" value="Instant, with explanations" />
+            </dl>
 
-          <button
-            type="button"
-            onClick={handleStartPractice}
-            disabled={loading}
-            className="w-full rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading
-              ? "Loading Questions..."
-              : "Start Practice"}
-          </button>
+            {/* perforation */}
+            <div className="relative my-1 border-t-2 border-dashed border-rule">
+              <span className="absolute -left-3 -top-3 h-6 w-6 rounded-full border border-ink bg-paper" />
+              <span className="absolute -right-3 -top-3 h-6 w-6 rounded-full border border-ink bg-paper" />
+            </div>
+
+            <div className="p-5">
+              {error && (
+                <div className="mb-4 flex items-start gap-2 rounded-md border border-exam-red/30 bg-[#fbecec] px-3 py-2.5 text-sm leading-6 text-exam-red">
+                  <AlertTriangle size={16} className="mt-1 shrink-0" />
+                  {error}
+                </div>
+              )}
+
+              {isSignedIn ? (
+                <button
+                  type="button"
+                  onClick={handleStartPractice}
+                  disabled={loading}
+                  className="group flex w-full items-center justify-center gap-2 rounded-md bg-ink px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-black disabled:cursor-wait disabled:opacity-70"
+                >
+                  {loading ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Preparing your paper…
+                    </>
+                  ) : (
+                    <>
+                      Begin practice
+                      <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <>
+                  <p className="mb-3 flex items-start gap-2 text-xs leading-5 text-ink-soft">
+                    <LogIn size={14} className="mt-0.5 shrink-0 text-exam-blue" />
+                    Sign in to have your answers marked and your progress saved.
+                  </p>
+                  <Link
+                    href="/login"
+                    className="flex w-full items-center justify-center gap-2 rounded-md bg-ink px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-black"
+                  >
+                    Log in to practise
+                    <ArrowRight size={16} />
+                  </Link>
+                  <Link
+                    href="/signup"
+                    className="mt-2 flex w-full items-center justify-center rounded-md border border-ink/25 px-5 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink/60"
+                  >
+                    Create an account
+                  </Link>
+                </>
+              )}
+
+              <p className="mt-4 hidden items-center justify-center gap-1.5 text-[11px] text-ink-soft lg:flex">
+                <Keyboard size={12} />
+                Keys <PaperKbd>1</PaperKbd>–<PaperKbd>4</PaperKbd> answer · <PaperKbd>Enter</PaperKbd> continues
+              </p>
+            </div>
+          </div>
+        </aside>
+
+        {/* Mobile: keep the start action reachable (leaves room for the tutor bubble) */}
+        <div className="sticky bottom-4 z-30 mr-16 lg:hidden">
+          <div className="flex items-center gap-3 rounded-lg border border-ink bg-sheet p-2 pl-4 shadow-[4px_4px_0_var(--color-ink)]">
+            <p className="min-w-0 flex-1 truncate text-xs text-ink-soft">
+              <span className="font-semibold text-ink">{scopeTitle}</span> · {difficultyLabel} · {questionLimit} Qs
+            </p>
+            {isSignedIn ? (
+              <button
+                type="button"
+                onClick={handleStartPractice}
+                disabled={loading}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-70"
+              >
+                {loading ? "Preparing…" : "Begin"}
+                {!loading && <ArrowRight size={15} />}
+              </button>
+            ) : (
+              <Link href="/login" className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-ink px-4 py-2.5 text-sm font-semibold text-white">
+                Log in
+                <ArrowRight size={15} />
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1591,18 +1812,14 @@ function PracticeQuizContent({
   // LOADING
   // ==========================================================
 
-  if (
-    loading ||
-    questions.length === 0
-  ) {
+  if (loading || questions.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-
-        <p className="mt-4 text-sm font-semibold text-slate-600">
-          Loading practice questions...
-        </p>
-      </div>
+      <ExamShell eyebrow="Practice" title={scopeTitle} onExit={handleChangePractice}>
+        <div className="flex h-full flex-col items-center justify-center gap-4 py-24">
+          <span className="h-10 w-10 animate-spin rounded-full border-2 border-rule border-t-ink" />
+          <p className="font-serif text-lg italic text-ink-soft">Printing your question paper…</p>
+        </div>
+      </ExamShell>
     );
   }
 
@@ -1610,453 +1827,234 @@ function PracticeQuizContent({
   // CURRENT QUESTION
   // ==========================================================
 
-  const question =
-    questions[currentQuestion];
+  const question = questions[currentQuestion];
 
-  const progress =
-    ((currentQuestion + 1) /
-      questions.length) *
-    100;
-
-  const revealedAnswer =
-    revealed[question.id];
+  const revealedAnswer = revealed[question.id];
 
   const isCorrect =
     submitted &&
     revealedAnswer !== undefined &&
-    selectedAnswer ===
-      revealedAnswer.correctAnswer;
+    selectedAnswer === revealedAnswer.correctAnswer;
+
+  const isLast = currentQuestion === questions.length - 1;
+
+  const questionMeta =
+    DIFFICULTY_META[question.difficulty] ?? DIFFICULTY_META.easy;
 
   // ==========================================================
-  // QUIZ
+  // QUIZ — exam mode
   // ==========================================================
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      {/* Header */}
-
-      <div className="border-b border-slate-200 p-5 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
-              {selectedTopic
-                ? selectedTopic.title
-                : selectedModule
-                  ? selectedModule.title
-                  : `Chapter ${selectedChapter}`}{" "}
-              · {selectedDifficulty}
-            </p>
-
-            <h1 className="mt-1 text-xl font-black text-slate-950">
-              Quantum Computing Practice
-            </h1>
-          </div>
-
-          <div className="shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">
-            {currentQuestion + 1} /{" "}
-            {questions.length}
-          </div>
-        </div>
-
-        <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className="h-full rounded-full bg-blue-600 transition-all duration-300"
-            style={{
-              width: `${progress}%`,
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Question */}
-
-      <div className="p-5 sm:p-8">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-            {question.topic}
+    <ExamShell
+      eyebrow={`Practice · ${difficultyLabel}`}
+      title={scopeTitle}
+      onExit={() => setConfirmExit(true)}
+      center={
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-xs text-white/50">
+            Q{String(currentQuestion + 1).padStart(2, "0")}/{String(questions.length).padStart(2, "0")}
           </span>
-
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold capitalize text-slate-600">
-            {question.difficulty}
+          <div className="flex w-56 gap-1" aria-hidden="true">
+            {questionStates.map((state, index) => (
+              <span
+                key={index}
+                className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                  state === "correct"
+                    ? "bg-[#3ecf8e]"
+                    : state === "wrong"
+                      ? "bg-[#ff6b6b]"
+                      : index === currentQuestion
+                        ? "bg-white"
+                        : "bg-white/20"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      }
+      right={
+        <div className="flex items-center gap-2">
+          {sessionStats.current >= 2 && (
+            <span
+              key={sessionStats.current}
+              className="ql-pop inline-flex items-center gap-1 rounded-md bg-amber-400 px-2 py-1 text-xs font-bold text-ink"
+              title="Correct answers in a row"
+            >
+              <Flame size={13} />
+              {sessionStats.current}
+            </span>
+          )}
+          <span className="rounded-md border border-white/15 px-2 py-1 font-mono text-xs text-white/80" title="Correct so far">
+            {sessionStats.correct}/{sessionStats.answered} ✓
           </span>
         </div>
-
-        <p className="mt-6 text-sm font-semibold text-slate-500">
-          Question {currentQuestion + 1}
-        </p>
-
-        <h2 className="mt-3 text-xl font-bold leading-8 text-slate-950 sm:text-2xl">
-          {question.question}
-        </h2>
-
-        {/* Options */}
-
-        <div className="mt-7 space-y-3">
-          {question.options.map(
-            (option, index) => {
-              const isSelected =
-                selectedAnswer === index;
-
-              const isCorrectOption =
-                submitted &&
-                index ===
-                  revealedAnswer?.correctAnswer;
-
-              const isWrongSelection =
-                submitted &&
-                isSelected &&
-                !isCorrect;
-
-              let optionClass =
-                "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50";
-
-              if (
-                isSelected &&
-                !submitted
-              ) {
-                optionClass =
-                  "border-blue-500 bg-blue-50 ring-2 ring-blue-100";
-              }
-
-              if (isCorrectOption) {
-                optionClass =
-                  "border-green-300 bg-green-50";
-              }
-
-              if (isWrongSelection) {
-                optionClass =
-                  "border-red-300 bg-red-50";
-              }
-
-              return (
-                <button
-                  key={`${question.id}-${index}`}
-                  type="button"
-                  onClick={() =>
-                    handleSelectAnswer(
-                      index,
-                    )
-                  }
-                  disabled={submitted}
-                  className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all ${optionClass}`}
-                >
-                  <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
-                      isCorrectOption
-                        ? "bg-green-600 text-white"
-                        : isWrongSelection
-                          ? "bg-red-600 text-white"
-                          : isSelected
-                            ? "bg-blue-600 text-white"
-                            : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {String.fromCharCode(
-                      65 + index,
-                    )}
-                  </span>
-
-                  <span className="flex-1 text-sm font-semibold text-slate-800">
-                    {option}
-                  </span>
-
-                  {isCorrectOption && (
-                    <CheckCircle2
-                      size={19}
-                      className="shrink-0 text-green-600"
-                    />
-                  )}
-
-                  {isWrongSelection && (
-                    <XCircle
-                      size={19}
-                      className="shrink-0 text-red-600"
-                    />
-                  )}
-                </button>
-              );
-            },
-          )}
+      }
+      footer={
+        <PracticeFooter
+          submitted={submitted}
+          isCorrect={isCorrect}
+          correctLetter={String.fromCharCode(65 + (revealedAnswer?.correctAnswer ?? 0))}
+          explanation={revealedAnswer?.explanation}
+          topic={question.topic}
+          streak={sessionStats.current}
+          canCheck={selectedAnswer !== null}
+          checking={checkingAnswer}
+          saving={savingResult}
+          isLast={isLast}
+          error={checkError || resultError}
+          onCheck={() => void handleSubmitAnswer()}
+          onNext={() => void handleNext()}
+          onReport={() => {
+            setShowReportForm(true);
+            setReportError("");
+            setReportSuccess("");
+          }}
+        />
+      }
+    >
+      <div key={question.id} className="ql-enter mx-auto max-w-3xl px-4 pb-16 pt-8 sm:px-6 sm:pt-12" style={{ animationDuration: "0.4s" }}>
+        {/* mobile progress */}
+        <div className="mb-6 flex gap-1 md:hidden" aria-hidden="true">
+          {questionStates.map((state, index) => (
+            <span
+              key={index}
+              className={`h-1 flex-1 rounded-full ${
+                state === "correct" ? "bg-exam-green" : state === "wrong" ? "bg-exam-red" : index === currentQuestion ? "bg-ink" : "bg-ink/15"
+              }`}
+            />
+          ))}
         </div>
 
-        {/* Explanation */}
-
-        {submitted && (
-          <div
-            className={`mt-6 rounded-xl border p-4 ${
-              isCorrect
-                ? "border-green-200 bg-green-50"
-                : "border-red-200 bg-red-50"
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              {isCorrect ? (
-                <CheckCircle2
-                  size={19}
-                  className="mt-0.5 shrink-0 text-green-600"
-                />
-              ) : (
-                <XCircle
-                  size={19}
-                  className="mt-0.5 shrink-0 text-red-600"
-                />
-              )}
-
-              <div>
-                <p
-                  className={`text-sm font-bold ${
-                    isCorrect
-                      ? "text-green-700"
-                      : "text-red-700"
-                  }`}
-                >
-                  {isCorrect
-                    ? "Correct!"
-                    : "Not quite."}
-                </p>
-
-                <p className="mt-1 text-sm leading-6 text-slate-700">
-                  {revealedAnswer?.explanation}
-                </p>
-              </div>
+        <div className="flex items-start gap-4 sm:gap-6">
+          <span className="font-serif text-5xl font-medium leading-none text-ink/20 sm:text-6xl">
+            {String(currentQuestion + 1).padStart(2, "0")}
+          </span>
+          <div className="min-w-0 flex-1 pt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-soft">
+              <span className="font-semibold uppercase tracking-[0.14em] text-exam-blue">{question.topic}</span>
+              <span className="h-3 w-px bg-rule" />
+              <span className={`inline-flex items-center gap-1.5 font-semibold capitalize ${questionMeta.text}`}>
+                <SignalBars level={questionMeta.level} className="" />
+                {question.difficulty}
+              </span>
+              {question.chapterNumber ? (
+                <>
+                  <span className="h-3 w-px bg-rule" />
+                  <span>Chapter {question.chapterNumber}</span>
+                </>
+              ) : null}
             </div>
+            <h2 className="mt-3 font-serif text-[1.6rem] font-medium leading-[1.3] tracking-[-0.01em] sm:text-[2rem]">
+              {question.question}
+            </h2>
           </div>
-        )}
-
-                {/* Question Report */}
-
-        <div className="mt-8 border-t border-slate-200 pt-6">
-          {!showReportForm ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-700">
-                  Found a problem with this question?
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-slate-400">
-                  Help us improve the quality of the practice questions.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowReportForm(true);
-                  setReportError("");
-                  setReportSuccess("");
-                }}
-                className="inline-flex items-center justify-center gap-2 self-start rounded-lg border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:self-auto"
-              >
-                <AlertTriangle size={15} />
-                Report Question
-              </button>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
-                  <AlertTriangle size={17} />
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Report this question
-                  </h3>
-
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    Tell us what is wrong so we can review and improve it.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5">
-                <label
-                  htmlFor="question-report-reason"
-                  className="block text-sm font-bold text-slate-800"
-                >
-                  What is wrong with this question?
-                </label>
-
-                <select
-                  id="question-report-reason"
-                  value={reportReason}
-                  onChange={(event) => {
-                    setReportReason(
-                      event.target.value,
-                    );
-                    setReportError("");
-                  }}
-                  disabled={submittingReport}
-                  className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                >
-                  <option value="">
-                    Select a reason
-                  </option>
-
-                  <option value="wrong_answer">
-                    Wrong answer
-                  </option>
-
-                  <option value="ambiguous_question">
-                    Ambiguous question
-                  </option>
-
-                  <option value="incorrect_explanation">
-                    Incorrect explanation
-                  </option>
-
-                  <option value="typo">
-                    Typo
-                  </option>
-
-                  <option value="too_difficult">
-                    Too difficult
-                  </option>
-
-                  <option value="other">
-                    Other
-                  </option>
-                </select>
-              </div>
-
-              <div className="mt-4">
-                <label
-                  htmlFor="question-report-details"
-                  className="block text-sm font-bold text-slate-800"
-                >
-                  Additional details
-                  <span className="ml-1 font-normal text-slate-400">
-                    (optional)
-                  </span>
-                </label>
-
-                <textarea
-                  id="question-report-details"
-                  value={reportDetails}
-                  onChange={(event) => {
-                    setReportDetails(
-                      event.target.value,
-                    );
-                    setReportError("");
-                  }}
-                  disabled={submittingReport}
-                  maxLength={5000}
-                  rows={4}
-                  placeholder="Tell us what should be corrected..."
-                  className="mt-2 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-                />
-
-                <p className="mt-1 text-right text-xs text-slate-400">
-                  {reportDetails.length}/5000
-                </p>
-              </div>
-
-              {reportError && (
-                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-                  {reportError}
-                </div>
-              )}
-
-              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowReportForm(false);
-                    setReportReason("");
-                    setReportDetails("");
-                    setReportError("");
-                  }}
-                  disabled={submittingReport}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={
-                    handleSubmitQuestionReport
-                  }
-                  disabled={
-                    submittingReport ||
-                    !reportReason
-                  }
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {submittingReport
-                    ? "Submitting..."
-                    : "Submit Report"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {reportSuccess && (
-            <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm font-semibold text-green-700">
-              {reportSuccess}
-            </div>
-          )}
         </div>
 
-        {/* Actions */}
+        <div role="radiogroup" aria-label="Answer options" className="mt-9 space-y-3">
+          {question.options.map((option, index) => {
+            const isSelected = selectedAnswer === index;
+            const isCorrectOption = submitted && index === revealedAnswer?.correctAnswer;
+            const isWrongSelection = submitted && isSelected && !isCorrect;
 
-        <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={
-              handleChangePractice
-            }
-            className="text-left text-xs font-semibold text-slate-400 hover:text-blue-600"
-          >
-            Change practice
-          </button>
+            const state: OmrState = isCorrectOption
+              ? "correct"
+              : isWrongSelection
+                ? "wrong"
+                : submitted
+                  ? "dimmed"
+                  : isSelected
+                    ? "selected"
+                    : "idle";
 
-          {!submitted ? (
-            <button
-              type="button"
-              onClick={
-                handleSubmitAnswer
-              }
-              disabled={
-                selectedAnswer === null ||
-                checkingAnswer
-              }
-              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {checkingAnswer
-                ? "Checking..."
-                : "Check Answer"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleNext}
-              disabled={savingResult}
-              className="inline-flex items-center justify-center rounded-lg bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {savingResult
-                ? "Saving..."
-                : currentQuestion ===
-                    questions.length - 1
-                  ? "Finish Quiz"
-                  : "Next Question"}
-            </button>
-          )}
+            return (
+              <OmrOption
+                key={`${question.id}-${index}`}
+                letter={String.fromCharCode(65 + index)}
+                text={option}
+                state={state}
+                disabled={submitted}
+                shortcut={String(index + 1)}
+                onSelect={() => handleSelectAnswer(index)}
+              />
+            );
+          })}
         </div>
 
-        {checkError && (
-          <p className="mt-4 text-sm text-red-600">
-            {checkError}
-          </p>
-        )}
-
-        {resultError && (
-          <p className="mt-4 text-sm text-red-600">
-            {resultError}
+        {reportSuccess && (
+          <p className="mt-6 flex items-center gap-2 text-sm font-semibold text-exam-green">
+            <CheckCircle2 size={16} />
+            {reportSuccess}
           </p>
         )}
       </div>
-    </div>
+
+      {/* Report dialog */}
+      <ConfirmDialog
+        open={showReportForm}
+        title="Report this question"
+        confirmLabel={submittingReport ? "Sending…" : "Send report"}
+        tone="danger"
+        busy={submittingReport}
+        confirmDisabled={!reportReason}
+        onConfirm={() => void handleSubmitQuestionReport()}
+        onCancel={() => {
+          setShowReportForm(false);
+          setReportReason("");
+          setReportDetails("");
+          setReportError("");
+        }}
+      >
+        <p className="text-ink">What&apos;s wrong with question {currentQuestion + 1}?</p>
+        <div role="radiogroup" aria-label="Reason" className="mt-3 flex flex-wrap gap-2">
+          {REPORT_REASONS.map((reason) => (
+            <TopicTag
+              key={reason.value}
+              active={reportReason === reason.value}
+              onClick={() => {
+                setReportReason(reason.value);
+                setReportError("");
+              }}
+            >
+              {reason.label}
+            </TopicTag>
+          ))}
+        </div>
+        <label htmlFor="question-report-details" className="mt-4 block text-xs font-semibold text-ink">
+          Details <span className="font-normal text-ink-soft">(optional)</span>
+        </label>
+        <textarea
+          id="question-report-details"
+          value={reportDetails}
+          onChange={(event) => {
+            setReportDetails(event.target.value);
+            setReportError("");
+          }}
+          maxLength={5000}
+          rows={3}
+          placeholder="What should be corrected?"
+          className="mt-1.5 w-full resize-y rounded-md border border-rule bg-white px-3 py-2 text-sm text-ink outline-none focus:border-exam-blue focus:ring-2 focus:ring-exam-blue/15"
+        />
+        {reportError && <p className="mt-2 text-sm text-exam-red">{reportError}</p>}
+      </ConfirmDialog>
+
+      {/* Leave confirmation */}
+      <ConfirmDialog
+        open={confirmExit}
+        title="Leave this practice set?"
+        confirmLabel="Leave set"
+        cancelLabel="Keep going"
+        tone="danger"
+        onConfirm={() => {
+          setConfirmExit(false);
+          handleChangePractice();
+        }}
+        onCancel={() => setConfirmExit(false)}
+      >
+        You&apos;ve answered {sessionStats.answered} of {questions.length} questions. Results
+        for an unfinished set aren&apos;t saved.
+      </ConfirmDialog>
+    </ExamShell>
   );
 }
 
@@ -2066,16 +2064,387 @@ export default function PracticeQuiz(
   return (
     <Suspense
       fallback={
-        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-
-          <p className="mt-4 text-sm font-semibold text-slate-600">
-            Loading practice...
-          </p>
+        <div className="ql-sheet flex items-center justify-center gap-3 rounded-xl border border-rule px-6 py-20 text-ink-soft">
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-rule border-t-ink" />
+          Loading practice…
         </div>
       }
     >
       <PracticeQuizContent {...props} />
     </Suspense>
+  );
+}
+
+// ============================================================
+// PRESENTATION HELPERS
+// ============================================================
+
+type QuestionState = "pending" | "correct" | "wrong";
+
+const QUESTION_COUNTS = [5, 10, 15, 20];
+
+const REPORT_REASONS = [
+  { value: "wrong_answer", label: "Wrong answer" },
+  { value: "ambiguous_question", label: "Ambiguous" },
+  { value: "incorrect_explanation", label: "Bad explanation" },
+  { value: "typo", label: "Typo" },
+  { value: "too_difficult", label: "Too difficult" },
+  { value: "other", label: "Other" },
+];
+
+const DIFFICULTY_META: Record<
+  Difficulty,
+  { level: 1 | 2 | 3; blurb: string; text: string }
+> = {
+  easy: { level: 1, blurb: "Definitions and core ideas", text: "text-exam-green" },
+  medium: { level: 2, blurb: "Apply concepts to problems", text: "text-exam-amber" },
+  difficult: { level: 3, blurb: "Multi-step reasoning", text: "text-exam-red" },
+};
+
+function PracticeFooter({
+  submitted,
+  isCorrect,
+  correctLetter,
+  explanation,
+  topic,
+  streak,
+  canCheck,
+  checking,
+  saving,
+  isLast,
+  error,
+  onCheck,
+  onNext,
+  onReport,
+}: {
+  submitted: boolean;
+  isCorrect: boolean;
+  correctLetter: string;
+  explanation?: string;
+  topic: string;
+  streak: number;
+  canCheck: boolean;
+  checking: boolean;
+  saving: boolean;
+  isLast: boolean;
+  error: string;
+  onCheck: () => void;
+  onNext: () => void;
+  onReport: () => void;
+}) {
+  if (submitted) {
+    return (
+      <div
+        role="status"
+        className={`ql-sheet-up shrink-0 border-t-2 ${
+          isCorrect ? "border-exam-green bg-[#e3f4ea]" : "border-exam-red bg-[#fbe7e7]"
+        }`}
+      >
+        <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:gap-6 sm:px-6">
+          <span
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white ${
+              isCorrect ? "bg-exam-green" : "bg-exam-red"
+            }`}
+          >
+            {isCorrect ? <CheckCircle2 size={24} /> : <XCircle size={24} />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className={`font-serif text-2xl font-semibold ${isCorrect ? "text-exam-green" : "text-exam-red"}`}>
+              {isCorrect ? (streak >= 3 ? `Correct — ${streak} in a row!` : "Correct!") : `Not quite — it's ${correctLetter}.`}
+            </p>
+            {explanation && <p className="mt-1 text-sm leading-6 text-ink/80">{explanation}</p>}
+            <Link
+              href={`/ai-tutor?topic=${encodeURIComponent(topic)}`}
+              className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold text-exam-blue hover:underline"
+            >
+              <Bot size={13} />
+              Go deeper with the AI tutor
+            </Link>
+            {error && <p className="mt-1 text-sm text-exam-red">{error}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={saving}
+            autoFocus
+            className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-6 py-3.5 text-sm font-bold text-white transition-colors disabled:cursor-wait disabled:opacity-70 ${
+              isCorrect ? "bg-exam-green hover:bg-[#086637]" : "bg-exam-red hover:bg-[#a82222]"
+            }`}
+          >
+            {saving ? "Marking…" : isLast ? "See my result" : "Continue"}
+            {!saving && <ArrowRight size={16} />}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="shrink-0 border-t border-rule bg-sheet">
+      <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-4 sm:px-6">
+        <button
+          type="button"
+          onClick={onReport}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-soft transition-colors hover:text-exam-red"
+        >
+          <Flag size={13} />
+          <span className="hidden sm:inline">Report question</span>
+        </button>
+        <p className="ml-auto hidden items-center gap-1.5 text-xs text-ink-soft lg:flex">
+          Press <PaperKbd>1</PaperKbd>–<PaperKbd>4</PaperKbd> then <PaperKbd>Enter</PaperKbd>
+        </p>
+        {error && <p className="ml-auto text-sm text-exam-red lg:ml-0">{error}</p>}
+        <button
+          type="button"
+          onClick={onCheck}
+          disabled={!canCheck || checking}
+          className="ml-auto inline-flex items-center justify-center gap-2 rounded-md bg-ink px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:bg-ink/15 disabled:text-ink/40 lg:ml-0"
+        >
+          {checking ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              Checking…
+            </>
+          ) : (
+            "Check answer"
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FormSection({
+  letter,
+  title,
+  hint,
+  last,
+  children,
+}: {
+  letter: string;
+  title: string;
+  hint: string;
+  last?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={`grid gap-4 px-5 py-6 sm:grid-cols-[150px_1fr] sm:gap-6 sm:px-8 ${last ? "" : "border-b border-rule"}`}>
+      <div>
+        <p className="font-serif text-sm italic text-ink-soft">Section {letter}</p>
+        <h3 className="text-base font-semibold">{title}</h3>
+        <p className="mt-1 text-xs leading-5 text-ink-soft">{hint}</p>
+      </div>
+      <div className="min-w-0">{children}</div>
+    </section>
+  );
+}
+
+function FormBubble({ filled }: { filled: boolean }) {
+  return (
+    <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink/70 bg-white">
+      {filled && <span className="ql-bubble-fill absolute inset-[2.5px] rounded-full bg-ink" />}
+    </span>
+  );
+}
+
+function SyllabusRow({
+  active,
+  onClick,
+  code,
+  title,
+  meta,
+}: {
+  active: boolean;
+  onClick: () => void;
+  code: string;
+  title: string;
+  meta: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={`flex w-full items-center gap-4 px-4 py-3 text-left transition-colors ${
+        active ? "bg-[#eef1ff]" : "bg-sheet hover:bg-white"
+      }`}
+    >
+      <FormBubble filled={active} />
+      <span className="w-8 shrink-0 font-mono text-xs font-semibold text-ink-soft">{code}</span>
+      <span className={`min-w-0 flex-1 text-sm ${active ? "font-semibold text-ink" : "text-ink/85"}`}>{title}</span>
+      <span className="hidden shrink-0 text-xs text-ink-soft sm:inline">{meta}</span>
+    </button>
+  );
+}
+
+function BubbleRow<T extends number>({
+  label,
+  options,
+  value,
+  onChange,
+  size = "md",
+}: {
+  label: string;
+  options: Array<{ value: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+  size?: "md" | "lg";
+}) {
+  const dimension = size === "lg" ? "h-14 w-14 text-lg" : "h-11 w-11 text-sm";
+
+  return (
+    <div role="radiogroup" aria-label={label} className="mt-3 flex flex-wrap gap-2.5">
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(option.value)}
+            className={`relative flex items-center justify-center rounded-full border-[1.5px] font-serif font-semibold tabular-nums transition-colors ${dimension} ${
+              active ? "border-ink text-white" : "border-ink/50 bg-white text-ink hover:border-ink"
+            }`}
+          >
+            {active && <span className="ql-bubble-fill absolute inset-[3px] rounded-full bg-ink" />}
+            <span className="relative">{option.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function TopicTag({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+        active ? "border-ink bg-ink text-white" : "border-rule bg-white text-ink/75 hover:border-ink/50 hover:text-ink"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TicketRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-3">
+      <dt className="shrink-0 text-xs font-semibold uppercase tracking-[0.12em] text-ink-soft">{label}</dt>
+      <dd className="text-right font-serif text-[15px] font-semibold leading-5">{value}</dd>
+    </div>
+  );
+}
+
+function SignalBars({ level, className }: { level: 1 | 2 | 3; className: string }) {
+  return (
+    <span aria-hidden="true" className={`inline-flex items-end gap-[2px] ${className}`}>
+      {[1, 2, 3].map((bar) => (
+        <span
+          key={bar}
+          className={`w-[3px] rounded-sm ${bar <= level ? "bg-current" : "bg-current opacity-20"}`}
+          style={{ height: `${4 + bar * 3}px` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function PaperKbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded border border-rule bg-paper px-1.5 py-px font-mono text-[10px] text-ink">
+      {children}
+    </kbd>
+  );
+}
+
+function ScriptStat({ label, value, tone }: { label: string; value: React.ReactNode; tone: string }) {
+  return (
+    <div className="border-rule py-3 pr-3 [&:not(:last-child)]:sm:border-r sm:px-4 first:sm:pl-0">
+      <dt className="text-[11px] uppercase tracking-[0.14em] text-ink-soft">{label}</dt>
+      <dd className={`mt-0.5 font-serif text-3xl font-semibold tabular-nums ${tone}`}>{value}</dd>
+    </div>
+  );
+}
+
+function ScriptAnswer({
+  label,
+  letter,
+  text,
+  tone,
+}: {
+  label: string;
+  letter: string;
+  text: string | undefined;
+  tone: "right" | "wrong";
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span
+        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-serif text-xs font-bold text-white ${
+          tone === "right" ? "bg-exam-green" : "bg-exam-red"
+        }`}
+      >
+        {letter}
+      </span>
+      <p>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">{label} · </span>
+        <span className={tone === "wrong" ? "text-exam-red line-through decoration-1" : "text-ink"}>{text}</span>
+      </p>
+    </div>
+  );
+}
+
+/** Hand-drawn red-pen tick or cross for the answer script margin. */
+function PenMark({ correct }: { correct: boolean }) {
+  return (
+    <svg viewBox="0 0 40 40" className="h-8 w-8 text-exam-red" aria-label={correct ? "Correct" : "Incorrect"}>
+      {correct ? (
+        <path d="M7 22 C 11 25, 14 29, 16 32 C 21 21, 27 12, 35 6" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      ) : (
+        <g fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round">
+          <path d="M9 9 C 17 17, 24 25, 32 32" />
+          <path d="M31 8 C 24 16, 16 24, 9 32" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/** Score written in red pen and circled, like a marked exam paper. */
+function RedPenScore({ score, total }: { score: number; total: number }) {
+  return (
+    <div className="relative mx-auto flex h-40 w-52 items-center justify-center">
+      <svg viewBox="0 0 220 160" className="absolute inset-0 h-full w-full text-exam-red" aria-hidden="true">
+        <path
+          d="M30 86 C 22 40, 92 14, 140 20 C 196 27, 214 70, 196 110 C 176 150, 82 156, 44 128 C 24 112, 26 92, 48 70"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          pathLength={1}
+          strokeDasharray={1}
+          className="ql-ring"
+          style={{ "--ql-ring-from": "1", "--ql-ring-to": "0" } as React.CSSProperties}
+        />
+      </svg>
+      <p className="relative font-serif text-exam-red" aria-label={`Score ${score} out of ${total}`}>
+        <span className="text-7xl font-semibold italic leading-none tabular-nums">{score}</span>
+        <span className="ml-1 text-3xl italic">/{total}</span>
+      </p>
+    </div>
   );
 }
