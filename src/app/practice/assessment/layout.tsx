@@ -1,15 +1,10 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
+// Each assessment page provides its own full-bleed paper layout.
 export default function AssessmentLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  return (
-    <section className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        {children}
-      </div>
-    </section>
-  );
+  return children;
 }
