@@ -1,0 +1,626 @@
+/* =========================================================
+   QUANTUM LEARN — DESIGN SYSTEM (effects & motion)
+   Prefixed `ql-` so they never collide with Tailwind classes.
+   Imported from globals.css.
+   ========================================================= */
+
+:root {
+  --ql-ink: #05070d;
+  --ql-ink-2: #0a0e18;
+  --ql-line: rgba(255, 255, 255, 0.08);
+  --ql-blue: #3b82f6;
+  --ql-violet: #8b5cf6;
+  --ql-cyan: #22d3ee;
+  --ql-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.28);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ql-blue);
+  outline-offset: 2px;
+}
+
+/* Thin, unobtrusive scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+}
+
+/* Fine line grid that fades out towards the edges */
+.ql-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 30%, transparent 100%);
+}
+
+.ql-grid-bg-light {
+  background-image:
+    linear-gradient(to right, rgba(15, 23, 42, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, #000 20%, transparent 100%);
+}
+
+.ql-dots-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 20%, transparent 100%);
+}
+
+.ql-text-gradient {
+  background: linear-gradient(100deg, #60a5fa 0%, #a78bfa 35%, #22d3ee 65%, #60a5fa 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ql-gradient-pan 8s linear infinite;
+}
+
+.ql-text-fade {
+  background: linear-gradient(180deg, #fff 30%, rgba(255, 255, 255, 0.55) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Cursor-following spotlight. A parent with [data-spotlight] (see
+   SpotlightGroup) sets --mx / --my on each .ql-spotlight child. */
+.ql-spotlight {
+  position: relative;
+  isolation: isolate;
+}
+
+.ql-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: inherit;
+  transition: opacity 0.4s var(--ql-ease);
+  background: radial-gradient(
+    420px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(96, 165, 250, 0.12),
+    transparent 45%
+  );
+}
+
+.ql-spotlight::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  opacity: 0;
+  padding: 1px;
+  border-radius: inherit;
+  transition: opacity 0.4s var(--ql-ease);
+  background: radial-gradient(
+    320px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(129, 140, 248, 0.75),
+    transparent 40%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+[data-spotlight]:hover .ql-spotlight::before,
+[data-spotlight]:hover .ql-spotlight::after {
+  opacity: 1;
+}
+
+/* Rotating gradient border ("beam") */
+@property --ql-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.ql-beam {
+  position: relative;
+}
+
+.ql-beam::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  padding: 1px;
+  pointer-events: none;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--ql-angle),
+    transparent 0deg,
+    rgba(96, 165, 250, 0.95) 50deg,
+    rgba(167, 139, 250, 0.95) 90deg,
+    transparent 140deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ql-spin 6s linear infinite;
+}
+
+/* Light sweep across buttons on hover */
+.ql-shine {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.ql-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform: translateX(-120%) skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: transform 0.75s var(--ql-ease);
+}
+
+.ql-shine:hover::after {
+  transform: translateX(120%) skewX(-20deg);
+}
+
+/* Corner crosshair marks for the "engineering drawing" look */
+.ql-corner {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  pointer-events: none;
+  border-color: rgba(255, 255, 255, 0.4);
+  border-style: solid;
+  border-width: 0;
+}
+
+.ql-corner.tl { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
+.ql-corner.tr { top: -1px; right: -1px; border-top-width: 1px; border-right-width: 1px; }
+.ql-corner.bl { bottom: -1px; left: -1px; border-bottom-width: 1px; border-left-width: 1px; }
+.ql-corner.br { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
+
+/* Infinite marquee (render the item list twice inside the track) */
+.ql-marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.ql-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: ql-marquee 45s linear infinite;
+}
+
+.ql-marquee:hover .ql-marquee-track {
+  animation-play-state: paused;
+}
+
+.ql-pulse-dot {
+  position: relative;
+}
+
+.ql-pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: ql-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.ql-caret::after {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: ql-blink 1s steps(2, start) infinite;
+}
+
+.ql-float {
+  animation: ql-float 6s ease-in-out infinite;
+}
+
+/* Page-load entrance; stagger with style={{ "--ql-delay": "120ms" }} */
+.ql-enter {
+  animation: ql-enter 0.9s var(--ql-ease) both;
+  animation-delay: var(--ql-delay, 0ms);
+}
+
+/* Scroll-linked reveal — pure CSS, no JavaScript. Browsers without
+   scroll-driven animations simply show the content immediately. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ql-reveal {
+      animation: ql-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
+}
+
+/* FAQ accordion (native <details>, works without JS) */
+.ql-faq summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.ql-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.ql-faq .ql-faq-icon {
+  transition: transform 0.3s var(--ql-ease);
+}
+
+.ql-faq[open] .ql-faq-icon {
+  transform: rotate(45deg);
+}
+
+/* Long-form legal / policy text */
+.ql-prose h2 {
+  scroll-margin-top: 96px;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.ql-prose h2:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.ql-prose h3 {
+  margin-top: 1.75rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.ql-prose p,
+.ql-prose li {
+  margin-top: 0.85rem;
+  font-size: 0.975rem;
+  line-height: 1.8;
+  color: #475569;
+}
+
+.ql-prose ul {
+  padding-left: 1.2rem;
+  list-style: disc;
+}
+
+.ql-prose li::marker {
+  color: #94a3b8;
+}
+
+.ql-prose a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ql-prose strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+@keyframes ql-gradient-pan {
+  to { background-position: 200% center; }
+}
+
+@keyframes ql-spin {
+  to { --ql-angle: 360deg; }
+}
+
+@keyframes ql-marquee {
+  to { transform: translateX(-50%); }
+}
+
+@keyframes ql-ping {
+  75%,
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes ql-blink {
+  to { visibility: hidden; }
+}
+
+@keyframes ql-enter {
+  from { opacity: 0; transform: translateY(18px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes ql-reveal {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ql-float {
+  0%,
+  100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes ql-palette-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.ql-palette-in {
+  animation: ql-palette-in 0.22s var(--ql-ease) both;
+}
+
+/* Quiz feedback */
+@keyframes ql-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+
+.ql-shake {
+  animation: ql-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes ql-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.025); }
+  100% { transform: scale(1); }
+}
+
+.ql-pop {
+  animation: ql-pop 0.4s var(--ql-ease) both;
+}
+
+@keyframes ql-ring {
+  from { stroke-dashoffset: var(--ql-ring-from); }
+  to { stroke-dashoffset: var(--ql-ring-to); }
+}
+
+.ql-ring {
+  animation: ql-ring 1.4s var(--ql-ease) 0.2s both;
+}
+
+@keyframes ql-confetti {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(var(--ql-dx), var(--ql-dy), 0) rotate(var(--ql-rot)); opacity: 0; }
+}
+
+.ql-confetti {
+  animation: ql-confetti 1.6s cubic-bezier(0.1, 0.8, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-shake,
+  .ql-pop,
+  .ql-ring,
+  .ql-confetti {
+    animation: none !important;
+  }
+
+  .ql-confetti {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-text-gradient,
+  .ql-beam::before,
+  .ql-marquee-track,
+  .ql-pulse-dot::after,
+  .ql-caret::after,
+  .ql-float,
+  .ql-enter,
+  .ql-palette-in {
+    animation: none !important;
+  }
+
+  .ql-shine::after {
+    display: none;
+  }
+}
+
+/* =========================================================
+   EXAM SYSTEM — paper, ink, OMR bubbles, stamp, print
+   ========================================================= */
+
+.ql-paper {
+  background-color: #f3f1ea;
+  background-image: radial-gradient(rgba(22, 23, 27, 0.07) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.ql-sheet {
+  background: #fffdf8;
+  box-shadow:
+    0 1px 0 rgba(22, 23, 27, 0.04),
+    0 12px 32px -18px rgba(22, 23, 27, 0.25);
+}
+
+/* Ruled lines behind long text, like an answer booklet */
+.ql-ruled {
+  background-image: linear-gradient(to bottom, transparent 31px, rgba(35, 64, 230, 0.08) 32px);
+  background-size: 100% 32px;
+}
+
+/* Pencil fill for a selected OMR bubble */
+@keyframes ql-bubble-fill {
+  0% { transform: scale(0.2); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.ql-bubble-fill {
+  animation: ql-bubble-fill 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Rubber stamp (PASS / FAIL) */
+@keyframes ql-stamp {
+  0% { transform: rotate(-14deg) scale(2.2); opacity: 0; }
+  60% { transform: rotate(-14deg) scale(0.94); opacity: 1; }
+  100% { transform: rotate(-14deg) scale(1); opacity: 1; }
+}
+
+.ql-stamp {
+  transform: rotate(-14deg);
+  animation: ql-stamp 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.5s both;
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -1.6 1.5'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Bottom sheet for instant practice feedback */
+@keyframes ql-sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.ql-sheet-up {
+  animation: ql-sheet-up 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ql-timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.ql-timer-critical {
+  animation: ql-timer-pulse 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-bubble-fill,
+  .ql-stamp,
+  .ql-sheet-up,
+  .ql-timer-critical {
+    animation: none !important;
+  }
+}
+
+/* Printable scorecard: only the element marked .ql-print-area prints */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .ql-print-area,
+  .ql-print-area * {
+    visibility: visible !important;
+  }
+
+  .ql-print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    box-shadow: none !important;
+  }
+
+  .ql-no-print {
+    display: none !important;
+  }
+}
+
+@keyframes ql-sheet-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="ql-sheet-in"] {
+    animation: none !important;
+  }
+}
+
+/* =========================================================
+   RESOURCES — "quantum vault" portal + flip cards
+   ========================================================= */
+
+@keyframes ql-orbit {
+  to { transform: rotate(360deg); }
+}
+
+.ql-orbit {
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+  animation: ql-orbit var(--ql-orbit-speed, 24s) linear infinite;
+}
+
+.ql-orbit-reverse {
+  animation-direction: reverse;
+}
+
+@keyframes ql-core-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+.ql-core-pulse {
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
+  animation: ql-core-pulse 3.2s ease-in-out infinite;
+}
+
+.ql-flip {
+  perspective: 1200px;
+}
+
+.ql-flip-inner {
+  position: relative;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ql-flip[data-flipped="true"] .ql-flip-inner {
+  transform: rotateY(180deg);
+}
+
+@media (hover: hover) {
+  .ql-flip:hover .ql-flip-inner {
+    transform: rotateY(180deg);
+  }
+}
+
+.ql-flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.ql-flip-back {
+  transform: rotateY(180deg);
+}
+
+@keyframes ql-fact-in {
+  from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+.ql-fact-in {
+  animation: ql-fact-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-orbit,
+  .ql-core-pulse,
+  .ql-fact-in {
+    animation: none !important;
+  }
+
+  .ql-flip-inner {
+    transition: none;
+  }
+}
