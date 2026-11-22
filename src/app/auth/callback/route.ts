@@ -50,6 +50,11 @@ export async function GET(request: NextRequest) {
       type,
       token_hash: tokenHash,
     }));
+  } else if (type === "recovery") {
+    // Implicit-flow link (sent by the mobile app): the tokens are in the
+    // URL #fragment, which never reaches the server. Browsers keep the
+    // fragment across this redirect, and /reset-password reads it.
+    return NextResponse.redirect(`${origin}/reset-password?recovery=1`);
   } else {
     error = new Error("Missing confirmation parameters.");
   }
