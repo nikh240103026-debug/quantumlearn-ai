@@ -53,6 +53,35 @@ export default function ResetPasswordPage() {
           return;
         }
 
+        /*
+         * Links requested from the mobile app use the implicit flow:
+         * #access_token=...&refresh_token=...&type=recovery. This
+         * browser client is PKCE-only and ignores those, so start the
+         * session from them here and drop them from the address bar.
+         */
+        const hash = new URLSearchParams(url.hash.slice(1));
+        const accessToken = hash.get("access_token");
+        const refreshToken = hash.get("refresh_token");
+
+        if (accessToken && refreshToken) {
+          window.history.replaceState(
+            {},
+            "",
+            `${url.pathname}${url.search}`,
+          );
+
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (!mounted) return;
+
+          setReady(!setSessionError);
+          setCheckingSession(false);
+          return;
+        }
+
         const {
           data: { session },
         } = await supabase.auth.getSession();
