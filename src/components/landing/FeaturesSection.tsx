@@ -1,232 +1,307 @@
 import Link from "next/link";
 import {
-  ArrowRight,
+  ArrowUpRight,
   BrainCircuit,
   Code2,
   FlaskConical,
-  GraduationCap,
   LineChart,
+  MessagesSquare,
   Route,
+  Target,
 } from "lucide-react";
-
-const features = [
-  {
-    number: "01",
-    title: "Interactive Learning",
-    description:
-      "Follow a structured quantum curriculum with visual explanations, concepts, examples, and guided lessons.",
-    href: "/roadmap",
-    icon: GraduationCap,
-    size: "large",
-  },
-  {
-    number: "02",
-    title: "Quantum Lab",
-    description:
-      "Design quantum circuits, run simulations, inspect states, and understand measurement outcomes.",
-    href: "/quantum-lab",
-    icon: FlaskConical,
-    size: "large",
-  },
-  {
-    number: "03",
-    title: "Quantum Coding",
-    description:
-      "Write, execute, and experiment with quantum programs using major quantum SDKs.",
-    href: "/coding",
-    icon: Code2,
-    size: "normal",
-  },
-  {
-    number: "04",
-    title: "AI Tutor",
-    description:
-      "Get contextual explanations, debugging help, conceptual guidance, and intelligent learning support.",
-    href: "/ai-tutor",
-    icon: BrainCircuit,
-    size: "normal",
-  },
-  {
-    number: "05",
-    title: "Personalized Learning",
-    description:
-      "Track progress and follow a learning journey that adapts to your performance and activity.",
-    href: "/dashboard",
-    icon: Route,
-    size: "normal",
-  },
-  {
-    number: "06",
-    title: "Practice & Assessment",
-    description:
-      "Strengthen understanding with practice questions, assessments, results, and performance tracking.",
-    href: "/practice",
-    icon: LineChart,
-    size: "normal",
-  },
-];
+import { SpotlightGroup } from "@/components/fx/SpotlightGroup";
+import { SectionIntro } from "@/components/landing/SectionIntro";
+import { platformFacts } from "@/lib/platform-facts";
 
 export function FeaturesSection() {
   return (
-    <section className="border-b border-slate-200 bg-slate-50">
-      <div className="mx-auto max-w-[1600px]">
-        {/* Header */}
-        <div className="grid border-b border-slate-200 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="border-b border-slate-200 px-6 py-14 sm:px-10 lg:border-b-0 lg:border-r lg:px-16 lg:py-20 xl:px-24">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-              Platform
-            </p>
+    <section id="platform" className="relative bg-[#05070d] py-24 text-white sm:py-32">
+      <div className="mx-auto max-w-[1400px] px-5 sm:px-8 lg:px-12">
+        <SectionIntro
+          eyebrow="The platform"
+          title={
+            <>
+              Everything between <span className="ql-text-gradient">curiosity</span> and
+              a working quantum program.
+            </>
+          }
+          description="Seven tools that share one model of your progress — so the lesson, the lab, the code editor and the tutor always know where you are."
+        />
 
-            <h2 className="mt-5 max-w-md text-4xl font-semibold leading-[1.05] tracking-[-0.04em] text-slate-950 sm:text-5xl">
-              Everything you need to explore quantum computing.
-            </h2>
-          </div>
+        <SpotlightGroup className="mt-16 grid gap-4 md:grid-cols-6 lg:grid-cols-12">
+          <BentoCard
+            className="md:col-span-6 lg:col-span-7 lg:row-span-2"
+            href="/quantum-lab"
+            icon={FlaskConical}
+            label="Quantum Lab"
+            title="Drag gates. Watch amplitudes move."
+            description="Build multi-qubit circuits, inspect the full statevector and Bloch spheres, sample measurements, and run on multiple simulation backends."
+          >
+            <BlochVisual />
+          </BentoCard>
 
-          <div className="flex items-end px-6 py-14 sm:px-10 lg:px-16 lg:py-20 xl:px-24">
-            <p className="max-w-2xl text-lg leading-8 text-slate-600">
-              QuantumLearn AI connects learning, experimentation, programming,
-              assessment, and AI assistance into one continuous workflow.
-            </p>
-          </div>
-        </div>
+          <BentoCard
+            className="md:col-span-3 lg:col-span-5"
+            href="/ai-tutor"
+            icon={BrainCircuit}
+            label="AI Tutor"
+            title="A tutor that has read your lesson."
+            description="Ask follow-ups in context, get step-by-step derivations with proper math, and debug circuits in plain language."
+          >
+            <ChatVisual />
+          </BentoCard>
 
-        {/* Feature grid */}
-        <div className="grid border-b border-slate-200 md:grid-cols-2 lg:grid-cols-12">
-          {features.map((feature, index) => {
-            const Icon = feature.icon;
-            const isLarge = feature.size === "large";
+          <BentoCard
+            className="md:col-span-3 lg:col-span-5"
+            href="/coding"
+            icon={Code2}
+            label="Quantum Coding"
+            title="Write real Qiskit, PennyLane & Cirq."
+            description="Guided tutorials, coding challenges, run history and an AI coding assistant."
+          >
+            <CodeVisual />
+          </BentoCard>
 
-            return (
-              <article
-                key={feature.number}
-                className={`group relative flex min-h-[340px] flex-col justify-between border-b border-slate-200 bg-white p-7 transition-colors hover:bg-slate-50 sm:p-9 lg:border-b-0 ${
-                  isLarge ? "lg:col-span-6" : "lg:col-span-4"
-                } ${
-                  index === 0
-                    ? "lg:border-r"
-                    : index === 1
-                      ? "lg:border-r"
-                      : index === 2
-                        ? "lg:border-r"
-                        : index === 3
-                          ? "lg:border-r"
-                          : index === 4
-                            ? "lg:border-r"
-                            : ""
-                }`}
-              >
-                {/* Top */}
-                <div className="flex items-start justify-between">
-                  <span className="text-xs font-semibold tracking-[0.16em] text-slate-400">
-                    {feature.number}
-                  </span>
+          <BentoCard
+            className="md:col-span-3 lg:col-span-4"
+            href="/roadmap"
+            icon={Route}
+            label="Roadmap"
+            title="A path, not a pile of videos."
+            description={`${platformFacts.chapters} chapters from linear algebra to advanced quantum programming, in order.`}
+          >
+            <PathVisual />
+          </BentoCard>
 
-                  <div className="flex h-10 w-10 items-center justify-center border border-slate-200 bg-slate-50 text-slate-600 transition-all duration-300 group-hover:border-blue-200 group-hover:bg-blue-50 group-hover:text-blue-600">
-                    <Icon size={18} strokeWidth={1.7} />
-                  </div>
-                </div>
+          <BentoCard
+            className="md:col-span-3 lg:col-span-4"
+            href="/practice"
+            icon={Target}
+            label="Practice & Assessments"
+            title="Know what you actually know."
+            description="Topic practice, timed assessments and detailed results."
+          >
+            <ScoreVisual />
+          </BentoCard>
 
-                {/* Content */}
-                <div className="mt-16">
-                  <h3
-                    className={`font-semibold tracking-[-0.025em] text-slate-950 ${
-                      isLarge
-                        ? "text-2xl leading-8 sm:text-3xl"
-                        : "text-xl leading-7"
-                    }`}
-                  >
-                    {feature.title}
-                  </h3>
+          <BentoCard
+            className="md:col-span-6 lg:col-span-4"
+            href="/questions"
+            icon={MessagesSquare}
+            label="Community Q&A"
+            title="Ask the hard questions."
+            description="Post questions, answer others and learn in public."
+          >
+            <BarsVisual />
+          </BentoCard>
+        </SpotlightGroup>
 
-                  <p
-                    className={`mt-4 max-w-xl leading-6 text-slate-500 ${
-                      isLarge ? "text-base" : "text-sm"
-                    }`}
-                  >
-                    {feature.description}
-                  </p>
-                </div>
-
-                {/* Link */}
-                <Link
-                  href={feature.href}
-                  className="mt-10 inline-flex w-fit items-center gap-2 text-sm font-semibold text-slate-900 transition-colors group-hover:text-blue-600"
-                >
-                  Explore
-                  <ArrowRight
-                    size={15}
-                    className="transition-transform duration-300 group-hover:translate-x-1"
-                  />
-                </Link>
-
-                {/* Bottom accent */}
-                <div className="absolute bottom-0 left-0 h-0.5 w-0 bg-blue-600 transition-all duration-300 group-hover:w-full" />
-              </article>
-            );
-          })}
-        </div>
-
-        {/* Workflow section */}
-        <div className="grid bg-[#050816] text-white lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="border-b border-white/10 px-6 py-12 sm:px-10 lg:border-b-0 lg:border-r lg:px-16 lg:py-16 xl:px-24">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-400">
-              One continuous workflow
-            </p>
-
-            <h3 className="mt-5 max-w-sm text-3xl font-semibold leading-tight tracking-[-0.035em] sm:text-4xl">
-              From your first concept to your first quantum program.
-            </h3>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4">
-            <WorkflowStep
-              number="01"
-              title="Learn"
-              description="Build the fundamentals."
-            />
-
-            <WorkflowStep
-              number="02"
-              title="Build"
-              description="Create quantum circuits."
-            />
-
-            <WorkflowStep
-              number="03"
-              title="Execute"
-              description="Run and experiment."
-            />
-
-            <WorkflowStep
-              number="04"
-              title="Understand"
-              description="Analyze with AI guidance."
-            />
-          </div>
+        <div className="mt-4 flex flex-col items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-5 sm:flex-row sm:items-center">
+          <p className="flex items-center gap-3 text-sm text-white/60">
+            <LineChart size={16} className="text-blue-300" />
+            Every lesson, run and answer feeds one personal dashboard with
+            progress analytics and recommendations.
+          </p>
+          <Link
+            href="/dashboard"
+            className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-white transition-colors hover:text-blue-300"
+          >
+            See the dashboard <ArrowUpRight size={15} />
+          </Link>
         </div>
       </div>
     </section>
   );
 }
 
-function WorkflowStep({
-  number,
+function BentoCard({
+  className = "",
+  href,
+  icon: Icon,
+  label,
   title,
   description,
+  children,
 }: {
-  number: string;
+  className?: string;
+  href: string;
+  icon: React.ElementType;
+  label: string;
   title: string;
   description: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="border-b border-white/10 px-6 py-9 sm:px-8 lg:border-b-0 lg:border-r lg:px-7 xl:px-9">
-      <p className="text-[10px] font-semibold tracking-[0.18em] text-blue-400">
-        {number}
-      </p>
+    <Link
+      href={href}
+      className={`ql-spotlight ql-reveal group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a0e18] transition-colors hover:border-white/20 ${className}`}
+    >
+      <div className="relative min-h-[170px] flex-1 overflow-hidden border-b border-white/[0.06]">
+        {children}
+      </div>
+      <div className="p-6 sm:p-7">
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-blue-300/80">
+            <Icon size={14} />
+            {label}
+          </span>
+          <ArrowUpRight
+            size={16}
+            className="text-white/30 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-white"
+          />
+        </div>
+        <h3 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-white">{title}</h3>
+        <p className="mt-2 max-w-lg text-sm leading-6 text-white/50">{description}</p>
+      </div>
+    </Link>
+  );
+}
 
-      <h4 className="mt-8 text-lg font-semibold text-white">{title}</h4>
+/* ---------- Mini visuals (pure SVG / CSS, no images) ---------- */
 
-      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+function BlochVisual() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="ql-dots-bg absolute inset-0" />
+      <svg viewBox="0 0 260 260" className="relative h-[250px] w-[250px] sm:h-[300px] sm:w-[300px]" aria-hidden="true">
+        <defs>
+          <radialGradient id="bloch-fill" cx="40%" cy="35%">
+            <stop offset="0%" stopColor="rgba(96,165,250,0.25)" />
+            <stop offset="100%" stopColor="rgba(96,165,250,0)" />
+          </radialGradient>
+          <linearGradient id="bloch-vec" x1="0" x2="1">
+            <stop offset="0%" stopColor="#60a5fa" />
+            <stop offset="100%" stopColor="#a78bfa" />
+          </linearGradient>
+        </defs>
+        <circle cx="130" cy="130" r="100" fill="url(#bloch-fill)" stroke="rgba(255,255,255,0.18)" />
+        <ellipse cx="130" cy="130" rx="100" ry="30" fill="none" stroke="rgba(255,255,255,0.14)" strokeDasharray="3 4" />
+        <ellipse cx="130" cy="130" rx="30" ry="100" fill="none" stroke="rgba(255,255,255,0.08)" />
+        <line x1="130" y1="22" x2="130" y2="238" stroke="rgba(255,255,255,0.14)" />
+        <line x1="22" y1="130" x2="238" y2="130" stroke="rgba(255,255,255,0.14)" />
+        <text x="122" y="16" fill="rgba(255,255,255,0.5)" fontSize="11" fontFamily="monospace">|0⟩</text>
+        <text x="122" y="254" fill="rgba(255,255,255,0.5)" fontSize="11" fontFamily="monospace">|1⟩</text>
+        <g style={{ transformOrigin: "130px 130px" }} className="transition-transform duration-1000 ease-out group-hover:[transform:rotate(58deg)]">
+          <line x1="130" y1="130" x2="190" y2="62" stroke="url(#bloch-vec)" strokeWidth="2.5" strokeLinecap="round" />
+          <circle cx="190" cy="62" r="6" fill="#a78bfa" />
+          <circle cx="190" cy="62" r="14" fill="rgba(167,139,250,0.25)" />
+        </g>
+        <circle cx="130" cy="130" r="3" fill="white" />
+      </svg>
+      <div className="absolute bottom-4 left-5 font-mono text-[11px] text-white/40">
+        θ = π/3 · φ = π/4
+      </div>
+      <div className="absolute right-5 top-4 flex gap-1.5 font-mono text-[10px]">
+        {["H", "S", "T", "CX"].map((gate) => (
+          <span key={gate} className="rounded border border-white/15 bg-white/[0.04] px-1.5 py-0.5 text-white/60">
+            {gate}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChatVisual() {
+  return (
+    <div className="absolute inset-0 flex flex-col justify-center gap-2.5 px-6 text-[12px]">
+      <div className="ml-auto max-w-[80%] rounded-2xl rounded-br-sm bg-blue-600/90 px-3.5 py-2 text-white">
+        Why does measuring one Bell qubit fix the other?
+      </div>
+      <div className="max-w-[88%] rounded-2xl rounded-bl-sm border border-white/10 bg-white/[0.04] px-3.5 py-2 leading-5 text-white/75">
+        The pair shares one state, <span className="font-mono text-blue-200">(|00⟩+|11⟩)/√2</span>.
+        There is no |01⟩ term, so once you read 0…
+        <span className="ql-caret ml-0.5 text-blue-300" />
+      </div>
+    </div>
+  );
+}
+
+function CodeVisual() {
+  return (
+    <pre className="absolute inset-0 overflow-hidden px-6 py-5 font-mono text-[11.5px] leading-6 text-white/70">
+      <span className="text-violet-300">from</span> qiskit <span className="text-violet-300">import</span> QuantumCircuit{"\n"}
+      {"\n"}
+      qc = QuantumCircuit(<span className="text-amber-300">2</span>, <span className="text-amber-300">2</span>){"\n"}
+      qc.<span className="text-blue-300">h</span>(<span className="text-amber-300">0</span>){"\n"}
+      qc.<span className="text-blue-300">cx</span>(<span className="text-amber-300">0</span>, <span className="text-amber-300">1</span>){"\n"}
+      qc.<span className="text-blue-300">measure</span>([<span className="text-amber-300">0</span>, <span className="text-amber-300">1</span>], [<span className="text-amber-300">0</span>, <span className="text-amber-300">1</span>]){"\n"}
+      <span className="text-white/30"># → {"{"}&apos;00&apos;: 509, &apos;11&apos;: 515{"}"}</span>
+    </pre>
+  );
+}
+
+function PathVisual() {
+  const steps = [100, 100, 100, 60, 0];
+  return (
+    <div className="absolute inset-0 flex items-center px-6">
+      <div className="relative flex w-full items-center justify-between">
+        <div className="absolute inset-x-2 top-1/2 h-px -translate-y-1/2 bg-white/10" />
+        <div className="absolute left-2 top-1/2 h-px w-[62%] -translate-y-1/2 bg-gradient-to-r from-blue-500 to-violet-500 transition-[width] duration-700 group-hover:w-[80%]" />
+        {steps.map((done, index) => (
+          <span
+            key={index}
+            className={`relative flex h-8 w-8 items-center justify-center rounded-full border font-mono text-[11px] ${
+              done === 100
+                ? "border-blue-400/60 bg-blue-500/20 text-blue-100"
+                : done > 0
+                  ? "border-violet-400/60 bg-[#0a0e18] text-violet-200 shadow-[0_0_18px_rgba(139,92,246,0.6)]"
+                  : "border-white/15 bg-[#0a0e18] text-white/35"
+            }`}
+          >
+            {index + 1}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScoreVisual() {
+  const radius = 34;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <div className="absolute inset-0 flex items-center justify-center gap-6">
+      <svg viewBox="0 0 90 90" className="h-24 w-24 -rotate-90" aria-hidden="true">
+        <circle cx="45" cy="45" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
+        <circle
+          cx="45"
+          cy="45"
+          r={radius}
+          fill="none"
+          stroke="url(#score-grad)"
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * 0.18}
+        />
+        <defs>
+          <linearGradient id="score-grad">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#22d3ee" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="font-mono text-[11px] leading-6 text-white/50">
+        <p><span className="text-emerald-300">✓</span> Superposition</p>
+        <p><span className="text-emerald-300">✓</span> Entanglement</p>
+        <p><span className="text-amber-300">~</span> Phase kickback</p>
+      </div>
+    </div>
+  );
+}
+
+function BarsVisual() {
+  const bars = [38, 62, 45, 80, 55, 92, 70];
+  return (
+    <div className="absolute inset-0 flex items-end justify-center gap-2.5 px-8 pb-6">
+      {bars.map((height, index) => (
+        <span
+          key={index}
+          className="w-full max-w-7 origin-bottom rounded-t-md bg-gradient-to-t from-blue-600/40 to-violet-400/70 transition-transform duration-500 group-hover:scale-y-110"
+          style={{ height: `${height}%`, transitionDelay: `${index * 40}ms` }}
+        />
+      ))}
     </div>
   );
 }
