@@ -232,8 +232,9 @@ export async function POST(request: Request) {
       userId: user.id,
       type: "course_completion",
       title: "Course completed 🎉",
-      message: "You've completed every lesson in this course.",
-      href: "/dashboard",
+      message:
+        "You've completed every lesson in this course. Your certificate is ready to claim.",
+      href: "/certificates",
     });
   }
 

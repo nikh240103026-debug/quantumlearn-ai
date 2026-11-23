@@ -993,7 +993,7 @@ export default async function DashboardPage() {
 
                 <p className="mt-5 max-w-2xl text-base leading-7 text-black/55">
                   {allLessonsCompleted
-                    ? "You have completed every lesson in this course. Review the material or continue with practice."
+                    ? "You have completed every lesson in this course. Claim your certificate, review the material or continue with practice."
                     : nextLesson
                       ? `Continue with Lesson ${nextLessonNumber} of ${totalLessons}.`
                       : course?.description ??
@@ -1047,6 +1047,15 @@ export default async function DashboardPage() {
                   >
                     View roadmap
                   </Link>
+
+                  {allLessonsCompleted && (
+                    <Link
+                      href="/certificates"
+                      className="bg-blue-600 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                    >
+                      Get your certificate
+                    </Link>
+                  )}
                 </div>
               </div>
             </DashboardReveal>
