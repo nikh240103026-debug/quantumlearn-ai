@@ -273,11 +273,14 @@ const articles: HelpArticle[] = [
     category: "progress",
     title: "How do certificates work?",
     description:
-      "Certificate availability depends on the learning experiences and completion features provided by the platform.",
+      "Earn a certificate by completing a course or passing an assessment, then share it with a verifiable link.",
     content: [
-      "Complete the required learning activities when a certificate-enabled program is available.",
-      "Check your progress area for completion information.",
-      "If you believe you have completed a requirement but do not see the expected result, contact support.",
+      "Certificate of Completion: complete every lesson of a course.",
+      "Certificate of Achievement: pass an assessment. Your best passing score is printed on it.",
+      "Add your full name in Settings → Profile first — it is printed on the certificate and can't be changed after issue.",
+      "Open Certificates from the Learn menu and select Claim certificate. You can then download a PDF, print it, or add it to your LinkedIn profile.",
+      "Every certificate has a unique number and a public link. Anyone can check it at /verify. Certificate pages are hidden from search engines.",
+      "If you believe you have met a requirement but cannot claim the certificate, contact support.",
     ],
   },
   {
