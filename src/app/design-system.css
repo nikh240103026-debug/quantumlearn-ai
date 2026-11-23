@@ -530,6 +530,13 @@
   .ql-no-print {
     display: none !important;
   }
+
+  /* Certificates scale with container units: make the container the page. */
+  .ql-cert-container {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+  }
 }
 
 @keyframes ql-sheet-in {
