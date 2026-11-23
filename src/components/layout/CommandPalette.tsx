@@ -24,6 +24,8 @@ import {
   Target,
   Terminal,
   Trophy,
+  Award,
+  SearchCheck,
 } from "lucide-react";
 
 export const OPEN_COMMAND_PALETTE_EVENT = "ql:open-command-palette";
@@ -46,6 +48,7 @@ const COMMANDS: Command[] = [
   { group: "Learn", label: "Learning Roadmap", href: "/roadmap", icon: Map, keywords: "curriculum chapters path" },
   { group: "Learn", label: "AI Tutor", href: "/ai-tutor", icon: Bot, keywords: "chat ask explain gemini" },
   { group: "Learn", label: "Resources", href: "/resources", icon: Library, keywords: "papers books links" },
+  { group: "Learn", label: "Certificates", href: "/certificates", icon: Award, keywords: "certificate credential linkedin achievement completion" },
   { group: "Build", label: "Quantum Lab", href: "/quantum-lab", icon: FlaskConical, keywords: "circuit simulator gates bloch" },
   { group: "Build", label: "Coding Workspace", href: "/coding", icon: Code2, keywords: "editor qiskit python run" },
   { group: "Build", label: "SDK Tutorials", href: "/coding/tutorials", icon: GraduationCap, keywords: "qiskit pennylane cirq guide" },
@@ -61,6 +64,7 @@ const COMMANDS: Command[] = [
   { group: "Company", label: "Privacy Policy", href: "/privacy", icon: FileText, keywords: "legal data cookies" },
   { group: "Company", label: "Terms of Service", href: "/terms", icon: FileText, keywords: "legal" },
   { group: "Company", label: "Security", href: "/security", icon: ShieldCheck, keywords: "vulnerability report" },
+  { group: "Company", label: "Verify a certificate", href: "/verify", icon: SearchCheck, keywords: "check certificate number genuine employer" },
 ];
 
 export function CommandPalette() {

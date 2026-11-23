@@ -21,6 +21,8 @@ const COLUMNS = [
       { label: "Resources", href: "/resources" },
       { label: "Community Q&A", href: "/questions" },
       { label: "Dashboard", href: "/dashboard" },
+      { label: "Certificates", href: "/certificates" },
+      { label: "Verify a certificate", href: "/verify" },
     ],
   },
   {

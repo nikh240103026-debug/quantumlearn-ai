@@ -26,6 +26,7 @@ import {
   TerminalSquare,
   Bot,
   Trophy,
+  Award,
   ClipboardCheck,
   FileText,
   Settings,
@@ -95,6 +96,12 @@ const navGroups: NavGroup[] = [
         href: "/ai-tutor",
         description: "Get help while studying",
         icon: Brain,
+      },
+      {
+        name: "Certificates",
+        href: "/certificates",
+        description: "Earn, download and share your certificates",
+        icon: Award,
       },
     ],
   },
@@ -1049,6 +1056,17 @@ export function Navbar() {
                     </Link>
 
                     <Link
+                      href="/certificates"
+                      onClick={closeMenus}
+                      className="flex items-center gap-3 border-b border-white/5 px-4 py-3 text-sm font-medium text-white/75 transition-colors hover:bg-white/5 hover:text-white"
+                    >
+                      <Award
+                        size={16}
+                      />
+                      Certificates
+                    </Link>
+
+                    <Link
                       href="/settings"
                       onClick={closeMenus}
                       className="flex items-center gap-3 border-b border-white/5 px-4 py-3 text-sm font-medium text-white/75 transition-colors hover:bg-white/5 hover:text-white"
@@ -1511,6 +1529,17 @@ export function Navbar() {
                       size={17}
                     />
                     Dashboard
+                  </Link>
+
+                  <Link
+                    href="/certificates"
+                    onClick={closeMenus}
+                    className="flex items-center justify-center gap-2 border border-white/10 px-4 py-3 text-sm font-semibold text-white/75 hover:bg-white/5 hover:text-white"
+                  >
+                    <Award
+                      size={17}
+                    />
+                    Certificates
                   </Link>
 
                   <Link
