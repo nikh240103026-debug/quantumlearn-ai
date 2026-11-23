@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getAssessmentById } from "@/lib/assessment/assessmentService";
 import { gradeAssessment } from "@/lib/assessment/gradingService";
+import { recordAssessmentAttempt } from "@/lib/certificates/certificate-service";
 
 interface RouteParams {
   params: Promise<{
@@ -86,8 +87,25 @@ export async function POST(
     assessment.passingMarks,
   );
 
+  // Recorded server-side: certificates are issued only from these rows.
+  const rawDuration = (body as { durationSeconds?: unknown }).durationSeconds;
+  const durationSeconds =
+    typeof rawDuration === "number" &&
+    Number.isFinite(rawDuration) &&
+    rawDuration >= 0 &&
+    rawDuration < 24 * 60 * 60
+      ? Math.round(rawDuration)
+      : null;
+
+  const attemptId = await recordAssessmentAttempt(
+    user.id,
+    assessmentId,
+    result,
+    durationSeconds,
+  );
+
   return NextResponse.json({
     success: true,
-    data: result,
+    data: { ...result, attemptId },
   });
 }

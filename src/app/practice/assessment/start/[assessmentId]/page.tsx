@@ -114,7 +114,12 @@ export default function StartAssessmentPage() {
       const response = await fetch(`/api/assessment/${encodeURIComponent(assessmentId)}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: answersRef.current }),
+        body: JSON.stringify({
+          answers: answersRef.current,
+          durationSeconds: startedAtRef.current
+            ? Math.round((Date.now() - startedAtRef.current) / 1000)
+            : null,
+        }),
       });
 
       const data = await response.json().catch(() => ({}));
