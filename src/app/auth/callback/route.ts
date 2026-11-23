@@ -39,6 +39,20 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = safeNextPath(searchParams.get("next"));
 
+  // Supabase rejected the link (e.g. otp_expired). Pass the reason on
+  // so /reset-password can say why instead of a generic message.
+  const linkErrorCode = searchParams.get("error_code");
+
+  if (type === "recovery" && linkErrorCode) {
+    const reason = new URLSearchParams({
+      recovery: "1",
+      error_code: linkErrorCode,
+      error_description: searchParams.get("error_description") ?? "",
+    });
+
+    return NextResponse.redirect(`${origin}/reset-password?${reason}`);
+  }
+
   const supabase = await createSupabaseServerClient();
 
   let error: unknown = null;
