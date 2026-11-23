@@ -3,10 +3,38 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Mail, CheckCircle2 } from "lucide-react";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { createClient } from "@supabase/supabase-js";
+
+/*
+ * Reset emails are requested with the implicit flow, not PKCE. A PKCE
+ * link (?code=...) only works in the same browser that asked for it
+ * (it needs a code verifier stored there), so opening the email on a
+ * phone, in the Gmail app or in another browser failed with
+ * "PKCE code verifier not found". The implicit link carries the tokens
+ * in the URL #fragment; /auth/callback forwards them to /reset-password,
+ * which starts the session from them. Works in any browser.
+ */
+let recoveryClient: ReturnType<typeof createClient> | null = null;
+
+function createRecoveryClient() {
+  // One instance, with its own storage key, so it doesn't clash with
+  // the app's main client ("Multiple GoTrueClient instances").
+  return (recoveryClient ??= createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      auth: {
+        flowType: "implicit",
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storageKey: "sb-password-recovery",
+      },
+    },
+  ));
+}
 
 export default function ForgotPasswordPage() {
-  const supabase = createSupabaseBrowserClient();
 
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -36,11 +64,11 @@ export default function ForgotPasswordPage() {
     let resetError: { message: string } | null = null;
 
     try {
-      // The link goes through /auth/callback, which finishes the
-      // recovery on the server and then opens /reset-password. Add
-      // <your-domain>/auth/callback to Supabase's allowed Redirect URLs.
+      // The link goes through /auth/callback, which opens
+      // /reset-password. Add <your-domain>/auth/callback to Supabase's
+      // allowed Redirect URLs.
       ({ error: resetError } =
-        await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        await createRecoveryClient().auth.resetPasswordForEmail(trimmedEmail, {
           redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
         }));
     } catch {
