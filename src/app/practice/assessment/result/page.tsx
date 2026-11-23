@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, Printer, RotateCcw, Target } from "lucide-react";
+import { ArrowRight, Award, Printer, RotateCcw, Target } from "lucide-react";
 
 import { getAssessmentById } from "@/lib/assessment/assessmentService";
 import { useCandidate } from "@/components/exam/useCandidate";
@@ -180,6 +180,30 @@ function AssessmentResultContent() {
             <span>This statement is for self-assessment only.</span>
           </footer>
         </article>
+
+        {/* Certificate (eligibility is re-checked on the server when claimed) */}
+        {passed && assessment && candidate.status === "user" && (
+          <div className="ql-no-print mt-6 flex flex-col gap-4 rounded-lg border-2 border-exam-blue/70 bg-sheet px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-exam-blue/10 text-exam-blue">
+                <Award size={22} />
+              </span>
+              <div>
+                <p className="font-serif text-xl font-semibold">You&apos;ve earned a certificate</p>
+                <p className="mt-0.5 text-sm text-ink-soft">
+                  Claim your Certificate of Achievement for {paperTitle} — verifiable, downloadable and ready for LinkedIn.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/certificates"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-exam-blue px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-exam-blue/90"
+            >
+              Claim certificate
+              <ArrowRight size={15} />
+            </Link>
+          </div>
+        )}
 
         {/* Next steps */}
         <div className="ql-no-print mt-6 grid gap-3 sm:grid-cols-3">
