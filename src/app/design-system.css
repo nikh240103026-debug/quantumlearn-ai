@@ -631,3 +631,94 @@
     transition: none;
   }
 }
+
+/* =========================================================
+   LANDING - hero video player (controls hidden until hover)
+   ========================================================= */
+
+.ql-hero-video-bar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition:
+    opacity 0.25s var(--ql-ease),
+    transform 0.25s var(--ql-ease);
+}
+
+.ql-hero-video[data-active="true"] .ql-hero-video-bar,
+.ql-hero-video:has(:focus-visible) .ql-hero-video-bar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+/* Stay open while the cursor rests on the bar (it is not hoverable when hidden) */
+@media (hover: hover) {
+  .ql-hero-video-bar:hover {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+}
+
+/* Poster while the embed boots; clears on its own even without JavaScript */
+@keyframes ql-poster-boot {
+  to { opacity: 0; }
+}
+
+.ql-poster-boot {
+  animation: ql-poster-boot 0.5s 3.5s ease forwards;
+}
+
+.ql-video-range {
+  height: 16px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ql-video-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--ql-blue), var(--ql-violet)) 0 / var(--ql-played, 0%) 100% no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.3) 0 0) 0 / var(--ql-loaded, 0%) 100% no-repeat,
+    rgba(255, 255, 255, 0.2);
+}
+
+.ql-video-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--ql-blue), var(--ql-violet)) 0 / var(--ql-played, 0%) 100% no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.3) 0 0) 0 / var(--ql-loaded, 0%) 100% no-repeat,
+    rgba(255, 255, 255, 0.2);
+}
+
+.ql-video-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -4px;
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.9);
+}
+
+.ql-video-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-hero-video-bar {
+    transition: none;
+  }
+}

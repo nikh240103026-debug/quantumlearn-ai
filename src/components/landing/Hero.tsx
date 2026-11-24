@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, FlaskConical } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { QuantumCircuitField } from "@/components/fx/QuantumCircuitField";
+import { HeroVideo } from "@/components/landing/HeroVideo";
 import { CountUp } from "@/components/fx/CountUp";
 import { platformFacts } from "@/lib/platform-facts";
 
@@ -74,9 +75,9 @@ export function Hero() {
         Live circuit · hover to interact
       </p>
 
-      <div className="mx-auto flex min-h-[calc(100svh-72px)] max-w-[1400px] items-center px-5 pb-16 pt-14 sm:px-8 lg:px-12 lg:pt-20">
+      <div className="mx-auto grid min-h-[calc(100svh-72px)] max-w-[1800px] content-center gap-y-9 px-5 pb-16 pt-14 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] lg:gap-x-8 lg:pl-12 lg:pr-8 lg:pt-20">
         {/* Copy */}
-        <div className="max-w-2xl">
+        <div className="max-w-2xl lg:self-end">
           <Link
             href="/quantum-lab"
             className="ql-enter group inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] py-1 pl-1 pr-3.5 text-xs text-white/70 backdrop-blur-md transition-colors hover:border-white/20 hover:text-white"
@@ -89,7 +90,7 @@ export function Hero() {
           </Link>
 
           <h1
-            className="ql-enter mt-8 text-[clamp(2.75rem,6.4vw,5.75rem)] font-semibold leading-[0.95] tracking-[-0.05em]"
+            className="ql-enter mt-8 text-[clamp(2.75rem,6.4vw,5.75rem)] lg:text-[clamp(2.75rem,4.7vw,4.75rem)] font-semibold leading-[0.95] tracking-[-0.05em]"
             style={{ "--ql-delay": "80ms" } as React.CSSProperties}
           >
             <span className="ql-text-fade">Learn quantum computing by</span>
@@ -119,9 +120,19 @@ export function Hero() {
             AI tutor that knows what you are studying — one continuous
             workspace from your first qubit to your first algorithm.
           </p>
+        </div>
 
+        {/* Intro video: right of the copy on desktop, under the subtitle on mobile */}
+        <div
+          className="ql-enter max-sm:-mx-3 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center"
+          style={{ "--ql-delay": "200ms" } as React.CSSProperties}
+        >
+          <HeroVideo />
+        </div>
+
+        <div className="max-w-2xl lg:self-start">
           <div
-            className="ql-enter mt-9 flex flex-col gap-3 sm:flex-row"
+            className="ql-enter flex flex-col gap-3 sm:flex-row"
             style={{ "--ql-delay": "240ms" } as React.CSSProperties}
           >
             <Link

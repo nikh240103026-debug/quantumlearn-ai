@@ -97,6 +97,7 @@ export default function PrivacyPage() {
         <li><strong>Supabase</strong> — authentication and database hosting.</li>
         <li><strong>Vercel</strong> — website hosting and delivery.</li>
         <li><strong>Render</strong> — hosting for our quantum code-execution service.</li>
+        <li><strong>YouTube (Google)</strong> — hosts the introduction video on our home page, embedded in privacy-enhanced mode. Your browser connects to YouTube when that page loads.</li>
         <li><strong>Google (Gemini API)</strong> — AI tutor and AI analysis features.</li>
         <li><strong>qBraid</strong> — only when you choose the qBraid simulator backend; your circuit is sent for execution.</li>
       </ul>
