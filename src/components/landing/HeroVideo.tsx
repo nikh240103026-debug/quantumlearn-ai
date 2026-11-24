@@ -25,6 +25,7 @@ const EMBED_URL = `https://www.youtube-nocookie.com/embed/${VIDEO_ID}?${new URLS
   fs: "0",
   disablekb: "1",
   iv_load_policy: "3",
+  cc_load_policy: "0",
   enablejsapi: "1",
 })}`;
 /** Kept as raw HTML because the YouTube API takes ownership of the iframe. */
@@ -54,6 +55,8 @@ interface YTPlayer {
   getCurrentTime(): number;
   getDuration(): number;
   getPlayerState(): number;
+  /** Undocumented but long-standing; absent calls are tolerated. */
+  unloadModule?(name: string): void;
   getVideoLoadedFraction(): number;
 }
 
@@ -63,6 +66,7 @@ interface YTNamespace {
     options: {
       events?: {
         onReady?: () => void;
+        onApiChange?: () => void;
         onStateChange?: (event: { data: number }) => void;
         onError?: () => void;
       };
@@ -137,11 +141,18 @@ export function HeroVideo() {
     let retries = 0;
     let retryTimer: number | undefined;
 
+    // The video has its own burned-in subtitles; YouTube turns captions on for
+    // muted autoplay, which would show the text twice.
+    const hideCaptions = () => {
+      if (!cancelled) player?.unloadModule?.("captions");
+    };
+
     const syncState = (data: number) => {
       if (cancelled || !player) return;
       setPlaying(data === STATE_PLAYING || data === STATE_BUFFERING);
       if (data === STATE_PLAYING) {
         started = true;
+        hideCaptions();
         window.clearTimeout(retryTimer);
         setPoster("hidden");
         setDuration(player.getDuration());
@@ -191,6 +202,7 @@ export function HeroVideo() {
               start();
 
             },
+            onApiChange: hideCaptions,
             onStateChange: ({ data }) => syncState(data),
             onError: () => {
               if (!cancelled) setFailed(true);
