@@ -1,5 +1,7 @@
 import { Assessment } from "@/types/assessment";
 
+export const FINAL_TEST_DAILY_ATTEMPTS = 3;
+
 export const assessments: Assessment[] = [
   {
     id: "quantum-basics",
@@ -56,5 +58,46 @@ export const assessments: Assessment[] = [
       "QAOA",
       "VQE",
     ],
+  },
+  {
+    id: "quantum-fundamentals-final",
+    title: "Quantum Computing Fundamentals Final Test",
+    description:
+      `Covers all ten lessons. Pass it and complete every lesson to earn the course certificate. ${FINAL_TEST_DAILY_ATTEMPTS} attempts per day.`,
+    difficulty: "Beginner",
+    duration: 40,
+    questions: 20,
+    passingMarks: 60,
+    totalMarks: 100,
+    topics: [
+      "Quantum computing",
+      "Bits and qubits",
+      "States and superposition",
+      "Measurement",
+      "Bloch sphere",
+      "Quantum gates",
+      "Single-qubit gates",
+      "Multi-qubit systems",
+      "Entanglement",
+      "Quantum circuits",
+    ],
+    finalForCourse: "quantum-computing-fundamentals",
+    drawPerTopic: 2,
+  },
+  {
+    id: "quantum-algorithms-final",
+    title: "Quantum Algorithms Final Test",
+    description:
+      `Covers all eight lessons. Pass it and complete every lesson to earn the course certificate. ${FINAL_TEST_DAILY_ATTEMPTS} attempts per day.`,
+    difficulty: "Intermediate",
+    duration: 40,
+    questions: 16,
+    passingMarks: 60,
+    totalMarks: 80,
+    topics: ["Oracles", "Deutsch–Jozsa", "Bernstein–Vazirani", "Grover", "QFT", "Phase estimation", "Shor", "Variational"],
+    finalForCourse: "quantum-algorithms-course",
+    drawPerTopic: 2,
+    // List it when the course is published.
+    unlisted: true,
   },
 ];
