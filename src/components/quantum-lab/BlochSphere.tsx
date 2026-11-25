@@ -343,7 +343,7 @@ export default function BlochSphere({
                     <div className="grid grid-cols-3 gap-3">
 
                       <div className="border border-slate-800 bg-[#0a0f18] p-3 text-center">
-                        <p className="text-xs font-semibold text-slate-500">
+                        <p className="text-xs font-semibold text-slate-400">
                           X
                         </p>
 
@@ -353,7 +353,7 @@ export default function BlochSphere({
                       </div>
 
                       <div className="border border-slate-800 bg-[#0a0f18] p-3 text-center">
-                        <p className="text-xs font-semibold text-slate-500">
+                        <p className="text-xs font-semibold text-slate-400">
                           Y
                         </p>
 
@@ -363,7 +363,7 @@ export default function BlochSphere({
                       </div>
 
                       <div className="border border-slate-800 bg-[#0a0f18] p-3 text-center">
-                        <p className="text-xs font-semibold text-slate-500">
+                        <p className="text-xs font-semibold text-slate-400">
                           Z
                         </p>
 
@@ -384,7 +384,7 @@ export default function BlochSphere({
                         |r| = {length.toFixed(3)}
                       </p>
 
-                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                      <p className="mt-2 text-xs leading-5 text-slate-400">
                         A pure single-qubit state has
                         |r| = 1. For a qubit entangled
                         with other qubits, the reduced
