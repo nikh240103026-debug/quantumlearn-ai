@@ -243,7 +243,7 @@ export function LessonExperience({
             Lesson Notes
           </p>
 
-          <p className="mt-2 text-sm leading-6 text-[#111318]/45">
+          <p className="mt-2 text-sm leading-6 text-[#111318]/70">
             Read carefully and build your understanding step by step.
           </p>
         </div>
@@ -325,7 +325,7 @@ export function LessonExperience({
               py-2
               text-sm
               font-semibold
-              text-[#111318]/55
+              text-[#111318]/70
               transition-colors
               duration-300
               hover:text-blue-600
@@ -550,7 +550,7 @@ export function LessonExperience({
 
             {!showSummary && (
               <div className="mt-8">
-                <p className="text-sm leading-7 text-[#111318]/50">
+                <p className="text-sm leading-7 text-[#111318]/70">
                   Generate a concise revision summary of
                   this lesson using the lesson content already
                   stored on the platform.
@@ -739,7 +739,7 @@ export function LessonExperience({
                           blockquote: ({
                             children,
                           }) => (
-                            <blockquote className="my-5 pl-4 text-sm italic leading-7 text-[#111318]/55">
+                            <blockquote className="my-5 pl-4 text-sm italic leading-7 text-[#111318]/70">
                               {children}
                             </blockquote>
                           ),
@@ -823,7 +823,7 @@ export function LessonExperience({
                       font-bold
                       uppercase
                       tracking-wider
-                      text-[#111318]/55
+                      text-[#111318]/70
                       transition-colors
                       duration-300
                       hover:text-blue-600
@@ -868,7 +868,7 @@ export function LessonExperience({
                       font-bold
                       uppercase
                       tracking-wider
-                      text-[#111318]/55
+                      text-[#111318]/70
                       transition-colors
                       duration-300
                       hover:text-blue-600
