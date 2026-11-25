@@ -49,7 +49,7 @@ export default function MultiBackendResult({
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="border border-slate-800 bg-[#070b12] p-4">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   Backend
                 </p>
 
@@ -59,7 +59,7 @@ export default function MultiBackendResult({
               </div>
 
               <div className="border border-slate-800 bg-[#070b12] p-4">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   Shots
                 </p>
 
@@ -70,7 +70,7 @@ export default function MultiBackendResult({
               </div>
 
               <div className="border border-slate-800 bg-[#070b12] p-4">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   Execution
                 </p>
 
@@ -82,7 +82,7 @@ export default function MultiBackendResult({
               </div>
 
               <div className="border border-slate-800 bg-[#070b12] p-4">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   Status
                 </p>
 
@@ -97,7 +97,7 @@ export default function MultiBackendResult({
 
             {result.jobId && (
               <div className="border border-slate-800 bg-[#070b12] p-4">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   Job ID
                 </p>
 
@@ -117,7 +117,7 @@ export default function MultiBackendResult({
               {Object.keys(
                 result.counts ?? {},
               ).length === 0 ? (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-400">
                   No measurement counts returned.
                 </p>
               ) : (
