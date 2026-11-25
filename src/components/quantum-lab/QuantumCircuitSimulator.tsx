@@ -986,11 +986,11 @@ export default function QuantumCircuitSimulator() {
                   Quantum Lab
                 </p>
 
-                <span className="text-xs text-slate-600">
+                <span className="text-xs text-slate-400">
                   /
                 </span>
 
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-400">
                   Interactive simulator
                 </span>
 
@@ -1012,7 +1012,7 @@ export default function QuantumCircuitSimulator() {
 
               <div className="border border-white/10 bg-[#0d1014] px-4 py-3">
 
-                <p className="text-[10px] uppercase tracking-wider text-slate-500">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">
                   Backend
                 </p>
 
@@ -1026,7 +1026,7 @@ export default function QuantumCircuitSimulator() {
 
               <div className="border border-white/10 bg-[#0d1014] px-4 py-3">
 
-                <p className="text-[10px] uppercase tracking-wider text-slate-500">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">
                   Status
                 </p>
 
@@ -1090,7 +1090,7 @@ export default function QuantumCircuitSimulator() {
 
               <div className="flex items-center gap-3 px-5 py-4">
 
-                <span className="text-xs uppercase tracking-wider text-slate-500">
+                <span className="text-xs uppercase tracking-wider text-slate-400">
                   Qubits
                 </span>
 
@@ -1171,7 +1171,7 @@ export default function QuantumCircuitSimulator() {
                 Choose a quantum engine
               </h2>
 
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Execute the same circuit across supported
                 quantum simulation backends.
               </p>
@@ -1204,7 +1204,7 @@ export default function QuantumCircuitSimulator() {
 
             <div>
 
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Execution
               </p>
 
@@ -1218,11 +1218,11 @@ export default function QuantumCircuitSimulator() {
 
               <div className="flex items-center gap-2 border border-white/10 bg-[#15191e] px-3 py-2">
 
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-slate-400">
                   Shots
                 </span>
 
-                <select
+                <select aria-label="Shots"
                   value={shots}
                   onChange={(event) =>
                     setShots(
@@ -1315,7 +1315,7 @@ export default function QuantumCircuitSimulator() {
               {backendResult && (
                 <div className="text-right">
 
-                  <p className="text-[10px] uppercase tracking-wider text-slate-600">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400">
                     Completed
                   </p>
 
@@ -1354,7 +1354,7 @@ export default function QuantumCircuitSimulator() {
 
             <div className="border-b border-white/10 p-5 sm:border-r sm:border-b-0 sm:px-7 lg:px-10">
 
-              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
                 Qubits
               </p>
 
@@ -1366,7 +1366,7 @@ export default function QuantumCircuitSimulator() {
 
             <div className="border-b border-white/10 p-5 sm:border-r sm:border-b-0 sm:px-7 lg:px-10">
 
-              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
                 Gates
               </p>
 
@@ -1378,7 +1378,7 @@ export default function QuantumCircuitSimulator() {
 
             <div className="p-5 sm:px-7 lg:px-10">
 
-              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">
                 Circuit depth
               </p>
 
@@ -1410,7 +1410,7 @@ export default function QuantumCircuitSimulator() {
                 Visual circuit editor
               </h2>
 
-              <p className="mt-2 max-w-2xl text-sm text-slate-500">
+              <p className="mt-2 max-w-2xl text-sm text-slate-400">
                 Select a gate and place it directly on the
                 circuit grid. Click an existing operation to
                 remove it.
@@ -1458,7 +1458,7 @@ export default function QuantumCircuitSimulator() {
 
             <div className="mb-5">
 
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Advanced operations
               </p>
 
@@ -1501,7 +1501,7 @@ export default function QuantumCircuitSimulator() {
                   Circuit integrity
                 </h2>
 
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-slate-400">
                   Structural checks are performed before
                   backend execution.
                 </p>
@@ -1604,7 +1604,7 @@ export default function QuantumCircuitSimulator() {
                 State vector
               </h2>
 
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-slate-400">
                 Current quantum state after applying the
                 circuit operations.
               </p>
@@ -1675,7 +1675,7 @@ export default function QuantumCircuitSimulator() {
 
                       </div>
 
-                      <p className="mt-3 text-[11px] uppercase tracking-wider text-slate-600">
+                      <p className="mt-3 text-[11px] uppercase tracking-wider text-slate-400">
                         Probability{" "}
                         {(
                           probability *
@@ -1738,7 +1738,7 @@ export default function QuantumCircuitSimulator() {
 
             <div className="mb-6">
 
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Measurement
               </p>
 
@@ -1779,7 +1779,7 @@ export default function QuantumCircuitSimulator() {
                 Work with your circuit
               </h2>
 
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-slate-400">
                 Generate code, save circuits, export them, and
                 continue experimenting.
               </p>
@@ -1847,7 +1847,7 @@ export default function QuantumCircuitSimulator() {
                     Multi-shot experiment
                   </h3>
 
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 text-sm text-slate-400">
                     Run the circuit repeatedly and inspect
                     measurement outcomes.
                   </p>
@@ -1858,7 +1858,7 @@ export default function QuantumCircuitSimulator() {
 
                   <label
                     htmlFor="experiment-shots"
-                    className="text-xs uppercase tracking-wider text-slate-500"
+                    className="text-xs uppercase tracking-wider text-slate-400"
                   >
                     Shots
                   </label>
@@ -2024,11 +2024,11 @@ export default function QuantumCircuitSimulator() {
           color: #d1d5db !important;
         }
 
-        .quantum-lab-shell .text-slate-600 {
+        .quantum-lab-shell .text-slate-400 {
           color: #9ca3af !important;
         }
 
-        .quantum-lab-shell .text-slate-500 {
+        .quantum-lab-shell .text-slate-400 {
           color: #737b86 !important;
         }
 
