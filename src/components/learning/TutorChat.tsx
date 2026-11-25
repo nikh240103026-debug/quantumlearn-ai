@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportAiReply } from "@/components/ai/ReportAiReply";
 import { useEffect, useState } from "react";
 import {
   Bot,
@@ -658,6 +659,7 @@ export default function TutorChat({
                                 message.content
                               }
                             />
+                          <ReportAiReply content={message.content} page="Lesson tutor" />
                           </div>
                         </div>
                       )}
