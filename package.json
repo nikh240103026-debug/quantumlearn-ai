@@ -6,12 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "vitest run",
+    "legal:check": "node scripts/legal.mjs check",
+    "legal:sync": "node scripts/legal.mjs sync",
+    "test:e2e": "node tests/e2e/run.cjs"
   },
   "dependencies": {
     "@google/genai": "^2.22.0",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
+    "@vercel/analytics": "^2.0.1",
     "docx": "^9.7.1",
     "katex": "^0.18.9",
     "lucide-react": "^1.35.0",
@@ -32,7 +37,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "playwright-core": "^1.65.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.12"
   }
 }
