@@ -161,6 +161,7 @@ export async function GET(request: NextRequest) {
       user_metadata?: Record<string, unknown>;
       created_at?: string;
       last_sign_in_at?: string;
+      banned_until?: string;
     }> = [];
 
     let authPage = 1;
@@ -199,6 +200,7 @@ export async function GET(request: NextRequest) {
           created_at: user.created_at,
           last_sign_in_at:
             user.last_sign_in_at ?? undefined,
+          banned_until: user.banned_until,
         })),
       );
 
@@ -241,6 +243,9 @@ export async function GET(request: NextRequest) {
         updated_at: profile.updated_at,
         last_sign_in_at:
           authUser?.last_sign_in_at ?? null,
+        suspended:
+          !!authUser?.banned_until &&
+          Date.parse(authUser.banned_until) > Date.now(),
       };
     });
 
