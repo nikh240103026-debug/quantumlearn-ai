@@ -20,6 +20,14 @@ export const site = {
   securityEmail: "security@quantumlearn.ai",
 
   // Legal
+  // Operator. REQUIRED before launch: fill these in (npm run legal:check).
+  operatorName: "",
+  operatorAddress: "",
+  country: "India",
+  courts: "",
+  grievanceOfficer: "",
+  grievancePhone: "",
+  grievanceEmail: "support@quantumlearn.ai",
   legalName: "QuantumLearn AI",
-  policiesUpdated: "November 22, 2026",
+  policiesUpdated: "November 25, 2026",
 } as const;
