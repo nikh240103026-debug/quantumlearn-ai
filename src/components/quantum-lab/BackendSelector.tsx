@@ -112,7 +112,7 @@ export default function BackendSelector({
                   )}
                 </div>
 
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-slate-400">
                   {item.description}
                 </p>
               </button>
