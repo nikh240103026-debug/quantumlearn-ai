@@ -193,7 +193,7 @@ export default function CodingTutorials({
                 Quantum Coding Tutorials
               </h1>
 
-              <p className="hidden text-xs text-slate-500 sm:block">
+              <p className="hidden text-xs text-slate-400 sm:block">
                 Qiskit · Cirq · PennyLane
               </p>
             </div>
@@ -247,7 +247,7 @@ export default function CodingTutorials({
                   className={`border-b-2 px-5 py-4 text-xs font-bold transition ${
                     active
                       ? "border-blue-500 text-blue-400"
-                      : "border-transparent text-slate-500 hover:text-slate-300"
+                      : "border-transparent text-slate-400 hover:text-slate-300"
                   }`}
                 >
                   {frameworkMeta[item].label}
@@ -261,11 +261,11 @@ export default function CodingTutorials({
       <div className="mx-auto grid max-w-[1500px] gap-px bg-slate-800 lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="min-h-[calc(100vh-7rem)] bg-[#080f1a]">
           <div className="border-b border-slate-800 px-4 py-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
               {framework}
             </p>
 
-            <p className="mt-2 text-xs leading-5 text-slate-500">
+            <p className="mt-2 text-xs leading-5 text-slate-400">
               {frameworkMeta[framework].description}
             </p>
           </div>
@@ -289,7 +289,7 @@ export default function CodingTutorials({
                     className={`flex h-6 w-6 shrink-0 items-center justify-center border text-[10px] font-bold ${
                       active
                         ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
-                        : "border-slate-800 text-slate-600"
+                        : "border-slate-800 text-slate-400"
                     }`}
                   >
                     {index + 1}
@@ -306,7 +306,7 @@ export default function CodingTutorials({
                       {item.title}
                     </span>
 
-                    <span className="mt-1 block text-[10px] text-slate-600">
+                    <span className="mt-1 block text-[10px] text-slate-400">
                       {item.level} · {item.duration}
                     </span>
                   </span>
@@ -325,7 +325,7 @@ export default function CodingTutorials({
                     {tutorial.framework}
                   </span>
 
-                  <span className="border border-slate-800 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                  <span className="border border-slate-800 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
                     {tutorial.level}
                   </span>
                 </div>
@@ -334,7 +334,7 @@ export default function CodingTutorials({
                   {tutorial.title}
                 </h2>
 
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
                   {tutorial.description}
                 </p>
               </div>
@@ -342,7 +342,7 @@ export default function CodingTutorials({
               <button
                 type="button"
                 onClick={resetTutorial}
-                className="inline-flex items-center gap-2 border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-700 hover:text-slate-300"
+                className="inline-flex items-center gap-2 border border-slate-800 px-3 py-2 text-xs font-semibold text-slate-400 transition hover:border-slate-700 hover:text-slate-300"
               >
                 <RotateCcw size={13} />
                 Reset
@@ -355,7 +355,7 @@ export default function CodingTutorials({
               <div className="border-b border-slate-800 px-5 py-4 sm:px-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                       Step {stepIndex + 1} / {tutorial.steps.length}
                     </p>
 
@@ -364,7 +364,7 @@ export default function CodingTutorials({
                     </h3>
                   </div>
 
-                  <div className="text-[10px] text-slate-600">
+                  <div className="text-[10px] text-slate-400">
                     {tutorial.duration}
                   </div>
                 </div>
@@ -379,7 +379,7 @@ export default function CodingTutorials({
                   <div className="flex h-10 items-center justify-between border-b border-slate-800 px-4">
                     <div className="flex items-center gap-2">
                       <Code2 size={13} className="text-blue-400" />
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         lesson.py
                       </span>
                     </div>
@@ -406,8 +406,8 @@ export default function CodingTutorials({
 
                 <div className="mt-4 border border-slate-800 bg-[#050a11]">
                   <div className="flex h-9 items-center gap-2 border-b border-slate-800 px-4">
-                    <Terminal size={12} className="text-slate-600" />
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-600">
+                    <Terminal size={12} className="text-slate-400" />
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                       Output
                     </span>
                   </div>
@@ -421,7 +421,7 @@ export default function CodingTutorials({
 
             <section className="bg-[#080f1a]">
               <div className="border-b border-slate-800 px-5 py-4 sm:px-6">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                   Learning checkpoint
                 </p>
               </div>
@@ -447,19 +447,19 @@ export default function CodingTutorials({
 
                 <div className="mt-6 border border-slate-800 bg-[#050a11]">
                   <div className="border-b border-slate-800 px-4 py-3">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
                       Expected result
                     </p>
                   </div>
 
-                  <pre className="whitespace-pre-wrap p-5 font-mono text-xs leading-6 text-slate-500">
+                  <pre className="whitespace-pre-wrap p-5 font-mono text-xs leading-6 text-slate-400">
                     {step.expectedOutput}
                   </pre>
                 </div>
 
                 <div className="mt-6 grid gap-px bg-slate-800 sm:grid-cols-3">
                   <div className="bg-[#07101d] p-4">
-                    <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-600">
+                    <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">
                       <Circle size={9} />
                       Level
                     </div>
@@ -469,7 +469,7 @@ export default function CodingTutorials({
                   </div>
 
                   <div className="bg-[#07101d] p-4">
-                    <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-600">
+                    <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">
                       <Terminal size={10} />
                       Framework
                     </div>
@@ -479,7 +479,7 @@ export default function CodingTutorials({
                   </div>
 
                   <div className="bg-[#07101d] p-4">
-                    <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-600">
+                    <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">
                       <Play size={10} />
                       Duration
                     </div>
