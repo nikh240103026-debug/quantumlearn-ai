@@ -225,7 +225,7 @@ export default function CodingPlayground() {
           {/* Sidebar */}
           <aside className="border-b border-slate-800 bg-slate-950 lg:border-b-0 lg:border-r">
             <div className="border-b border-slate-800 px-4 py-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Explorer
               </span>
             </div>
@@ -241,11 +241,11 @@ export default function CodingPlayground() {
               </button>
 
               <div className="mt-4 border-t border-slate-800 pt-4">
-                <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                <div className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Environment
                 </div>
 
-                <div className="space-y-2 px-3 text-xs text-slate-500">
+                <div className="space-y-2 px-3 text-xs text-slate-400">
                   <div className="flex justify-between">
                     <span>Language</span>
                     <span className="text-slate-300">Python</span>
@@ -344,7 +344,7 @@ export default function CodingPlayground() {
             {/* Example Selector */}
             <div className="border-b border-slate-800 bg-slate-950 px-3 py-2">
               <div className="flex items-center gap-2 overflow-x-auto">
-                <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-600">
+                <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Examples
                 </span>
 
@@ -392,7 +392,7 @@ export default function CodingPlayground() {
                 </div>
 
                 {executionTime !== null && (
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <div className="flex items-center gap-1 text-xs text-slate-400">
                     <Clock size={13} />
                     {executionTime} ms
                   </div>
@@ -417,7 +417,7 @@ export default function CodingPlayground() {
 
                     {output && (
                       <>
-                        <div className="mb-2 mt-5 text-xs font-bold uppercase tracking-wider text-slate-600">
+                        <div className="mb-2 mt-5 text-xs font-bold uppercase tracking-wider text-slate-400">
                           Standard Output
                         </div>
 
@@ -432,7 +432,7 @@ export default function CodingPlayground() {
                     {output}
                   </pre>
                 ) : (
-                  <div className="text-slate-600">
+                  <div className="text-slate-400">
                     Run your program to see the execution output here.
                   </div>
                 )}
@@ -450,11 +450,11 @@ export default function CodingPlayground() {
               Save Quantum Program
             </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-400">
               Save this program to your local Code History.
             </p>
 
-            <label className="mt-5 block text-xs font-bold uppercase tracking-wider text-slate-500">
+            <label className="mt-5 block text-xs font-bold uppercase tracking-wider text-slate-400">
               Program Name
             </label>
 
