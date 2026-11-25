@@ -13,6 +13,12 @@ export interface Assessment {
   passingMarks: number;
   totalMarks: number;
   topics: string[];
+  /** Slug of the course whose certificate needs this test passed. */
+  finalForCourse?: string;
+  /** Each paper uses this many questions per topic, chosen at random. */
+  drawPerTopic?: number;
+  /** Not shown in lists; reached from the course certificate. */
+  unlisted?: boolean;
 }
 
 export interface AssessmentAttempt {
