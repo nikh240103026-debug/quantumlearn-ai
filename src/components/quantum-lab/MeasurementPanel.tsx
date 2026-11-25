@@ -53,7 +53,7 @@ export default function MeasurementPanel({
               |{result}⟩
             </span>
 
-            <span className="font-mono text-xs text-slate-500">
+            <span className="font-mono text-xs text-slate-400">
               computational basis
             </span>
 
