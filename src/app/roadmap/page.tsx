@@ -687,7 +687,7 @@ export default async function RoadmapPage() {
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-400">
                     Learning as
                   </p>
 
@@ -699,7 +699,7 @@ export default async function RoadmapPage() {
 
               <div className="mt-5 flex items-end justify-between">
                 <div>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-400">
                     Overall course progress
                   </p>
 
@@ -708,7 +708,7 @@ export default async function RoadmapPage() {
                   </p>
                 </div>
 
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   {completedLessons}/{totalLessons} lessons
                 </p>
               </div>
@@ -722,7 +722,7 @@ export default async function RoadmapPage() {
                 />
               </div>
 
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-slate-400">
                 {getProgressLabel(overallProgress)}
               </p>
             </div>
@@ -747,7 +747,7 @@ export default async function RoadmapPage() {
                 Your Curriculum Progress
               </h2>
 
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
                 Track progress across the six major curriculum
                 modules using topic mastery and learning
                 activity.
@@ -755,7 +755,7 @@ export default async function RoadmapPage() {
             </div>
 
             <div className="shrink-0 rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3">
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 Overall curriculum
               </p>
 
@@ -788,7 +788,7 @@ export default async function RoadmapPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                             Module {module.module_number}
                           </span>
 
@@ -815,7 +815,7 @@ export default async function RoadmapPage() {
                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                           isComplete
                             ? "bg-emerald-500/10 text-emerald-400"
-                            : "bg-slate-800 text-slate-500"
+                            : "bg-slate-800 text-slate-400"
                         }`}
                       >
                         {isComplete ? (
@@ -827,13 +827,13 @@ export default async function RoadmapPage() {
                     </div>
 
                     {module.description && (
-                      <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-500">
+                      <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-400">
                         {module.description}
                       </p>
                     )}
 
                     <div className="mt-5 flex items-center justify-between text-xs">
-                      <span className="text-slate-500">
+                      <span className="text-slate-400">
                         {module.completedTopics}/
                         {module.totalTopics} topics
                       </span>
@@ -882,7 +882,7 @@ export default async function RoadmapPage() {
             </div>
           ) : (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-center">
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-400">
                 Curriculum progress is temporarily unavailable.
               </p>
             </div>
@@ -913,7 +913,7 @@ export default async function RoadmapPage() {
                   </h2>
 
                   {recommendedModule && (
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-400">
                       Module {recommendedModule.module_number}:{" "}
                       {recommendedModule.title}
                     </p>
@@ -962,43 +962,43 @@ export default async function RoadmapPage() {
       <section className="border-b border-slate-800 bg-slate-950">
         <div className="mx-auto mt-8 grid max-w-7xl grid-cols-2 gap-px border-x border-slate-800 bg-slate-800 sm:grid-cols-4">
           <div className="bg-slate-950 px-5 py-6">
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <BookOpen size={14} />
               Lessons
             </div>
 
             <p className="mt-2 text-2xl font-bold">
               {completedLessons}
-              <span className="text-sm font-normal text-slate-600">
+              <span className="text-sm font-normal text-slate-400">
                 /{totalLessons}
               </span>
             </p>
 
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-slate-400">
               completed
             </p>
           </div>
 
           <div className="bg-slate-950 px-5 py-6">
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <Target size={14} />
               Current stage
             </div>
 
             <p className="mt-2 text-2xl font-bold">
               {currentStage}
-              <span className="text-sm font-normal text-slate-600">
+              <span className="text-sm font-normal text-slate-400">
                 /10
               </span>
             </p>
 
-            <p className="mt-1 truncate text-xs text-slate-600">
+            <p className="mt-1 truncate text-xs text-slate-400">
               {activeStage.shortTitle}
             </p>
           </div>
 
           <div className="bg-slate-950 px-5 py-6">
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <Zap size={14} />
               Curriculum
             </div>
@@ -1007,13 +1007,13 @@ export default async function RoadmapPage() {
               {curriculumOverallProgress}%
             </p>
 
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-slate-400">
               topic mastery
             </p>
           </div>
 
           <div className="bg-slate-950 px-5 py-6">
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <Trophy size={14} />
               Remaining
             </div>
@@ -1022,7 +1022,7 @@ export default async function RoadmapPage() {
               {remainingLessons}
             </p>
 
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 text-xs text-slate-400">
               lessons to complete
             </p>
           </div>
@@ -1049,7 +1049,7 @@ export default async function RoadmapPage() {
                       : "Current Focus"}
                   </span>
 
-                  <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] text-slate-500">
+                  <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400">
                     Stage {currentStage}
                   </span>
                 </div>
@@ -1097,7 +1097,7 @@ export default async function RoadmapPage() {
             Quantum Computing Roadmap
           </h2>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 text-sm text-slate-400">
             Progress from fundamentals to advanced quantum
             computing.
           </p>
@@ -1132,7 +1132,7 @@ export default async function RoadmapPage() {
                         ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
                         : isCurrent
                           ? "border-blue-400/50 bg-blue-500/15 text-blue-300 shadow-lg shadow-blue-500/10"
-                          : "border-slate-800 bg-slate-900 text-slate-600"
+                          : "border-slate-800 bg-slate-900 text-slate-400"
                     }`}
                   >
                     {isCompleted ? (
@@ -1161,7 +1161,7 @@ export default async function RoadmapPage() {
                               ? "bg-emerald-500/10 text-emerald-400"
                               : isCurrent
                                 ? "bg-blue-500/10 text-blue-300"
-                                : "bg-slate-800 text-slate-600"
+                                : "bg-slate-800 text-slate-400"
                           }`}
                         >
                           {isCompleted ? (
@@ -1181,7 +1181,7 @@ export default async function RoadmapPage() {
                                   ? "text-emerald-400"
                                   : isCurrent
                                     ? "text-blue-300"
-                                    : "text-slate-600"
+                                    : "text-slate-400"
                               }`}
                             >
                               {String(stage.number).padStart(
@@ -1203,7 +1203,7 @@ export default async function RoadmapPage() {
                             )}
 
                             {status === "upcoming" && (
-                              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
                                 Upcoming
                               </span>
                             )}
@@ -1212,7 +1212,7 @@ export default async function RoadmapPage() {
                           <h3
                             className={`mt-1 text-lg font-semibold ${
                               status === "upcoming"
-                                ? "text-slate-500"
+                                ? "text-slate-400"
                                 : "text-white"
                             }`}
                           >
@@ -1222,7 +1222,7 @@ export default async function RoadmapPage() {
                           <p
                             className={`mt-2 max-w-3xl text-sm leading-6 ${
                               status === "upcoming"
-                                ? "text-slate-600"
+                                ? "text-slate-400"
                                 : "text-slate-400"
                             }`}
                           >
@@ -1237,7 +1237,7 @@ export default async function RoadmapPage() {
                             key={topic}
                             className={`rounded-lg border px-2.5 py-1 text-[11px] ${
                               status === "upcoming"
-                                ? "border-slate-800 text-slate-600"
+                                ? "border-slate-800 text-slate-400"
                                 : "border-slate-700 bg-slate-950/50 text-slate-400"
                             }`}
                           >
@@ -1269,7 +1269,7 @@ export default async function RoadmapPage() {
                       )}
 
                       {status === "upcoming" && (
-                        <div className="flex items-center gap-2 text-xs text-slate-600 sm:ml-[60px]">
+                        <div className="flex items-center gap-2 text-xs text-slate-400 sm:ml-[60px]">
                           <Lock size={13} />
                           Complete earlier stages to
                           reach this topic.
@@ -1307,13 +1307,13 @@ export default async function RoadmapPage() {
                   </h2>
 
                   {nextLesson.description && (
-                    <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                    <p className="mt-1 max-w-2xl text-sm text-slate-400">
                       {nextLesson.description}
                     </p>
                   )}
 
                   {nextLesson.duration_minutes && (
-                    <p className="mt-2 text-xs text-slate-600">
+                    <p className="mt-2 text-xs text-slate-400">
                       {nextLesson.duration_minutes} min
                     </p>
                   )}
@@ -1350,7 +1350,7 @@ export default async function RoadmapPage() {
               Course content is not available yet
             </h2>
 
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className="mt-2 text-sm leading-6 text-slate-400">
               The roadmap is ready, but the published Quantum
               Computing Fundamentals course could not be found.
             </p>
@@ -1380,7 +1380,7 @@ export default async function RoadmapPage() {
             Build your quantum foundation.
           </h2>
 
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500">
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400">
             Learn the mathematics, understand the physics,
             build circuits, run experiments, practice your
             concepts, and use AI Tutor whenever you get stuck.
