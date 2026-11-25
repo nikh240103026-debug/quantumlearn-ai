@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportAiReply } from "@/components/ai/ReportAiReply";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -105,14 +106,14 @@ export default function QuantumTutor({
           }}
           placeholder="Ask about your current circuit..."
           disabled={loading}
-          className="min-h-11 flex-1 border border-slate-700 bg-[#050912] px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-11 flex-1 border border-slate-700 bg-[#050912] px-4 text-sm text-white outline-none placeholder:text-slate-400 focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
         />
 
         <button
           type="button"
           onClick={askTutor}
           disabled={loading || !question.trim()}
-          className="min-h-11 border border-blue-500 bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
+          className="min-h-11 border border-blue-500 bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-400"
         >
           {loading ? "Thinking..." : "Ask Tutor"}
         </button>
@@ -187,6 +188,7 @@ export default function QuantumTutor({
             >
               {answer}
             </ReactMarkdown>
+            <ReportAiReply content={answer} page="Quantum Lab" />
           </div>
         </div>
       )}
