@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportAiReply } from "@/components/ai/ReportAiReply";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -715,6 +716,7 @@ export function LessonContentReader({
                   >
                     {summary}
                   </ReactMarkdown>
+                  <ReportAiReply content={summary} page="AI summary" />
 
                 </div>
 
