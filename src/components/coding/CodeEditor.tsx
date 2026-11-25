@@ -61,7 +61,7 @@ export default function CodeEditor({
       <div
         ref={lineNumbersRef}
         aria-hidden="true"
-        className="w-12 shrink-0 overflow-hidden border-r border-slate-900 bg-[#050a11] py-4 text-right font-mono text-xs leading-6 text-slate-700"
+        className="w-12 shrink-0 overflow-hidden border-r border-slate-900 bg-[#050a11] py-4 text-right font-mono text-xs leading-6 text-slate-400"
       >
         {Array.from({ length: lineCount }, (_, index) => (
           <div key={index} className="h-6 pr-3">
@@ -81,7 +81,7 @@ export default function CodeEditor({
           spellCheck={false}
           autoCapitalize="off"
           autoCorrect="off"
-          className="absolute inset-0 h-full w-full resize-none overflow-auto bg-transparent px-4 py-4 font-mono text-[13px] leading-6 text-slate-300 outline-none placeholder:text-slate-700"
+          className="absolute inset-0 h-full w-full resize-none overflow-auto bg-transparent px-4 py-4 font-mono text-[13px] leading-6 text-slate-300 outline-none placeholder:text-slate-400"
           placeholder="# Start writing your quantum program..."
           aria-label="Quantum Python code editor"
         />
