@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, RotateCw } from "lucide-react";
+import { reportClientError } from "@/lib/monitoring/report-client-error";
 import { site } from "@/lib/site";
 
 export default function Error({
@@ -14,6 +15,7 @@ export default function Error({
 }) {
   useEffect(() => {
     console.error(error);
+    reportClientError(error);
   }, [error]);
 
   return (
