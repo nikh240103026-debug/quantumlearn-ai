@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportAiReply } from "@/components/ai/ReportAiReply";
 import {
   FormEvent,
   KeyboardEvent,
@@ -1774,11 +1775,14 @@ export default function PersistentAITutor({
                             )}
                           </>
                         ) : (
+                          <>
                           <TutorMarkdown
                             content={
                               message.content
                             }
                           />
+                          <ReportAiReply content={message.content} page="AI Tutor" />
+                          </>
                         )}
                       </div>
                     </div>
