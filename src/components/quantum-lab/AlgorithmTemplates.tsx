@@ -27,7 +27,7 @@ export default function AlgorithmTemplates({
           Algorithm Templates
         </h2>
 
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+        <p className="mt-2 text-sm leading-6 text-slate-400">
           Start with a prepared circuit and explore how the
           algorithm works.
         </p>
@@ -47,7 +47,7 @@ export default function AlgorithmTemplates({
                 {template.name}
               </h3>
 
-              <p className="mt-2 text-sm leading-6 text-slate-500">
+              <p className="mt-2 text-sm leading-6 text-slate-400">
                 {template.description}
               </p>
 
