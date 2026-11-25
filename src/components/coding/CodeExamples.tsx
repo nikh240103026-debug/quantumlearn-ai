@@ -159,7 +159,7 @@ function ExampleItem({
         className={`mt-0.5 shrink-0 ${
           selected
             ? "text-blue-400"
-            : "text-slate-600 group-hover:text-slate-400"
+            : "text-slate-400 group-hover:text-slate-400"
         }`}
       />
 
@@ -172,7 +172,7 @@ function ExampleItem({
           {example.title}
         </span>
 
-        <span className="mt-0.5 block text-[11px] leading-4 text-slate-600">
+        <span className="mt-0.5 block text-[11px] leading-4 text-slate-400">
           {example.description}
         </span>
       </span>
@@ -195,7 +195,7 @@ export default function CodeExamples({
 
         return (
           <div key={category} className="border-b border-slate-900 py-2">
-            <div className="px-4 py-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-600">
+            <div className="px-4 py-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">
               {category}
             </div>
 
