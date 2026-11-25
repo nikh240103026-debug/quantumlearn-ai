@@ -1,5 +1,6 @@
 "use client";
 
+import { ReportAiReply } from "@/components/ai/ReportAiReply";
 import { useState } from "react";
 import {
   Bot,
@@ -170,7 +171,7 @@ export default function AICodingAssistant() {
                 AI Coding Assistant
               </h1>
 
-              <p className="hidden text-xs text-slate-500 sm:block">
+              <p className="hidden text-xs text-slate-400 sm:block">
                 Debug, explain and improve quantum programs
               </p>
             </div>
@@ -208,7 +209,7 @@ export default function AICodingAssistant() {
                 main.py
               </span>
 
-              <span className="border border-slate-800 px-1.5 py-0.5 text-[8px] uppercase tracking-wider text-slate-600">
+              <span className="border border-slate-800 px-1.5 py-0.5 text-[8px] uppercase tracking-wider text-slate-400">
                 Python
               </span>
             </div>
@@ -217,7 +218,7 @@ export default function AICodingAssistant() {
               <button
                 type="button"
                 onClick={copyCode}
-                className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold text-slate-600 transition hover:text-slate-300"
+                className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold text-slate-400 transition hover:text-slate-300"
               >
                 {copied ? (
                   <>
@@ -235,7 +236,7 @@ export default function AICodingAssistant() {
               <button
                 type="button"
                 onClick={resetCode}
-                className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold text-slate-600 transition hover:text-slate-300"
+                className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold text-slate-400 transition hover:text-slate-300"
               >
                 <RotateCcw size={13} />
                 Reset
@@ -255,7 +256,7 @@ export default function AICodingAssistant() {
           <div className="flex min-h-[calc(100vh-8rem)] flex-col">
             <div className="flex min-h-[500px] flex-1">
               {/* Line Numbers */}
-              <div className="w-11 shrink-0 border-r border-slate-900 bg-[#050a11] py-4 text-right font-mono text-[11px] leading-6 text-slate-700">
+              <div className="w-11 shrink-0 border-r border-slate-900 bg-[#050a11] py-4 text-right font-mono text-[11px] leading-6 text-slate-400">
                 {code.split("\n").map((_, index) => (
                   <div key={index} className="pr-2">
                     {index + 1}
@@ -270,7 +271,7 @@ export default function AICodingAssistant() {
                 spellCheck={false}
                 autoCapitalize="off"
                 autoCorrect="off"
-                className="min-h-[500px] flex-1 resize-none overflow-auto bg-transparent p-4 font-mono text-[13px] leading-6 text-slate-300 outline-none placeholder:text-slate-700"
+                className="min-h-[500px] flex-1 resize-none overflow-auto bg-transparent p-4 font-mono text-[13px] leading-6 text-slate-300 outline-none placeholder:text-slate-400"
                 placeholder="# Write your quantum Python code here..."
                 aria-label="Quantum code editor"
               />
@@ -281,12 +282,12 @@ export default function AICodingAssistant() {
               <div className="flex h-10 items-center gap-2 border-b border-slate-800 bg-[#080f1a] px-4">
                 <Terminal size={13} className="text-blue-400" />
 
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Preview / Output
                 </span>
               </div>
 
-              <pre className="min-h-[150px] whitespace-pre-wrap overflow-auto bg-[#03070d] p-4 font-mono text-[11px] leading-5 text-slate-500">
+              <pre className="min-h-[150px] whitespace-pre-wrap overflow-auto bg-[#03070d] p-4 font-mono text-[11px] leading-5 text-slate-400">
                 {output}
               </pre>
             </div>
@@ -312,7 +313,7 @@ export default function AICodingAssistant() {
 
           {/* Suggestions */}
           <div className="border-b border-slate-800 p-3">
-            <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-slate-700">
+            <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">
               Quick Actions
             </p>
 
@@ -323,7 +324,7 @@ export default function AICodingAssistant() {
                   type="button"
                   onClick={() => askAssistant(suggestion)}
                   disabled={loading}
-                  className="border border-slate-800 bg-[#050b14] px-2 py-2 text-left text-[10px] leading-4 text-slate-500 transition hover:border-blue-500/30 hover:bg-blue-500/5 hover:text-blue-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="border border-slate-800 bg-[#050b14] px-2 py-2 text-left text-[10px] leading-4 text-slate-400 transition hover:border-blue-500/30 hover:bg-blue-500/5 hover:text-blue-300 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {suggestion}
                 </button>
@@ -349,11 +350,11 @@ export default function AICodingAssistant() {
                     ) : (
                       <MessageSquare
                         size={12}
-                        className="text-slate-600"
+                        className="text-slate-400"
                       />
                     )}
 
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-600">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                       {message.role === "assistant" ? "Quantum AI" : "You"}
                     </span>
                   </div>
@@ -366,6 +367,7 @@ export default function AICodingAssistant() {
                     }`}
                   >
                     {message.content}
+                    {message.role === "assistant" && <ReportAiReply content={message.content} page="Coding assistant" />}
                   </div>
                 </div>
               ))}
@@ -374,13 +376,13 @@ export default function AICodingAssistant() {
                 <div className="mr-3">
                   <div className="mb-1.5 flex items-center gap-2">
                     <Bot size={12} className="text-blue-400" />
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-600">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                       Quantum AI
                     </span>
                   </div>
 
                   <div className="border border-slate-800 bg-[#050b14] p-3">
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
                       <Loader2
                         size={14}
                         className="animate-spin text-blue-400"
@@ -411,11 +413,11 @@ export default function AICodingAssistant() {
                 disabled={loading}
                 rows={3}
                 placeholder="Ask about your code..."
-                className="w-full resize-none bg-transparent p-3 text-xs leading-5 text-slate-300 outline-none placeholder:text-slate-700 disabled:opacity-50"
+                className="w-full resize-none bg-transparent p-3 text-xs leading-5 text-slate-300 outline-none placeholder:text-slate-400 disabled:opacity-50"
               />
 
               <div className="flex items-center justify-between border-t border-slate-900 px-3 py-2">
-                <span className="text-[9px] text-slate-700">
+                <span className="text-[9px] text-slate-400">
                   Enter to send · Shift + Enter for new line
                 </span>
 
@@ -441,7 +443,7 @@ export default function AICodingAssistant() {
             <div className="flex items-center justify-between">
               <a
                 href="/coding/tutorials"
-                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-600 transition hover:text-slate-300"
+                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 transition hover:text-slate-300"
               >
                 Tutorials
                 <ChevronRight size={12} />
@@ -449,7 +451,7 @@ export default function AICodingAssistant() {
 
               <a
                 href="/coding/challenges"
-                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-600 transition hover:text-slate-300"
+                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 transition hover:text-slate-300"
               >
                 Challenges
                 <ChevronRight size={12} />
