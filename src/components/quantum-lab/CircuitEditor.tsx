@@ -742,7 +742,7 @@ export default function CircuitEditor({
       <div className="border-b border-blue-900/70 p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500">
+            <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400">
               Gate Library
             </div>
 
@@ -751,7 +751,7 @@ export default function CircuitEditor({
             </div>
           </div>
 
-          <div className="font-mono text-xs text-slate-500">
+          <div className="font-mono text-xs text-slate-400">
             Drag → Drop
           </div>
         </div>
@@ -803,7 +803,7 @@ export default function CircuitEditor({
           )}
         </div>
 
-        <div className="mt-4 font-mono text-xs text-slate-500">
+        <div className="mt-4 font-mono text-xs text-slate-400">
           Selected gate:
           <span className="ml-2 text-blue-300">
             {selectedGate}
@@ -839,7 +839,7 @@ export default function CircuitEditor({
                 gridColumns,
             }}
           >
-            <div className="border-b border-blue-950 px-3 py-3 font-mono text-[10px] uppercase tracking-wider text-slate-600">
+            <div className="border-b border-blue-950 px-3 py-3 font-mono text-[10px] uppercase tracking-wider text-slate-400">
               Qubit
             </div>
 
@@ -849,7 +849,7 @@ export default function CircuitEditor({
               (_, column) => (
                 <div
                   key={column}
-                  className="border-b border-l border-blue-950 px-2 py-3 text-center font-mono text-[10px] text-slate-600"
+                  className="border-b border-l border-blue-950 px-2 py-3 text-center font-mono text-[10px] text-slate-400"
                 >
                   {String(
                     column + 1,
@@ -1051,7 +1051,7 @@ export default function CircuitEditor({
 
       <div className="grid border-t border-blue-900/70 sm:grid-cols-3">
         <div className="border-b border-blue-900/70 p-4 sm:border-b-0 sm:border-r">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-slate-600">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
             Qubits
           </div>
 
@@ -1061,7 +1061,7 @@ export default function CircuitEditor({
         </div>
 
         <div className="border-b border-blue-900/70 p-4 sm:border-b-0 sm:border-r">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-slate-600">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
             Operations
           </div>
 
@@ -1071,7 +1071,7 @@ export default function CircuitEditor({
         </div>
 
         <div className="p-4">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-slate-600">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
             Interaction
           </div>
 
