@@ -625,7 +625,7 @@ ${
                 Coding Challenges
               </h1>
 
-              <p className="hidden text-xs text-slate-500 sm:block">
+              <p className="hidden text-xs text-slate-400 sm:block">
                 Practice quantum programming
               </p>
             </div>
@@ -635,7 +635,7 @@ ${
           <div className="flex items-center gap-3">
 
             <div className="hidden border border-slate-800 bg-[#050b14] px-3 py-2 sm:block">
-              <span className="text-[10px] uppercase tracking-wider text-slate-600">
+              <span className="text-[10px] uppercase tracking-wider text-slate-400">
                 Score
               </span>
 
@@ -646,6 +646,7 @@ ${
 
             <a
               href="/coding"
+            aria-label="Back to coding"
               className="inline-flex items-center gap-2 border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-slate-600 hover:text-white"
             >
               <Code2 size={14} />
@@ -665,7 +666,7 @@ ${
 
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 bg-[#080f1a] px-4 py-3 sm:px-6 lg:px-8">
 
-          <span className="mr-2 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+          <span className="mr-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Difficulty
           </span>
 
@@ -688,7 +689,7 @@ ${
                   filter ===
                   item
                     ? "border-blue-500/40 bg-blue-500/10 text-blue-400"
-                    : "border-slate-800 text-slate-600 hover:border-slate-700 hover:text-slate-300"
+                    : "border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-300"
                 }`}
               >
                 {item}
@@ -708,11 +709,11 @@ ${
 
               <div className="flex items-center justify-between">
 
-                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                   Challenges
                 </span>
 
-                <span className="text-[10px] text-slate-700">
+                <span className="text-[10px] text-slate-400">
                   {loadingProgress
                     ? "..."
                     : `${completed.length}/${challenges.length}`}
@@ -762,7 +763,7 @@ ${
                             ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                             : active
                               ? "border-blue-500/30 text-blue-400"
-                              : "border-slate-800 text-slate-600"
+                              : "border-slate-800 text-slate-400"
                         }`}
                       >
                         {isCompleted ? (
@@ -804,7 +805,7 @@ ${
                             }
                           </span>
 
-                          <span className="text-[9px] text-slate-700">
+                          <span className="text-[9px] text-slate-400">
                             {
                               challenge.points
                             }{" "}
@@ -827,7 +828,7 @@ ${
 
             <div className="border-b border-slate-800 px-5 py-5 sm:px-8">
 
-              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
 
                 <span>
                   Challenges
@@ -849,7 +850,7 @@ ${
                     {selected.title}
                   </h2>
 
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
                     {
                       selected.description
                     }
@@ -902,7 +903,7 @@ ${
                       disabled={
                         checking
                       }
-                      className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold text-slate-600 transition hover:text-slate-300 disabled:opacity-40"
+                      className="inline-flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold text-slate-400 transition hover:text-slate-300 disabled:opacity-40"
                     >
                       <RotateCcw
                         size={13}
@@ -936,7 +937,7 @@ ${
 
                 <div className="flex min-h-0 flex-1">
 
-                  <div className="w-10 shrink-0 border-r border-slate-900 bg-[#050a11] py-4 text-right font-mono text-[11px] leading-6 text-slate-700">
+                  <div className="w-10 shrink-0 border-r border-slate-900 bg-[#050a11] py-4 text-right font-mono text-[11px] leading-6 text-slate-400">
                     {code
                       .split(
                         "\n",
@@ -961,7 +962,7 @@ ${
                       )}
                   </div>
 
-                  <textarea
+                  <textarea aria-label="Your code"
                     value={code}
                     onChange={(
                       event,
@@ -989,7 +990,7 @@ ${
 
                     <TerminalIcon />
 
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Automated Result
                     </span>
 
@@ -1005,7 +1006,7 @@ ${
                               "✗",
                             )
                           ? "text-red-400"
-                          : "text-slate-500"
+                          : "text-slate-400"
                     }`}
                   >
                     {output}
@@ -1039,7 +1040,7 @@ ${
 
                   <div className="border border-slate-800 bg-[#050b14] p-4">
 
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Objective
                     </div>
 
@@ -1078,7 +1079,7 @@ ${
 
                     <ChevronRight
                       size={14}
-                      className={`text-slate-700 transition ${
+                      className={`text-slate-400 transition ${
                         showHint
                           ? "rotate-90"
                           : ""
@@ -1089,7 +1090,7 @@ ${
 
                   {showHint && (
                     <div className="border-x border-b border-slate-800 bg-[#03070d] p-4">
-                      <p className="text-xs leading-6 text-slate-500">
+                      <p className="text-xs leading-6 text-slate-400">
                         {
                           selected.hint
                         }
@@ -1101,7 +1102,7 @@ ${
 
                     <div className="flex items-center justify-between border-b border-slate-900 py-2">
 
-                      <span className="text-[10px] uppercase tracking-wider text-slate-600">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-400">
                         Topic
                       </span>
 
@@ -1115,7 +1116,7 @@ ${
 
                     <div className="flex items-center justify-between border-b border-slate-900 py-2">
 
-                      <span className="text-[10px] uppercase tracking-wider text-slate-600">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-400">
                         Points
                       </span>
 
@@ -1130,7 +1131,7 @@ ${
 
                     <div className="flex items-center justify-between py-2">
 
-                      <span className="text-[10px] uppercase tracking-wider text-slate-600">
+                      <span className="text-[10px] uppercase tracking-wider text-slate-400">
                         Status
                       </span>
 
@@ -1140,7 +1141,7 @@ ${
                             selected.id,
                           )
                             ? "text-emerald-400"
-                            : "text-slate-500"
+                            : "text-slate-400"
                         }`}
                       >
                         {completed.includes(
@@ -1162,7 +1163,7 @@ ${
 
             <div className="flex items-center justify-between border-t border-slate-800 bg-[#07101d] px-5 py-4 sm:px-8">
 
-              <div className="text-[10px] uppercase tracking-wider text-slate-700">
+              <div className="text-[10px] uppercase tracking-wider text-slate-400">
                 {
                   completed.length
                 }{" "}
@@ -1228,7 +1229,7 @@ ${
               <div className="flex items-center justify-between">
 
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                     Progress
                   </p>
 
@@ -1250,7 +1251,7 @@ ${
                     {totalPoints}
                   </p>
 
-                  <p className="text-[9px] uppercase tracking-wider text-slate-700">
+                  <p className="text-[9px] uppercase tracking-wider text-slate-400">
                     points earned
                   </p>
 
@@ -1286,7 +1287,7 @@ ${
 
 function TerminalIcon() {
   return (
-    <div className="flex h-4 w-4 items-center justify-center border border-slate-700 text-slate-600">
+    <div className="flex h-4 w-4 items-center justify-center border border-slate-700 text-slate-400">
       <span className="text-[8px]">
         &gt;_
       </span>
