@@ -1008,7 +1008,7 @@ export default function AdminResourcesPage() {
                       placeholder="e.g. Quantum Computing: An Introduction"
                       maxLength={300}
                       required
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
                   </div>
 
@@ -1030,7 +1030,7 @@ export default function AdminResourcesPage() {
                       placeholder="Describe what students will learn from this resource..."
                       rows={5}
                       required
-                      className="w-full resize-y rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full resize-y rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
                   </div>
 
@@ -1123,7 +1123,7 @@ export default function AdminResourcesPage() {
                         )
                       }
                       placeholder="e.g. Qubits"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
                   </div>
 
@@ -1178,7 +1178,7 @@ export default function AdminResourcesPage() {
                   Upload Resource File
                 </h3>
 
-                <p className="mb-4 text-sm text-slate-500">
+                <p className="mb-4 text-sm text-slate-400">
                   Upload a PDF, document, presentation,
                   spreadsheet, or image. Maximum file size:
                   20 MB.
@@ -1199,7 +1199,7 @@ export default function AdminResourcesPage() {
                         : "Choose a file to upload"}
                     </span>
 
-                    <span className="mt-2 text-xs text-slate-500">
+                    <span className="mt-2 text-xs text-slate-400">
                       PDF, DOC, DOCX, PPT, PPTX,
                       XLS, XLSX, JPG, PNG, WEBP,
                       GIF · Max 20 MB
@@ -1242,7 +1242,7 @@ export default function AdminResourcesPage() {
                             }
                           </p>
 
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-slate-400">
                             {(
                               selectedFile.size /
                               (1024 * 1024)
@@ -1279,7 +1279,7 @@ export default function AdminResourcesPage() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-slate-400">
                             Current uploaded file
                           </p>
 
@@ -1329,7 +1329,7 @@ export default function AdminResourcesPage() {
                         )
                       }
                       placeholder="e.g. Michael Nielsen"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
                   </div>
 
@@ -1350,7 +1350,7 @@ export default function AdminResourcesPage() {
                         )
                       }
                       placeholder="e.g. IBM Quantum"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
                   </div>
 
@@ -1371,10 +1371,10 @@ export default function AdminResourcesPage() {
                         )
                       }
                       placeholder="https://..."
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
 
-                    <p className="mt-1.5 text-xs text-slate-500">
+                    <p className="mt-1.5 text-xs text-slate-400">
                       Optional. Use this for an external
                       webpage or reference.
                     </p>
@@ -1395,10 +1395,10 @@ export default function AdminResourcesPage() {
                         )
                       }
                       placeholder="Automatically filled after upload"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
 
-                    <p className="mt-1.5 text-xs text-slate-500">
+                    <p className="mt-1.5 text-xs text-slate-400">
                       Usually populated automatically when
                       you upload a file.
                     </p>
@@ -1428,10 +1428,10 @@ export default function AdminResourcesPage() {
                         )
                       }
                       placeholder="qubits, quantum gates, beginner"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                     />
 
-                    <p className="mt-1.5 text-xs text-slate-500">
+                    <p className="mt-1.5 text-xs text-slate-400">
                       Separate multiple tags with commas.
                     </p>
                   </div>
@@ -1457,7 +1457,7 @@ export default function AdminResourcesPage() {
                         Publish immediately
                       </span>
 
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-slate-400">
                         Published resources become visible
                         to students.
                       </span>
@@ -1516,7 +1516,7 @@ export default function AdminResourcesPage() {
                   )
                 }
                 placeholder="Search resources..."
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
               />
             </div>
 
@@ -1573,7 +1573,7 @@ export default function AdminResourcesPage() {
             </select>
           </div>
 
-          <div className="mt-3 text-xs text-slate-500">
+          <div className="mt-3 text-xs text-slate-400">
             Showing{" "}
             {filteredResources.length}{" "}
             of {resources.length} resources
@@ -1602,7 +1602,7 @@ export default function AdminResourcesPage() {
                 : "No matching resources"}
             </h2>
 
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
               {resources.length === 0
                 ? "Create your first learning resource to make it available in the QuantumLearn AI resource library."
                 : "Try changing your search or filters."}
@@ -1683,7 +1683,7 @@ export default function AdminResourcesPage() {
                         }
                       </p>
 
-                      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500">
+                      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-400">
                         {resource.topic && (
                           <span>
                             Topic:{" "}
@@ -1832,7 +1832,7 @@ export default function AdminResourcesPage() {
               {deleteTarget.title}
             </p>
 
-            <p className="mt-3 text-xs leading-5 text-slate-500">
+            <p className="mt-3 text-xs leading-5 text-slate-400">
               This action cannot be undone.
               The resource record and its
               student bookmarks will be
