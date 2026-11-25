@@ -148,7 +148,7 @@ export default function ControlledGateEditor({
     return (
       <section className="border border-blue-900/70 bg-black">
         <div className="border-b border-blue-900/70 px-5 py-4">
-          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-500">
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400">
             Controlled Operations
           </div>
 
@@ -159,7 +159,7 @@ export default function ControlledGateEditor({
           </div>
         </div>
 
-        <div className="p-5 font-mono text-xs leading-6 text-slate-500">
+        <div className="p-5 font-mono text-xs leading-6 text-slate-400">
           Add a CNOT, CZ or SWAP gate
           to configure its control
           and target qubits here.
@@ -190,7 +190,7 @@ export default function ControlledGateEditor({
               {/* GATE */}
 
               <div>
-                <div className="font-mono text-[10px] uppercase tracking-wider text-slate-600">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
                   Gate
                 </div>
 
@@ -205,7 +205,7 @@ export default function ControlledGateEditor({
                 <div>
                   <label
                     htmlFor={`target-${operation.id}`}
-                    className="font-mono text-[10px] uppercase tracking-wider text-slate-600"
+                    className="font-mono text-[10px] uppercase tracking-wider text-slate-400"
                   >
                     Target Qubit
                   </label>
@@ -221,7 +221,7 @@ export default function ControlledGateEditor({
                 <div>
                   <label
                     htmlFor={`control-${operation.id}`}
-                    className="font-mono text-[10px] uppercase tracking-wider text-slate-600"
+                    className="font-mono text-[10px] uppercase tracking-wider text-slate-400"
                   >
                     Control Qubit
                   </label>
@@ -269,7 +269,7 @@ export default function ControlledGateEditor({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <div className="border border-blue-950 bg-blue-950/10 px-3 py-2 font-mono text-xs text-slate-500">
+                  <div className="border border-blue-950 bg-blue-950/10 px-3 py-2 font-mono text-xs text-slate-400">
                     Column{" "}
                     {operation.column +
                       1}{" "}
