@@ -216,13 +216,13 @@ export default function CodeHistory() {
           </div>
 
           <div className="relative w-full md:max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search programs..."
-              className="w-full border border-white/10 bg-[#050816] py-3 pl-10 pr-4 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+              className="w-full border border-white/10 bg-[#050816] py-3 pl-10 pr-4 text-sm text-white outline-none placeholder:text-slate-400 focus:border-blue-500"
             />
           </div>
         </div>
@@ -267,14 +267,14 @@ export default function CodeHistory() {
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
               <div>
                 <h2 className="font-semibold">Create Quantum Program</h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-400">
                   Save a Python/Qiskit program to your local workspace.
                 </p>
               </div>
 
               <button
                 onClick={() => setShowCreate(false)}
-                className="p-2 text-slate-500 hover:text-white"
+                className="p-2 text-slate-400 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -290,7 +290,7 @@ export default function CodeHistory() {
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="Bell State Experiment"
-                  className="w-full border border-white/10 bg-[#050816] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+                  className="w-full border border-white/10 bg-[#050816] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-blue-500"
                 />
               </div>
 
@@ -310,7 +310,7 @@ qc.h(0)
 qc.cx(0, 1)
 
 print(qc)`}
-                  className="min-h-[320px] w-full resize-y border border-white/10 bg-[#030610] p-4 font-mono text-sm leading-6 text-slate-200 outline-none placeholder:text-slate-700 focus:border-blue-500"
+                  className="min-h-[320px] w-full resize-y border border-white/10 bg-[#030610] p-4 font-mono text-sm leading-6 text-slate-200 outline-none placeholder:text-slate-400 focus:border-blue-500"
                 />
               </div>
 
@@ -341,7 +341,7 @@ print(qc)`}
             <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
               <div>
                 <h2 className="font-semibold">{selectedCode.title}</h2>
-                <p className="mt-1 text-xs text-slate-500">Python</p>
+                <p className="mt-1 text-xs text-slate-400">Python</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -366,7 +366,7 @@ print(qc)`}
 
                 <button
                   onClick={() => setSelectedCode(null)}
-                  className="p-2 text-slate-500 hover:text-white"
+                  className="p-2 text-slate-400 hover:text-white"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -396,7 +396,7 @@ function Stat({
     <div className="bg-[#080d1d] p-5">
       <div className="mb-3 flex items-center gap-2 text-blue-400">
         {icon}
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
           {label}
         </span>
       </div>
@@ -454,11 +454,11 @@ function SavedSection({
                 </h3>
               </div>
 
-              <p className="font-mono text-xs text-slate-500">
+              <p className="font-mono text-xs text-slate-400">
                 {item.code.split("\n")[0]?.slice(0, 100)}
               </p>
 
-              <p className="mt-2 text-xs text-slate-600">
+              <p className="mt-2 text-xs text-slate-400">
                 Updated {new Date(item.updatedAt).toLocaleString()}
               </p>
             </button>
@@ -478,7 +478,7 @@ function SavedSection({
 
               <button
                 onClick={() => onDelete(item.id)}
-                className="border border-red-500/20 p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+                className="border border-red-500/20 p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
                 title="Delete program"
               >
                 <Trash2 className="h-4 w-4" />
@@ -555,7 +555,7 @@ function HistorySection({
                 </span>
               </div>
 
-              <p className="mt-2 text-xs text-slate-600">
+              <p className="mt-2 text-xs text-slate-400">
                 {formatHistoryDate(item.createdAt)}
               </p>
             </button>
@@ -574,7 +574,7 @@ function HistorySection({
 
               <button
                 onClick={() => onDelete(item.id)}
-                className="border border-red-500/20 p-2 text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+                className="border border-red-500/20 p-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -600,12 +600,12 @@ function EmptyState({
   return (
     <div className="border border-dashed border-white/10 bg-[#080d1d] px-6 py-16 text-center">
       <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center border border-white/10 bg-white/[0.02]">
-        <FileCode2 className="h-5 w-5 text-slate-500" />
+        <FileCode2 className="h-5 w-5 text-slate-400" />
       </div>
 
       <h3 className="font-semibold text-white">{title}</h3>
 
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
         {description}
       </p>
 
