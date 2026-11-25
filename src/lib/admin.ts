@@ -18,6 +18,25 @@ export type AdminUser = {
   avatar_url: string | null;
 };
 
+/*
+ * Administrators who turned on two-factor sign-in must have used it for
+ * this session. The session's level is only read after getUser() has
+ * verified the token with Supabase.
+ */
+export async function needsSecondFactor(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  factors: { status: string }[] | undefined,
+): Promise<boolean> {
+  if (!factors?.some((factor) => factor.status === "verified")) {
+    return false;
+  }
+
+  const { data } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+  return data?.currentLevel !== "aal2";
+}
+
 export async function getAdminUser(): Promise<AdminUser | null> {
   const supabase =
     await createSupabaseServerClient();
@@ -61,6 +80,10 @@ export async function getAdminUser(): Promise<AdminUser | null> {
 
   if (!profile || profile.role !== "admin") {
     return null;
+  }
+
+  if (await needsSecondFactor(supabase, user.factors)) {
+    redirect("/two-factor?next=/admin");
   }
 
   return {
@@ -160,6 +183,13 @@ export async function requireAdminApi(): Promise<{
   if (!profile || profile.role !== "admin") {
     throw new AdminAuthorizationError(
       "Forbidden",
+      403,
+    );
+  }
+
+  if (await needsSecondFactor(supabase, user.factors)) {
+    throw new AdminAuthorizationError(
+      "Two-factor sign-in is required.",
       403,
     );
   }
