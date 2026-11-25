@@ -2,6 +2,8 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 
+import { getAgeStatus, ageBlocks, AGE_MESSAGE } from "@/lib/age-gate";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 type SupabaseServerClient = Awaited<
@@ -23,13 +25,33 @@ const BURST_LIMIT = 20;
 const BURST_WINDOW_SECONDS = 10 * 60;
 
 const DAILY_LIMIT = 300;
+// Plus members continue into this second allowance.
+const PLUS_EXTRA_LIMIT = 700;
 const DAILY_WINDOW_SECONDS = 24 * 60 * 60;
+
+// Only asked once the free allowance is used up. Any error means no extra.
+async function consumePlusAllowance(supabase: SupabaseServerClient, userId: string): Promise<boolean> {
+  const { data: plus, error } = await createSupabaseAdminClient().rpc("has_plus", { p_user_id: userId });
+  if (error || plus !== true) return false;
+
+  const { data: allowed } = await supabase.rpc("consume_account_rate_limit", {
+    p_user_id: userId,
+    p_action: "ai_daily_plus",
+    p_limit: PLUS_EXTRA_LIMIT,
+    p_window_seconds: DAILY_WINDOW_SECONDS,
+  });
+  return allowed === true;
+}
 
 export async function enforceAiRateLimit(
   supabase: SupabaseServerClient,
   userId: string,
   endpoint: string,
 ): Promise<NextResponse | null> {
+  if (ageBlocks(await getAgeStatus(userId))) {
+    return NextResponse.json({ error: AGE_MESSAGE }, { status: 403 });
+  }
+
   const windows = [
     {
       action: `ai_${endpoint}_burst`,
@@ -61,7 +83,10 @@ export async function enforceAiRateLimit(
       continue;
     }
 
-    if (allowed === false) {
+    if (
+      allowed === false &&
+      !(window.action === "ai_daily" && (await consumePlusAllowance(supabase, userId)))
+    ) {
       return NextResponse.json(
         {
           error:
