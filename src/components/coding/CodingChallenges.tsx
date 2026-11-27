@@ -5,6 +5,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { StartingNotice } from "@/components/ui/StartingNotice";
 
 import {
   ArrowRight,
@@ -996,6 +997,7 @@ ${
 
                   </div>
 
+                  <StartingNotice running={checking} />
                   <pre
                     className={`min-h-[170px] whitespace-pre-wrap p-4 font-mono text-[11px] leading-5 ${
                       output.startsWith(
