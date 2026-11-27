@@ -17,6 +17,7 @@ import {
   XCircle,
   Loader2,
 } from "lucide-react";
+import { StartingNotice } from "@/components/ui/StartingNotice";
 import CodeEditor from "./CodeEditor";
 import CodeExamples, { type CodeExample } from "./CodeExamples";
 import { saveCode, addCodeHistory } from "@/lib/coding-storage";
@@ -105,7 +106,7 @@ export default function CodingPlayground() {
 
       setExecutionState("error");
       setError(
-        "Could not connect to the execution server. Make sure the development server is running."
+        "Could not connect to the execution server. Please try again."
       );
       setExecutionTime(Math.round(performance.now() - startedAt));
     }
@@ -399,6 +400,7 @@ export default function CodingPlayground() {
                 )}
               </div>
 
+              <StartingNotice running={isRunning} />
               <div className="max-h-[320px] min-h-[180px] overflow-auto p-4 font-mono text-sm">
                 {isRunning ? (
                   <div className="flex items-center gap-2 text-blue-400">
