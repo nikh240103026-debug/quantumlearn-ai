@@ -19,6 +19,7 @@ import type {
   QuantumTemplate,
 } from "@/lib/quantum/templates";
 
+import { StartingNotice } from "@/components/ui/StartingNotice";
 import MeasurementHistogram from "./MeasurementHistogram";
 import BlochSphere from "./BlochSphere";
 import QuantumTutor from "./QuantumTutor";
@@ -1285,6 +1286,8 @@ export default function QuantumCircuitSimulator() {
               </button>
 
             </div>
+
+            <StartingNotice running={backendLoading} />
 
           </div>
 
