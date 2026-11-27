@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { StartingNotice } from "@/components/ui/StartingNotice";
 import {
   ArrowLeft,
   ArrowRight,
@@ -412,6 +413,7 @@ export default function CodingTutorials({
                     </span>
                   </div>
 
+                  <StartingNotice running={output === "Running..."} />
                   <pre className="min-h-[100px] whitespace-pre-wrap p-4 font-mono text-[11px] leading-5 text-slate-400">
                     {output || step.expectedOutput}
                   </pre>
