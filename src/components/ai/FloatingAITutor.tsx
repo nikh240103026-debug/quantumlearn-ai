@@ -13,7 +13,8 @@ export default function FloatingAITutor() {
 
   // The dedicated AI Tutor page already provides the full tutor interface.
   // Avoid showing the launcher there.
-  if (pathname === "/ai-tutor") {
+  // On the watch page it would cover the notes.
+  if (pathname === "/ai-tutor" || /^\/videos\/[^/]+\/[^/]+/.test(pathname ?? "")) {
     return null;
   }
 
