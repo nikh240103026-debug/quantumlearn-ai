@@ -370,7 +370,7 @@ export async function runPythonQuantumBackend(
         "AbortError"
     ) {
       throw new Error(
-        "Quantum execution timed out after 120 seconds.",
+        "The simulator is still starting. Please try again in a minute.",
       );
     }
 
