@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const MAX_CODE_LENGTH = 50_000;
-const REQUEST_TIMEOUT_MS = 30_000;
+// Long enough for the sleeping service to start (about 70 seconds).
+const REQUEST_TIMEOUT_MS = 120_000;
 
 function validateCode(
   code: string,
@@ -281,7 +282,7 @@ export async function POST(
           success: false,
           output: "",
           error:
-            "Execution service timed out after 30 seconds.",
+            "The simulator is still starting. Please try again in a minute.",
           executionTime: 0,
         },
         {
