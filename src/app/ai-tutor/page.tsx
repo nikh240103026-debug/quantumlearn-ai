@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+
 import PersistentAITutor from "@/components/ai/PersistentAITutor";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+
+export const metadata: Metadata = { title: "AI Tutor", robots: { index: false } };
 
 type SearchParams = {
   topic?: string | string[];
@@ -26,6 +32,10 @@ function getParam(
 export default async function AITutorPage({
   searchParams,
 }: AITutorPageProps) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
   const params = await searchParams;
 
   const topic = getParam(params.topic);
@@ -36,19 +46,17 @@ export default async function AITutorPage({
   const lessonSlug = getParam(params.lessonSlug);
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-slate-50 px-4 py-6 dark:bg-slate-950 sm:px-6 lg:px-8">
-      <div className="mx-auto h-[calc(100vh-7rem)] max-w-7xl">
-        <PersistentAITutor
-          initialTopic={topic}
-          initialContext={{
-            source: source ?? "ai-tutor",
-            reason,
-            chapter,
-            lessonId,
-            lessonSlug,
-          }}
-        />
-      </div>
+    <main className="min-h-screen bg-[#05070d]">
+      <PersistentAITutor
+        initialTopic={topic}
+        initialContext={{
+          source: source ?? "ai-tutor",
+          reason,
+          chapter,
+          lessonId,
+          lessonSlug,
+        }}
+      />
     </main>
   );
 }
