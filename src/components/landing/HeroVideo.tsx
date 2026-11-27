@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Maximize, Minimize, Pause, Play, Volume2, VolumeX } from "lucide-react";
 
+import { loadYouTubeApi, type YTPlayer } from "@/lib/youtube-player";
+
 /** The intro video is hosted on YouTube; only the player is embedded here. */
 const VIDEO_ID = "Bbp1vQPmphM";
 const VIDEO_TITLE = "QuantumLearn AI platform tour";
 const WATCH_URL = `https://www.youtube.com/watch?v=${VIDEO_ID}`;
 const POSTER_URL = `https://i.ytimg.com/vi/${VIDEO_ID}/maxresdefault.jpg`;
-const API_URL = "https://www.youtube.com/iframe_api";
 
 /**
  * A plain autoplaying embed, part of the server-rendered page. Playback does
@@ -43,69 +44,6 @@ const STATE_ENDED = 0;
 const STATE_PLAYING = 1;
 const STATE_PAUSED = 2;
 const STATE_BUFFERING = 3;
-
-interface YTPlayer {
-  playVideo(): void;
-  pauseVideo(): void;
-  mute(): void;
-  unMute(): void;
-  isMuted(): boolean;
-  setVolume(volume: number): void;
-  seekTo(seconds: number, allowSeekAhead: boolean): void;
-  getCurrentTime(): number;
-  getDuration(): number;
-  getPlayerState(): number;
-  /** Undocumented but long-standing; absent calls are tolerated. */
-  unloadModule?(name: string): void;
-  getVideoLoadedFraction(): number;
-}
-
-interface YTNamespace {
-  Player: new (
-    element: HTMLElement,
-    options: {
-      events?: {
-        onReady?: () => void;
-        onApiChange?: () => void;
-        onStateChange?: (event: { data: number }) => void;
-        onError?: () => void;
-      };
-    },
-  ) => YTPlayer;
-}
-
-declare global {
-  interface Window {
-    YT?: Partial<YTNamespace>;
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
-
-let apiPromise: Promise<YTNamespace> | null = null;
-
-function loadYouTubeApi(): Promise<YTNamespace> {
-  if (window.YT?.Player) return Promise.resolve(window.YT as YTNamespace);
-
-  apiPromise ??= new Promise<YTNamespace>((resolve, reject) => {
-    const previous = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      previous?.();
-      resolve(window.YT as YTNamespace);
-    };
-
-    const script = document.createElement("script");
-    script.src = API_URL;
-    script.async = true;
-    script.onerror = () => {
-      apiPromise = null;
-      script.remove();
-      reject(new Error("YouTube player API failed to load"));
-    };
-    document.head.appendChild(script);
-  });
-
-  return apiPromise;
-}
 
 function formatTime(seconds: number) {
   const whole = Math.max(0, Math.floor(seconds));
