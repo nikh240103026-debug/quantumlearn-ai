@@ -5,11 +5,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 // Cached, so visitors can't turn this page into load on the services.
 export const revalidate = 60;
 
-async function working(check: (signal: AbortSignal) => PromiseLike<boolean>): Promise<boolean> {
+async function working(check: (signal: AbortSignal) => PromiseLike<boolean>): Promise<{ ok: boolean; slow: boolean }> {
+  const signal = AbortSignal.timeout(8000);
   try {
-    return await check(AbortSignal.timeout(8000));
+    return { ok: await check(signal), slow: false };
   } catch {
-    return false;
+    return { ok: false, slow: signal.aborted };
   }
 }
 
@@ -30,8 +31,8 @@ export async function GET() {
     checkedAt: new Date().toISOString(),
     services: [
       { name: "Website", ok: true },
-      { name: "Accounts and learning data", ok: database },
-      ...(quantum === null ? [] : [{ name: "Code and quantum simulators", ok: quantum }]),
+      { name: "Accounts and learning data", ok: database.ok },
+      ...(quantum === null ? [] : [{ name: "Code and quantum simulators", ok: quantum.ok, asleep: quantum.slow }]),
     ],
   });
 }
